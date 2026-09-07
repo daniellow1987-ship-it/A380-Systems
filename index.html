@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A380 Systems Simulator</title>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--fg:#e2e8f0;--muted:#94a3b8;--ac:#f59e0b;--dc:#22c55e;--line:#334155}
+  *{box-sizing:border-box}
+  body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--fg)}
+  header{padding:40px 24px 24px;max-width:1000px;margin:0 auto}
+  h1{margin:0 0 6px;font-size:2rem}
+  .sub{color:var(--muted)}
+  main{max-width:1000px;margin:0 auto;padding:0 24px 60px}
+  h2{font-size:1.1rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:32px 0 12px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;text-decoration:none;color:inherit;display:block;transition:transform .1s,border-color .1s}
+  .card:hover{transform:translateY(-2px);border-color:var(--ac)}
+  .card.soon{opacity:.45;cursor:default}
+  .card.soon:hover{transform:none;border-color:var(--line)}
+  .ata{font-size:.8rem;color:var(--ac);font-weight:600;letter-spacing:.05em}
+  .card h3{margin:4px 0 6px;font-size:1.05rem}
+  .card p{margin:0;color:var(--muted);font-size:.9rem}
+  .tags{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
+  .tag{font-size:.72rem;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+  footer{max-width:1000px;margin:0 auto;padding:24px;color:var(--muted);font-size:.85rem;border-top:1px solid var(--line)}
+  a{color:var(--ac)}
+</style>
+</head>
+<body>
+<header>
+  <h1>A380 Systems Simulator</h1>
+  <div class="sub">Interactive, browser-based simulations of aircraft systems and electronics, one per ATA chapter. Explore the live schematic, build the circuit, troubleshoot injected faults, then take the lesson quiz. No install, no login.</div>
+</header>
+<main>
+  <h2>Available simulations</h2>
+  <div class="grid">
+    <a class="card" href="ata24-electrical-power.html">
+      <div class="ata">ATA 24 · ELECTRICAL POWER</div>
+      <h3>Electrical Power System — Introduction &amp; AC/DC Generation</h3>
+      <p>Airbus A380 (RR Trent 900). Four VFGs, APU generators, external power, BCRU/TR DC generation, batteries, emergency generation, overhead ELEC panel and ECAM pages.</p>
+      <div class="tags"><span class="tag">Explore</span><span class="tag">Build</span><span class="tag">Fault Lab</span><span class="tag">Learn + Quiz</span><span class="tag">SAR-66 B2 · Level 2</span></div>
+    </a>
+    <div class="card soon"><div class="ata">ATA 31 · INDICATING / RECORDING</div><h3>Coming soon</h3><p>Generated with the AeroSim master prompt.</p></div>
+    <div class="card soon"><div class="ata">ATA 34 · NAVIGATION</div><h3>Coming soon</h3><p>Generated with the AeroSim master prompt.</p></div>
+    <div class="card soon"><div class="ata">ATA 23 · COMMUNICATIONS</div><h3>Coming soon</h3><p>Generated with the AeroSim master prompt.</p></div>
+  </div>
+  <h2>How these are made</h2>
+  <p>Each simulation is a single self-contained HTML file generated from course notes with the <a href="AeroSim_Master_Prompt.md">AeroSim master prompt</a>. Paste the prompt into Claude, drop in one topic of course notes, and add the resulting file to the repo root and a card above. See <a href="https://github.com/daniellow1987-ship-it/A380-Systems#adding-a-new-simulation">the README</a> for the two-minute procedure.</p>
+</main>
+<footer>Temasek Polytechnic · Aerospace Electronics · Training use only. Paraphrased from training material; values not in the notes are tagged "(assumed)". No data is collected.</footer>
+</body>
+</html>

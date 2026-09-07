@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AeroSim – A380 ATA 24 Electrical Power: Introduction & AC/DC Generation</title>
+<!--
+  AeroSim Generator output — single-file, self-contained (no CDN, no network, no login).
+  Architecture:  MODEL (JSON block, editable)  →  ENGINE (power-flow solver)  →  VIEW (SVG synoptic + rAF)
+                 UI (tabs / panel / inspector / build / fault lab / learn)  →  STORE (JSON + URL hash + undo)
+  Every number shown as "specified" comes from the course notes (TTM L1 2007 & L2 2011/2013). Anything else is tagged (assumed).
+-->
+<style>
+:root{--bg:#0f1420;--panel:#171e2e;--panel2:#1f2840;--ink:#e8ecf4;--muted:#9aa5bd;--line:#2c3650;
+ --ac:#ffb020;--dc:#3ddc84;--em:#ff4fd8;--dead:#5a6478;--fault:#ff4040;--avail:#31d158;--on:#4aa8ff;--amber:#ffb020;
+ --btn:#2a3550;--btnh:#37456b;--focus:#7cc4ff;--fs:15px}
+body.hc{--bg:#000;--panel:#000;--panel2:#111;--ink:#fff;--muted:#ddd;--line:#fff;--dead:#888;--btn:#222;--btnh:#444;--ac:#ffd24a;--dc:#5cff9a;--em:#ff7ae6}
+body.proj{--fs:18px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:var(--fs)/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;display:flex;flex-direction:column;min-height:100vh}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:1.05em;margin:0;font-weight:600}
+header .meta{color:var(--muted);font-size:.9em}
+header .sp{flex:1}
+button,select,input[type=text],textarea{font:inherit;color:var(--ink)}
+button{background:var(--btn);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer;min-height:34px}
+button:hover{background:var(--btnh)}
+button:focus-visible,[tabindex]:focus-visible,select:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+button.primary{background:#2f6fd6;border-color:#2f6fd6}
+button.small{padding:2px 8px;min-height:28px;font-size:.9em}
+select,input[type=text],textarea{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+nav.tabs{display:flex;gap:4px;padding:6px 14px 0;background:var(--panel);border-bottom:1px solid var(--line)}
+nav.tabs button{border-radius:8px 8px 0 0;border-bottom:none;background:var(--panel2)}
+nav.tabs button[aria-selected=true]{background:var(--bg);font-weight:600;border-color:var(--focus)}
+main{flex:1;display:flex;flex-direction:column;min-height:0}
+.tab{display:none;flex:1;min-height:0}
+.tab.active{display:flex}
+.explore{flex:1;min-height:0}
+.explore .left{flex:1;display:flex;flex-direction:column;min-width:0}
+.explore .right{width:340px;border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:10px;display:flex;flex-direction:column;gap:10px}
+@media (max-width:900px){.explore{flex-direction:column}.explore .right{width:auto;border-left:none;border-top:1px solid var(--line);max-height:45vh}}
+.toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--line);background:var(--panel)}
+.toolbar label{color:var(--muted);font-size:.9em}
+.canvasWrap{flex:1;position:relative;min-height:320px;overflow:hidden;background:var(--bg)}
+svg.syn{width:100%;height:100%;touch-action:none;display:block}
+svg text{fill:var(--ink);font-family:inherit;pointer-events:none;user-select:none}
+.node{cursor:pointer}
+.node rect.box{fill:var(--panel2);stroke:var(--dead);stroke-width:2}
+.node.live rect.box{stroke:var(--ac)}
+.node.dc.live rect.box{stroke:var(--dc)}
+.node.em.live rect.box{stroke:var(--em)}
+.node.fault rect.box{stroke:var(--fault);animation:blink 1s steps(2) infinite}
+.node.sel rect.box,.node.sel rect.bus{stroke:var(--focus)!important;stroke-width:4}
+.node.traced rect.box,.node.traced rect.bus{filter:drop-shadow(0 0 6px #7cc4ff)}
+rect.bus{fill:var(--dead);stroke:none;rx:2}
+.node.live rect.bus{fill:var(--ac)}
+.node.dc.live rect.bus{fill:var(--dc)}
+.node.em.live rect.bus{fill:var(--em)}
+.node.live text.busT{fill:#000}
+.node.fault rect.bus{fill:var(--fault);animation:blink 1s steps(2) infinite}
+.node.hidden{display:none}
+.wire{fill:none;stroke:var(--dead);stroke-width:3;stroke-linejoin:round}
+.wire.ac{stroke:var(--ac)}.wire.dc{stroke:var(--dc)}.wire.em{stroke:var(--em)}
+.wire.traced{stroke:#7cc4ff;stroke-width:6;opacity:.55}
+.dot{fill:#fff;stroke:#000;stroke-width:.6}
+.ct{cursor:pointer}
+.ct line.blade{stroke:var(--ink);stroke-width:3;stroke-linecap:round}
+.ct circle{fill:var(--panel);stroke:var(--ink);stroke-width:1.5}
+.ct.fault line.blade{stroke:var(--fault)}
+.ct text{font-size:12px;fill:var(--muted)}
+@keyframes blink{50%{opacity:.25}}
+.pb{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:64px;height:58px;padding:2px;border-radius:5px;background:#263043;border:2px solid #4a5670;font-size:11px;line-height:1.15;gap:2px;position:relative}
+.pb .lg{display:block;width:100%;text-align:center;border-radius:2px;padding:1px 0;background:#1a2130;color:#3a4358;font-weight:700;letter-spacing:.3px}
+.pb .lg.on-fault{background:var(--amber);color:#000}
+.pb .lg.on-off{background:#e6e6e6;color:#000}
+.pb .lg.on-avail{background:var(--avail);color:#000}
+.pb .lg.on-on{background:var(--on);color:#000}
+.pb .lg.on-red{background:var(--fault);color:#fff}
+.pb.in{border-color:#9ab;box-shadow:inset 0 0 0 2px #0a0d14}
+.pb.out{border-style:dashed}
+.pb .nm{font-size:10px;color:var(--muted);position:absolute;top:-14px;white-space:nowrap}
+.pbrow{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:flex-end;padding:18px 6px 6px}
+.panelBox{border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:4px 8px 6px;margin:0 0 6px}
+.panelBox h3{margin:2px 0 0;font-size:.85em;color:var(--muted);font-weight:600;letter-spacing:.5px}
+.envrow{display:flex;flex-wrap:wrap;gap:6px;padding:6px}
+.tog{padding:3px 8px;border-radius:14px;font-size:.85em;min-height:28px}
+.tog.on{background:#2f6fd6;border-color:#2f6fd6}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.card h3{margin:0 0 6px;font-size:1em}
+.card h4{margin:8px 0 4px;font-size:.9em;color:var(--muted)}
+.muted{color:var(--muted)}
+.small{font-size:.88em}
+ul.tight{margin:4px 0;padding-left:18px}
+.ecam{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.85em;background:#0a0f18;border:1px solid var(--line);border-radius:6px;padding:6px 8px;white-space:pre;overflow:auto}
+.ecam .g{color:var(--dc)}.ecam .a{color:var(--ac)}.ecam .r{color:var(--fault)}
+.warn{color:var(--amber);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:.85em;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:18px;height:4px;margin-right:4px;vertical-align:middle;border-radius:2px;background:var(--c)}
+abbr.gl{text-decoration:underline dotted;cursor:help}
+.assumed{color:var(--muted);font-style:italic}
+kbd{background:#000;border:1px solid var(--line);border-radius:3px;padding:0 4px;font-size:.85em}
+/* BUILD */
+.build{flex:1;min-height:0}
+.build .pal{width:190px;border-right:1px solid var(--line);background:var(--panel);overflow:auto;padding:8px;display:flex;flex-direction:column;gap:4px}
+.build .pal button{text-align:left;padding:4px 8px;min-height:30px;font-size:.9em}
+.build .mid{flex:1;display:flex;flex-direction:column;min-width:0}
+.build .right{width:300px;border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:10px;display:flex;flex-direction:column;gap:10px}
+@media (max-width:900px){.build{flex-direction:column}.build .pal{width:auto;flex-direction:row;flex-wrap:wrap}.build .right{width:auto;max-height:40vh}}
+svg.bsvg{width:100%;height:100%;display:block;touch-action:none;background:var(--bg)}
+.bcomp{cursor:grab}
+.bcomp rect.body{fill:var(--panel2);stroke:var(--dead);stroke-width:2;rx:4}
+.bcomp.live rect.body{stroke:var(--ac)}.bcomp.livedc rect.body{stroke:var(--dc)}
+.bcomp.sel rect.body{stroke:var(--focus);stroke-width:3}
+.bcomp circle.port{fill:#333;stroke:#aaa;stroke-width:1.5;cursor:crosshair}
+.bcomp circle.port.hot{fill:var(--focus)}
+.bwire{fill:none;stroke:var(--dead);stroke-width:3}
+.bwire.ac{stroke:var(--ac)}.bwire.dc{stroke:var(--dc)}
+.bwire.sel{stroke:var(--focus)}
+.scope{background:#06090f;border:1px solid var(--line);border-radius:6px;width:100%;height:120px}
+/* FAULT */
+.fl{flex:1;min-height:0}
+.fl .left{flex:1;display:flex;flex-direction:column;min-width:0}
+.fl .right{width:360px;border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:10px;display:flex;flex-direction:column;gap:10px}
+@media (max-width:900px){.fl{flex-direction:column}.fl .right{width:auto;max-height:50vh}}
+.log{font-size:.85em;max-height:140px;overflow:auto;background:#0a0f18;border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+.steps{display:flex;gap:4px;flex-wrap:wrap}
+.steps span{padding:2px 8px;border-radius:12px;border:1px solid var(--line);font-size:.8em}
+.steps span.done{background:#2f6fd6;border-color:#2f6fd6}
+.mm{background:#111;border:2px solid #666;border-radius:8px;padding:6px 8px;font-family:ui-monospace,monospace}
+.mm .disp{background:#9fb;color:#000;font-size:1.3em;padding:4px 8px;border-radius:4px;text-align:right}
+/* LEARN */
+.learn{flex:1;min-height:0}
+.learn .rail{width:330px;border-right:1px solid var(--line);background:var(--panel);overflow:auto;padding:10px}
+.learn .body{flex:1;overflow:auto;padding:12px 16px}
+@media (max-width:900px){.learn{flex-direction:column}.learn .rail{width:auto;max-height:40vh}}
+.step{padding:6px 8px;border-radius:6px;border:1px solid transparent;cursor:pointer;display:flex;gap:8px;align-items:flex-start}
+.step.cur{border-color:var(--focus);background:var(--panel2)}
+.step .n{width:22px;height:22px;border-radius:50%;background:var(--btn);display:inline-flex;align-items:center;justify-content:center;font-size:.8em;flex:none}
+.step.done .n{background:var(--dc);color:#000}
+.q{margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2)}
+.q label{display:block;padding:3px 0;cursor:pointer}
+.q.ok{border-color:var(--dc)}.q.bad{border-color:var(--fault)}
+.results{white-space:pre;font-family:ui-monospace,monospace;font-size:.85em}
+footer{padding:4px 14px;color:var(--muted);font-size:.8em;border-top:1px solid var(--line);background:var(--panel)}
+.err{background:#5a1010;color:#fff;padding:6px 12px;display:none}
+.hint{font-size:.85em;color:var(--muted)}
+details summary{cursor:pointer}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+table.t{border-collapse:collapse;font-size:.85em;width:100%}
+table.t td,table.t th{border:1px solid var(--line);padding:2px 6px;text-align:left}
+.stepper{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.vis-hidden{position:absolute;left:-9999px}
+</style>
+</head>
+<body>
+<div class="err" id="errbar" role="alert"></div>
+<header>
+  <div>
+    <h1 id="hdrTitle">ATA 24 – Electrical Power System Introduction &amp; AC/DC Generation</h1>
+    <div class="meta">Aircraft Electrical &amp; Digital Systems · Airbus A380 (RR Trent 900) · CAAS SAR-66 Cat B2, Level 2 · v1.0 · 2026-09-07</div>
+  </div>
+  <div class="sp"></div>
+  <button class="small tog" id="btnHC" aria-pressed="false" title="High-contrast palette for projectors">High contrast</button>
+  <button class="small tog" id="btnProj" aria-pressed="false" title="Larger fonts">Projector</button>
+  <button class="small" id="btnSave" title="Show the full JSON state (copy to save)">Save/Load</button>
+  <button class="small" id="btnReset">Reset everything</button>
+</header>
+<nav class="tabs" role="tablist" aria-label="Modes">
+  <button role="tab" data-tab="explore" aria-selected="true">1 Explore</button>
+  <button role="tab" data-tab="build" aria-selected="false">2 Build</button>
+  <button role="tab" data-tab="fault" aria-selected="false">3 Fault Lab</button>
+  <button role="tab" data-tab="learn" aria-selected="false">4 Learn</button>
+</nav>
+<main>
+
+<!-- ============================ EXPLORE ============================ -->
+<section class="tab active explore" id="tab-explore" role="tabpanel">
+  <div class="left">
+    <div class="toolbar">
+      <label for="scen">Scenario</label>
+      <select id="scen" aria-label="Scenario selector"></select>
+      <button class="small" id="btnFit">Fit</button>
+      <button class="small" id="btnZoomIn" aria-label="Zoom in">+</button>
+      <button class="small" id="btnZoomOut" aria-label="Zoom out">−</button>
+      <button class="small tog" id="btnBuildUp" aria-pressed="false">Build-up mode</button>
+      <span class="stepper" id="buildupCtl" hidden>
+        <button class="small" id="buStart">⟲</button>
+        <button class="small" id="buPrev">◀ Prev</button>
+        <span id="buLabel" class="small"></span>
+        <button class="small" id="buNext">Next component ▶</button>
+      </span>
+      <span class="sp" style="flex:1"></span>
+      <span class="legend"><span style="--c:var(--ac)">AC 115 V</span><span style="--c:var(--dc)">DC 28 V</span><span style="--c:var(--em)">Emergency</span><span style="--c:var(--dead)">De-energised</span><span style="--c:var(--fault)">Fault</span></span>
+    </div>
+    <div class="canvasWrap" id="synWrap"></div>
+    <div class="panelBox">
+      <h3>OVERHEAD ELEC PANEL (click a P/BSW; Enter/Space when focused)</h3>
+      <div class="pbrow" id="pbrow"></div>
+      <div class="envrow" id="envrow"></div>
+    </div>
+  </div>
+  <div class="right">
+    <div class="card" id="inspector"><h3>Inspector</h3><div class="muted">Click any component, bus or contactor in the schematic.</div></div>
+    <div class="card" id="traceCard"><h3>Signal trace</h3><div class="muted">Click a bus or load to trace its supply path back to the source.</div></div>
+    <div class="card"><h3>ECAM ELEC AC <span class="muted small">(assumed layout)</span></h3><div class="ecam" id="ecamAC"></div>
+      <h3 style="margin-top:8px">ECAM ELEC DC</h3><div class="ecam" id="ecamDC"></div>
+      <div id="warnings" class="small"></div></div>
+  </div>
+</section>
+
+<!-- ============================ BUILD ============================ -->
+<section class="tab build" id="tab-build" role="tabpanel">
+  <div class="pal" id="palette"><strong class="small">Palette (click to place)</strong></div>
+  <div class="mid">
+    <div class="toolbar">
+      <button class="small" id="bRun">▶ Run</button><button class="small" id="bStep">Step</button><button class="small" id="bReset">Reset</button>
+      <label>Speed <input type="range" id="bSpeed" min="0" max="3" step="0.25" value="1" style="width:80px"></label>
+      <button class="small" id="bUndo">Undo</button><button class="small" id="bRedo">Redo</button>
+      <button class="small" id="bRot">Rotate</button><button class="small" id="bDup">Duplicate</button><button class="small" id="bDel">Delete</button><button class="small" id="bAll">Select all</button><button class="small" id="bClear">Clear</button>
+      <label>Starter <select id="bStarter"><option value="">— open —</option></select></label>
+      <label>Check <select id="bTarget"></select></label><button class="small primary" id="bCheck">Check my circuit</button>
+    </div>
+    <div class="canvasWrap" id="bWrap"></div>
+    <div class="hint" style="padding:4px 10px" id="bHint">Click a palette item then click the grid to place it. Click a port, then another port, to wire. Click a component to select/inspect; drag to move; arrow keys nudge. Click a contactor/C-B/switch to toggle it.</div>
+  </div>
+  <div class="right">
+    <div class="card" id="bInsp"><h3>Component</h3><div class="muted">Nothing selected.</div></div>
+    <div class="card"><h3>Meter / probe</h3><div class="small">Click any wire or port to probe. <span id="bProbe" class="muted">No probe.</span></div>
+      <div class="grid2 small"><div>Voltmeter: <strong id="bVolt">—</strong></div><div>Ammeter: <strong id="bAmp">—</strong></div><div>Wattmeter: <strong id="bWatt">—</strong></div><div>Freq: <strong id="bFreq">—</strong></div></div>
+      <h4>Oscilloscope (CH1 probe A, CH2 probe B)</h4>
+      <svg class="scope" id="bScope" viewBox="0 0 300 120" preserveAspectRatio="none" aria-label="Oscilloscope"></svg>
+      <div class="small">Time/div <select id="scT"><option>0.5 ms</option><option selected>1 ms</option><option>2 ms</option></select> V/div <select id="scV"><option>20 V</option><option selected>50 V</option><option>100 V</option></select> <button class="small" id="bProbeB">Set CH2 = next click</button></div>
+    </div>
+    <div class="card"><h3>Check result</h3><div id="bCheckOut" class="small muted">Not checked yet.</div></div>
+    <div class="card"><h3>Export / import JSON</h3><textarea id="bJson" rows="4" style="width:100%" aria-label="Design JSON"></textarea>
+      <div style="display:flex;gap:6px;margin-top:4px"><button class="small" id="bExport">Export</button><button class="small" id="bImport">Import</button><button class="small" id="bCopy">Copy</button><button class="small" id="bLink">Share via URL</button></div></div>
+  </div>
+</section>
+
+<!-- ============================ FAULT LAB ============================ -->
+<section class="tab fl" id="tab-fault" role="tabpanel">
+  <div class="left">
+    <div class="toolbar">
+      <button class="small tog" id="fInstr" aria-pressed="false">Instructor</button>
+      <span id="fInstrPanel" hidden>
+        <select id="fList" aria-label="Fault list"></select>
+        <button class="small" id="fInject">Inject</button>
+        <button class="small" id="fRandom">Random fault</button>
+        <label>Exam seed <input type="text" id="fSeed" size="6" value="2026"></label><button class="small" id="fExam">Exam mode</button>
+        <button class="small" id="fClear">Clear faults</button>
+        <button class="small tog" id="fHide" aria-pressed="false">Hide answers</button>
+      </span>
+      <span class="sp" style="flex:1"></span>
+      <span class="small" id="fStatus">No active fault.</span>
+    </div>
+    <div class="canvasWrap" id="fWrap"></div>
+    <div class="panelBox"><h3>OVERHEAD ELEC PANEL</h3><div class="pbrow" id="pbrow2"></div></div>
+  </div>
+  <div class="right">
+    <div class="card"><h3>Troubleshooting flow</h3>
+      <div class="steps" id="fSteps"></div>
+      <div class="small" style="margin-top:6px">Tests used: <strong id="fTests">0</strong> · Steps: <strong id="fStepN">0</strong> · Efficiency: <strong id="fEff">—</strong></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+        <button class="small" id="fObserve">Observe (ECAM)</button>
+        <select id="fHypo" aria-label="Hypothesis"><option value="">Hypothesis…</option></select>
+        <select id="fIsoSel" aria-label="Isolate"><option value="">Isolate…</option></select>
+        <select id="fLru" aria-label="Replace LRU"><option value="">Replace LRU…</option></select>
+        <button class="small primary" id="fVerify">Verify</button>
+      </div>
+    </div>
+    <div class="card mm"><h3 style="color:#ddd">Multimeter</h3>
+      <div class="disp" id="mmDisp">---</div>
+      <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap">
+        <button class="small tog on" data-mm="V">V</button><button class="small tog" data-mm="A">A</button><button class="small tog" data-mm="R">Ω</button><button class="small tog" data-mm="C">Continuity</button>
+      </div>
+      <div class="small" style="color:#bbb;margin-top:4px">Then click a bus, source or contactor in the schematic. Each reading counts as one test.</div>
+    </div>
+    <div class="card"><h3>ECAM</h3><div class="ecam" id="ecamAC2"></div><div class="ecam" id="ecamDC2" style="margin-top:4px"></div><div id="warnings2" class="small"></div>
+      <h4>C/B panel</h4><div id="cbPanel" class="small"></div></div>
+    <div class="card"><h3>Log</h3><div class="log" id="fLog"></div></div>
+    <div class="card" id="fDebrief" hidden><h3>Debrief</h3><div id="fDebriefBody" class="small"></div></div>
+  </div>
+</section>
+
+<!-- ============================ LEARN ============================ -->
+<section class="tab learn" id="tab-learn" role="tabpanel">
+  <div class="rail" id="rail"></div>
+  <div class="body" id="learnBody"></div>
+</section>
+</main>
+<footer>AeroSim · Temasek Polytechnic · Paraphrased from A380 TTM ATA 24 L1 (2007) &amp; L2 (2011/13). Values not in the notes are tagged (assumed). No network, no tracking. Keyboard: <kbd>Tab</kbd> to move, <kbd>Enter</kbd>/<kbd>Space</kbd> to toggle, arrows to pan/nudge.</footer>
+<div id="saveDlg" class="card" style="display:none;position:fixed;left:50%;top:15%;transform:translateX(-50%);width:min(680px,92vw);z-index:9" role="dialog" aria-label="Save or load state">
+  <h3>Full state (JSON) — copy to save, paste and Load to restore</h3>
+  <textarea id="saveTxt" rows="8" style="width:100%"></textarea>
+  <div style="display:flex;gap:6px;margin-top:6px"><button class="small primary" id="saveLoad">Load</button><button class="small" id="saveCopy">Copy</button><button class="small" id="saveClose">Close</button></div>
+</div>
+<div id="glossTip" class="card small" style="display:none;position:fixed;z-index:10;max-width:320px;pointer-events:none"></div>
+<script>
+'use strict';
+/* =====================================================================================
+   MODEL — editable data block. Numbers marked src:'L1'/'L2' come from the notes; 'A' = assumed.
+   ===================================================================================== */
+const MODEL = {
+ numbers:{ // 0.7 — the only "specified" values
+  vfg:{kva:150,v:115,ph:3,hz:'370–770',src:'L1/L2'}, apugen:{kva:120,v:115,ph:3,hz:'400',src:'L1/L2'},
+  gpu:{kva:90,v:115,ph:3,hz:'400',dual:180,src:'L1/L2'}, emergen:{kva:70,v:115,ph:3,hz:'370–800',src:'L1/L2'},
+  statinv:{kva:2.5,v:115,ph:1,hz:'400',src:'L1/L2'}, bcru:{vin:115,vout:28,a:300,src:'L1'}, tr:{vin:115,vout:28,a:300,src:'L1/L2'},
+  bat:{ah:50,vL1:28,vL2:24,vCharged:'> 25',vFault:25,src:'L1/L2'}, heavyLoadA:15
+ },
+ glossary:{
+  VFG:'Variable Frequency Generator – engine-driven main AC generator, 150 kVA, 115 VAC, 370–770 Hz.',
+  GGPCU:'Generator and Ground Power Control Unit – regulates, connects/disconnects, protects, reports (ECAM) and BITEs its VFG and EXT PWR (GGPCU 1–4) or APU GEN (5, 6).',
+  'APU GEN':'APU Generator A/B – 120 kVA, 115 VAC, 400 Hz constant frequency; not interchangeable with VFGs.',
+  'EXT PWR':'External power connection for a Ground Power Unit (GPU): 90 kVA min, 115 VAC, 400 Hz per plug; 4 plugs behind the nose landing gear.',
+  GPU:'Ground Power Unit – 90 kVA single-output or 180 kVA dual-output (feeds two plugs).',
+  BCRU:'Battery Charge Rectifier Unit – 115 VAC → 28 VDC regulated converter, 300 A, with battery charge limiter (L2 name: TR 1 / TR 2 / TR ESS).',
+  TR:'Transformer Rectifier – 115 VAC → 28 VDC unregulated, 300 A; TR 2 backs up BCRU 2; APU TR feeds the APU starting bus.',
+  BAT:'Battery – 50 Ah; 28 VDC (L1) / 24 V nominal, > 25 V charged (L2). FAULT if ≤ 25 V with current flow.',
+  'STAT INV':'Static Inverter – converts BAT 1 + BAT ESS DC into 2.5 kVA single-phase 115 VAC 400 Hz for the AC EMER BUS.',
+  RAT:'Ram Air Turbine – drives the Emergency Generator (EMER GEN, 70 kVA, 370–800 Hz) in electrical emergency configuration.',
+  'EMER GEN':'Emergency Generator driven by the RAT – 70 kVA, 3-phase, 115 VAC, 370–800 Hz, managed by the GCU.',
+  GCU:'Generator Control Unit of the EMER GEN.',
+  GLC:'Generator Line Contactor – connects a VFG to its AC BUS.', AGC:'APU Generator Contactor.', EPC:'External Power Contactor.',
+  BTC:'Bus Tie Contactor – part of the transfer circuit that reconfigures the AC Main busbars.', SIC:'System Isolation Contactor – segregates side 1 and side 2.',
+  TRLC:'Transformer Rectifier Line Contactor.', BATLC:'Battery Line Contactor.', 'P/BSW':'Pushbutton switch (pressed in = ON/AUTO, released out = OFF).',
+  ECAM:'Electronic Centralised Aircraft Monitor – ELEC AC and ELEC DC pages show generation status.',
+  PEPDC:'Primary Electrical Power Distribution Center – holds the AC Main busbars, DC BUS 1/2 and the transfer circuit; side 1 / side 2.',
+  EEPDC:'Emergency Electrical Power Distribution Center (Emergency Power Center) – holds AC ESS, AC EMER and DC ESS busbars.',
+  NBPT:'No Break Power Transfer – on the DC side the battery holds its busbar during AC source reconfiguration; no NBPT on the AC side.',
+  LMES:'Loss of Main Electrical System – triggers automatic RAT extension.', TEFO:'Total Engine Flame Out – triggers automatic RAT extension.',
+  ELM:'Electrical Load Management application (CPIOM-E1/E2) – sheds loads on overload, reconnects when power is sufficient.',
+  CBM:'Circuit Breaker Monitoring application – reports tripped protective devices to the cockpit (ECAM C/B page).',
+  BITE:'Built-In Test Equipment – self-test/fault reporting function of GGPCU, GCU, BCRU/TR.',
+  'GND SVCE CTL':'Ground Service Control switch near door M1L – lets EXT PWR 1 feed the ground-service busbars only.',
+  'GS BUS':'Ground Service busbars (4 AC + 1 DC via TR 2) for servicing loads without powering the whole network.',
+  'HOT BUS':'Hot busbar – permanently connected to its battery for loads needing permanent supply.'
+ },
+ // 0.1 component records: id → {n:name, t:type, k:kind(ac/dc/em), r:ratings text, f:function, fail:'what if it fails', q:note excerpt}
+ comp:{
+  VFG1:{n:'VFG 1',t:'source',k:'ac',r:'150 kVA · 3 ph · 115 VAC · 370–770 Hz',f:'Engine 1 driven main generator; supplies AC BUS 1 (which also feeds AC ESS).',fail:'AC BUS 1 reconfigured from another source by the transfer circuit; GEN 1 FAULT; with 3 VFGs all loads still supplied.',q:'"Each engine mechanically drives its related generator." (L1)'},
+  VFG2:{n:'VFG 2',t:'source',k:'ac',r:'150 kVA · 3 ph · 115 VAC · 370–770 Hz',f:'Engine 2 driven; supplies AC BUS 2 → BCRU 1 → DC BUS 1.',fail:'AC BUS 2 re-supplied via transfer; BAT 1 holds DC BUS 1 during the transfer (NBPT).'},
+  VFG3:{n:'VFG 3',t:'source',k:'ac',r:'150 kVA · 3 ph · 115 VAC · 370–770 Hz',f:'Engine 3 driven; supplies AC BUS 3 → BCRU 2 / TR 2 → DC BUS 2.',fail:'AC BUS 3 re-supplied via transfer; BAT 2 holds DC BUS 2 (NBPT).'},
+  VFG4:{n:'VFG 4',t:'source',k:'ac',r:'150 kVA · 3 ph · 115 VAC · 370–770 Hz',f:'Engine 4 driven; supplies AC BUS 4, the backup for AC ESS and the feed of the APU TR.',fail:'AC BUS 4 re-supplied via transfer.'},
+  EXT1:{n:'EXT PWR 1',t:'source',k:'ac',r:'90 kVA min · 3 ph · 115 VAC · 400 Hz per plug',f:'GPU plug 1 (behind NLG, panel 1935VU). Feeds AC BUS 1; also feeds the GS busbars directly with GND SVCE CTL ON.',fail:'AVAIL light out; AC BUS 1 takes another source.'},
+  EXT2:{n:'EXT PWR 2',t:'source',k:'ac',r:'90 kVA min · 3 ph · 115 VAC · 400 Hz',f:'GPU plug 2 (panel 1935VU) → AC BUS 2.',fail:'AVAIL light out.'},
+  EXT3:{n:'EXT PWR 3',t:'source',k:'ac',r:'90 kVA min · 3 ph · 115 VAC · 400 Hz',f:'GPU plug 3 (panel 1926VU) → AC BUS 3.',fail:'AVAIL light out.'},
+  EXT4:{n:'EXT PWR 4',t:'source',k:'ac',r:'90 kVA min · 3 ph · 115 VAC · 400 Hz',f:'GPU plug 4 (panel 1926VU) → AC BUS 4.',fail:'AVAIL light out.'},
+  APUA:{n:'APU GEN A',t:'source',k:'ac',r:'120 kVA · 3 ph · 115 VAC · 400 Hz',f:'APU-driven at constant speed; controlled by GGPCU 5; supplies AC BUS 1 and 2 when no other source.',fail:'APU GEN A FAULT; side 1 buses take another source.'},
+  APUB:{n:'APU GEN B',t:'source',k:'ac',r:'120 kVA · 3 ph · 115 VAC · 400 Hz',f:'Controlled by GGPCU 6; supplies AC BUS 3 and 4.',fail:'APU GEN B FAULT.'},
+  EMERGEN:{n:'EMER GEN (RAT)',t:'source',k:'em',r:'70 kVA · 3 ph · 115 VAC · 370–800 Hz',f:'RAT-driven emergency generator (GCU) → AC ESS BUS + AC EMER BUS when all AC Main busbars are lost (TEFO/LMES); disconnects at low airspeed on landing.',fail:'EMER GEN red FAULT; STAT INV supplies AC EMER BUS from BAT 1 + BAT ESS.',q:'"If not, the RAT MAN ON P/B SW ... forces the RAT to extend." (L1)'},
+  STATINV:{n:'STAT INV',t:'conversion',k:'em',r:'2.5 kVA · 1 ph · 115 VAC · 400 Hz',f:'Converts BAT 1 + BAT ESS DC into single-phase AC for the AC EMER BUS when no AC is available (automatic).',fail:'AC EMER BUS unsupplied in batteries-only.',q:'"the Static Inverter automatically supplies the AC EMER BUS (the AC ESS BUS is not supplied)" (L2)'},
+  BCRU1:{n:'BCRU 1 (L2: TR 1)',t:'conversion',k:'dc',r:'115 VAC → 28 VDC regulated · 300 A · battery charge limiter',f:'Supplied by AC BUS 2; supplies DC BUS 1 and charges / protects BAT 1.',fail:'DC BUS 1 held by BAT 1 only until BAT depletes (no backup TR for BCRU 1 in the notes).'},
+  BCRU2:{n:'BCRU 2 (L2: TR 2)',t:'conversion',k:'dc',r:'115 VAC → 28 VDC regulated · 300 A',f:'Supplied by AC BUS 3; supplies DC BUS 2 and charges / protects BAT 2.',fail:'TR 2 takes over DC BUS 2 (unregulated 28 VDC) and connects/protects BAT 2.',q:'"In case of loss of BCRU 2, the TR 2 takes over the supply of the DC NETWORK 2." (L1)'},
+  BCRUESS:{n:'BCRU ESS (L2: TR ESS)',t:'conversion',k:'dc',r:'115 VAC → 28 VDC regulated · 300 A',f:'Supplied by AC ESS BUS; supplies DC ESS BUS; charges / protects BAT ESS.',fail:'DC ESS BUS from BAT ESS + BAT 1.'},
+  TR2:{n:'TR 2 (backup)',t:'conversion',k:'dc',r:'115 VAC → 28 VDC UNregulated · 300 A · no battery-charge regulation',f:'Backup of BCRU 2; also feeds the DC GS BUS. Identical to APU TR.',fail:'No backup for DC BUS 2 if BCRU 2 also lost → BAT 2 (NBPT) only.'},
+  APUTR:{n:'APU TR',t:'conversion',k:'dc',r:'300 A · identical to TR 2',f:'From AC BUS 4 supplies the APU STARTING BUS and manages the APU BAT. Dedicated – cannot feed the DC network.',fail:'APU start on APU BAT only.'},
+  BAT1:{n:'BAT 1',t:'source',k:'dc',r:'50 Ah · 28 VDC (L1) / 24 V nominal, > 25 V charged (L2)',f:'Permanently on DC BUS 1 in parallel with BCRU 1 (NBPT). In batteries-only, with BAT ESS, supplies DC ESS BUS and the STAT INV. Also feeds HOT BUS 1.',fail:'BAT FAULT (≤ 25 V with current flow); no NBPT on DC BUS 1; STAT INV loses one battery.'},
+  BAT2:{n:'BAT 2',t:'source',k:'dc',r:'50 Ah · 28 VDC (L1) / 24 V nominal (L2)',f:'Permanently on DC BUS 2 with BCRU 2 (or TR 2). Not connected in batteries-only; its hot bus supports battery-only refuel and PDMI.',fail:'BAT FAULT; no NBPT on DC BUS 2.'},
+  BATESS:{n:'BAT ESS',t:'source',k:'dc',r:'50 Ah · 28 VDC (L1) / 24 V nominal (L2)',f:'On DC ESS BUS with BCRU ESS; with BAT 1 supplies DC ESS and STAT INV in emergency.',fail:'BAT FAULT; DC ESS from BAT 1 only (assumed).'},
+  APUBAT:{n:'APU BAT',t:'source',k:'dc',r:'50 Ah · identical to the other 3 batteries',f:'Dedicated APU start source; never in parallel with the APU TR; cannot feed the DC network.',fail:'APU start needs AC BUS 4 via APU TR.'},
+  ACBUS1:{n:'AC BUS 1',t:'bus',k:'ac',r:'115 VAC · PEPDC side 1 · primary distribution',f:'Normally VFG 1. Also feeds AC ESS BUS and AC GS BUS 1.',fail:'Transfer circuit re-supplies it; AC ESS from AC BUS 4.'},
+  ACBUS2:{n:'AC BUS 2',t:'bus',k:'ac',r:'115 VAC · PEPDC side 1',f:'Normally VFG 2. Feeds BCRU 1.',fail:'Re-supplied via transfer; DC BUS 1 on BAT 1 meanwhile (NBPT).'},
+  ACBUS3:{n:'AC BUS 3',t:'bus',k:'ac',r:'115 VAC · PEPDC side 2',f:'Normally VFG 3. Feeds BCRU 2 / TR 2 and the galleys (illustrative).',fail:'Re-supplied via transfer.'},
+  ACBUS4:{n:'AC BUS 4',t:'bus',k:'ac',r:'115 VAC · PEPDC side 2',f:'Normally VFG 4. Backup feed of AC ESS; feeds APU TR.',fail:'Re-supplied via transfer; APU TR lost → APU BAT.'},
+  ACESS:{n:'AC ESS BUS',t:'bus',k:'em',r:'115 VAC · EEPDC · emergency distribution',f:'From AC BUS 1, else AC BUS 4, else EMER GEN. Feeds BCRU ESS and AC EMER BUS.',fail:'DC ESS from batteries; AC EMER from STAT INV.',q:'"AC BUS 1 also supplies an AC ESS BUS ... If AC BUS 1 is not available, AC BUS 4 provides a backup supply." (L2)'},
+  ACEMER:{n:'AC EMER BUS',t:'bus',k:'em',r:'115 VAC · EEPDC',f:'Normally from AC ESS (assumed); in batteries-only from the STAT INV (single phase).',fail:'Essential AC loads lost.'},
+  GS:{n:'AC GS BUS 1–4 (+ DC GS via TR 2)',t:'bus',k:'ac',r:'servicing loads: lights, outlets, parking brake, refuel, toilets, CIDS, water/waste, cargo doors/loading',f:'From the Main busbars when energised; on ground directly from EXT PWR 1 with GND SVCE CTL ON (main network stays dark).',fail:'Ground servicing loads lost.'},
+  DCBUS1:{n:'DC BUS 1',t:'bus',k:'dc',r:'28 VDC · PEPDC · primary',f:'From BCRU 1; BAT 1 in parallel.',fail:'Not supplied in batteries-only.'},
+  DCBUS2:{n:'DC BUS 2',t:'bus',k:'dc',r:'28 VDC · PEPDC',f:'From BCRU 2, else TR 2; BAT 2 in parallel.',fail:'Not supplied in batteries-only.'},
+  DCESS:{n:'DC ESS BUS',t:'bus',k:'em',r:'28 VDC · EEPDC · emergency distribution',f:'From BCRU ESS; in batteries-only from BAT 1 + BAT ESS in parallel.',fail:'Essential DC loads lost.'},
+  APUSTART:{n:'APU STARTING BUS',t:'bus',k:'dc',r:'28 VDC dedicated network',f:'From APU TR (AC BUS 4) or APU BAT – never both.',fail:'APU cannot start.'},
+  GALLEY:{n:'GALLEYS (shed loads)',t:'load',k:'ac',r:'heavy loads > 15 A (illustrative)',f:'Shed by ELM when fewer than 3 VFGs / fewer than 4 conventional GPUs (2 GPUs: shed; 3 GPUs: may shed on overload).',fail:'—'},
+  EMERLD:{n:'AC EMER loads',t:'load',k:'em',r:'',f:'Essential single-phase AC loads on the AC EMER BUS.',fail:'—'},
+  DCLD1:{n:'DC BUS 1 loads',t:'load',k:'dc',r:'',f:'Primary DC loads side 1.',fail:'—'},
+  DCLD2:{n:'DC BUS 2 loads',t:'load',k:'dc',r:'',f:'Primary DC loads side 2.',fail:'—'},
+  DCESSLD:{n:'DC ESS loads',t:'load',k:'em',r:'',f:'Essential DC loads needed to fly and land.',fail:'—'},
+  APUSTR:{n:'APU starter',t:'load',k:'dc',r:'',f:'DC starter motor of the APU.',fail:'—'},
+  GLC1:{n:'GLC 1',t:'contactor',k:'ac',r:'commanded by GGPCU 1',f:'Connects VFG 1 to AC BUS 1.',fail:'Welded open: GEN 1 in but AC BUS 1 dead → transfer.'},
+  GLC2:{n:'GLC 2',t:'contactor',k:'ac',r:'GGPCU 2',f:'Connects VFG 2 to AC BUS 2.',fail:''},GLC3:{n:'GLC 3',t:'contactor',k:'ac',r:'GGPCU 3',f:'Connects VFG 3 to AC BUS 3.',fail:''},GLC4:{n:'GLC 4',t:'contactor',k:'ac',r:'GGPCU 4',f:'Connects VFG 4 to AC BUS 4.',fail:''},
+  EPC1:{n:'EPC 1',t:'contactor',k:'ac',r:'GGPCU 1',f:'Connects EXT PWR 1 to AC BUS 1.',fail:''},EPC2:{n:'EPC 2',t:'contactor',k:'ac',r:'GGPCU 2',f:'Connects EXT PWR 2 to AC BUS 2.',fail:''},EPC3:{n:'EPC 3',t:'contactor',k:'ac',r:'GGPCU 3',f:'Connects EXT PWR 3 to AC BUS 3.',fail:''},EPC4:{n:'EPC 4',t:'contactor',k:'ac',r:'GGPCU 4',f:'Connects EXT PWR 4 to AC BUS 4.',fail:''},
+  AGCA:{n:'AGC A',t:'contactor',k:'ac',r:'GGPCU 5',f:'Connects APU GEN A to side 1 (AC BUS 1 & 2).',fail:''},AGCB:{n:'AGC B',t:'contactor',k:'ac',r:'GGPCU 6',f:'Connects APU GEN B to side 2 (AC BUS 3 & 4).',fail:''},
+  BTC12:{n:'BTC 1-2 (assumed)',t:'contactor',k:'ac',r:'transfer circuit',f:'Ties AC BUS 1 and 2 (side 1).',fail:''},BTC34:{n:'BTC 3-4 (assumed)',t:'contactor',k:'ac',r:'transfer circuit',f:'Ties AC BUS 3 and 4 (side 2).',fail:''},
+  SIC:{n:'SIC (system isolation)',t:'contactor',k:'ac',r:'transfer circuit',f:'Ties side 1 to side 2; open when both APU GENs connected (segregation).',fail:''},
+  ESSC1:{n:'AC ESS feed 1 (assumed name)',t:'contactor',k:'em',r:'',f:'AC BUS 1 → AC ESS BUS (normal).',fail:''},ESSC4:{n:'AC ESS feed 4 (assumed name)',t:'contactor',k:'em',r:'',f:'AC BUS 4 → AC ESS BUS (backup).',fail:''},
+  EGLC:{n:'EMER GEN line contactor (assumed name)',t:'contactor',k:'em',r:'GCU',f:'Connects EMER GEN to AC ESS.',fail:''},EMERC:{n:'AC EMER feed (assumed name)',t:'contactor',k:'em',r:'',f:'AC ESS → AC EMER BUS.',fail:''},
+  TRLC1:{n:'TRLC 1',t:'contactor',k:'dc',r:'',f:'BCRU 1 → DC BUS 1.',fail:''},TRLC2:{n:'TRLC 2',t:'contactor',k:'dc',r:'',f:'BCRU 2 → DC BUS 2.',fail:''},TRLC2B:{n:'TR 2 line contactor',t:'contactor',k:'dc',r:'',f:'TR 2 → DC BUS 2 (backup).',fail:''},TRLCE:{n:'TRLC ESS',t:'contactor',k:'dc',r:'',f:'BCRU ESS → DC ESS BUS.',fail:''},
+  APUTRC:{n:'APU TR contactor',t:'contactor',k:'dc',r:'',f:'APU TR → APU STARTING BUS.',fail:''},APUBATC:{n:'APU BAT contactor',t:'contactor',k:'dc',r:'',f:'APU BAT → APU STARTING BUS.',fail:''},
+  BATLC1:{n:'BATLC 1',t:'contactor',k:'dc',r:'',f:'BAT 1 ↔ DC BUS 1.',fail:''},BATLC2:{n:'BATLC 2',t:'contactor',k:'dc',r:'',f:'BAT 2 ↔ DC BUS 2.',fail:''},BATLCE:{n:'BATLC ESS',t:'contactor',k:'dc',r:'',f:'BAT ESS ↔ DC ESS BUS.',fail:''},
+  B1ESS:{n:'BAT 1 → DC ESS tie (assumed name)',t:'contactor',k:'em',r:'',f:'Closed in batteries-only / emergency so BAT 1 and BAT ESS supply DC ESS in parallel.',fail:''},
+  GSLC:{n:'GSLC (normal GS feed)',t:'contactor',k:'ac',r:'',f:'AC BUS 1 → GS busbars when the Main busbars are energised.',fail:''},
+  GNDSVC:{n:'GND SVCE CTL switch (door M1L)',t:'switch',k:'ac',r:'',f:'ON: EXT PWR 1 feeds GS busbars directly (only if the main network is dark).',fail:''},
+  GGPCU:{n:'GGPCU 1–6',t:'controller',k:'ac',r:'identical & interchangeable',f:'Voltage regulation, connection/disconnection, protection, data (ECAM), BITE. GGPCU n = VFG n + EXT PWR n; 5 = APU GEN A; 6 = APU GEN B.',fail:'Its source is disconnected (GEN/EXT FAULT).'}
+ },
+ // Build-up stepper order (Explore) with one-sentence explanations
+ buildup:[
+  ['VFG1','Start with VFG 1 – one 150 kVA variable-frequency generator on engine 1.'],['GLC1','GGPCU 1 closes GLC 1 to connect the generator to the network.'],['ACBUS1','AC BUS 1 in the PEPDC (side 1) is energised at 115 VAC.'],
+  ['VFG2','VFG 2, GLC 2 and AC BUS 2 complete side 1.'],['VFG3','VFG 3 and 4 with their GLCs and buses form side 2.'],['BTC12','The transfer circuit (BTC 1-2, SIC, BTC 3-4) reconfigures the Main busbars when a source is lost.'],
+  ['EXT1','Four EXT PWR plugs (90 kVA, 400 Hz) let GPUs feed each Main busbar on ground.'],['APUA','APU GEN A (120 kVA, 400 Hz) feeds side 1, APU GEN B feeds side 2.'],
+  ['ACESS','AC ESS BUS (EEPDC) is fed from AC BUS 1, with AC BUS 4 as backup.'],['BCRU1','BCRU 1, fed by AC BUS 2, rectifies 115 VAC to a regulated 28 VDC at 300 A.'],['DCBUS1','DC BUS 1 with BAT 1 in parallel – the battery gives No Break Power Transfer.'],
+  ['BCRU2','BCRU 2 (AC BUS 3) feeds DC BUS 2 with BAT 2; TR 2 is its unregulated backup.'],['BCRUESS','BCRU ESS, fed by AC ESS, feeds DC ESS BUS with BAT ESS.'],
+  ['APUTR','The APU starting network: APU TR from AC BUS 4 or the APU BAT – never both.'],['GS','Ground-service busbars can be fed straight from EXT PWR 1 with the GND SVCE CTL switch.'],
+  ['STATINV','With batteries only, the STAT INV makes 2.5 kVA single-phase AC for the AC EMER BUS.'],['EMERGEN','In flight, loss of all Main AC extends the RAT: the 70 kVA EMER GEN feeds AC ESS and AC EMER.'],['GALLEY','Loads: galleys are shed with fewer than 3 VFGs; essential loads stay on the emergency distribution.']
+ ],
+ // 0.3 controls → switch ids; 0.5 scenarios
+ scenarios:{
+  S1:{n:'S1 Normal flight – 4 VFGs',env:{flight:1,eng:[1,1,1,1],apu:0,gpu:[0,0,0,0]},sw:{},talk:'Each VFG feeds its own busbar; AC ESS from AC BUS 1; all DC buses from BCRUs with batteries charging.'},
+  S2:{n:'S2 Ground – 4 GPUs',env:{flight:0,eng:[0,0,0,0],apu:0,gpu:[1,1,1,1]},sw:{ext1:1,ext2:1,ext3:1,ext4:1},talk:'Four 90 kVA GPUs power everything including galleys; EXT legends blue ON.'},
+  S3:{n:'S3 Ground – 2 GPUs ON, 2 AVAIL',env:{flight:0,eng:[0,0,0,0],apu:0,gpu:[1,1,1,1]},sw:{ext1:1,ext2:1,ext3:0,ext4:0},talk:'Two GPUs supply all Main busbars via the transfer circuit, galleys shed; EXT 3/4 show green AVAIL and white NOT IN USE on the nose panel.'},
+  S4:{n:'S4 APU only – both APU GENs',env:{flight:0,eng:[0,0,0,0],apu:1,gpu:[0,0,0,0]},sw:{apuA:1,apuB:1},talk:'APU GEN A → AC BUS 1 & 2, APU GEN B → AC BUS 3 & 4; SIC open for segregation.'},
+  S5:{n:'S5 Flight – VFG 2 lost',env:{flight:1,eng:[1,1,1,1],apu:0,gpu:[0,0,0,0]},sw:{gen2:0},talk:'Three VFGs: all busbars and all loads still supplied; AC BUS 2 fed through BTC 1-2.'},
+  S6:{n:'S6 Flight – two VFGs lost',env:{flight:1,eng:[1,1,1,1],apu:0,gpu:[0,0,0,0]},sw:{gen2:0,gen3:0},talk:'All busbars supplied but galleys shed by ELM.'},
+  S7:{n:'S7 Flight – one VFG only',env:{flight:1,eng:[1,0,0,0],apu:0,gpu:[0,0,0,0]},sw:{},talk:'A single VFG supplies only its side (AC BUS 1 & 2). Side 2 and DC BUS 2 lost; APU TR lost.'},
+  S8:{n:'S8 Flight – BCRU 2 failure',env:{flight:1,eng:[1,1,1,1],apu:0,gpu:[0,0,0,0]},sw:{},faults:['BCRU2'],talk:'TR 2 takes over DC BUS 2 with an unregulated 28 VDC and connects BAT 2.'},
+  S9:{n:'S9 Ground – batteries only',env:{flight:0,eng:[0,0,0,0],apu:0,gpu:[0,0,0,0]},sw:{},talk:'Only DC ESS (BAT 1 + BAT ESS) and AC EMER (STAT INV) are live; DC BUS 1/2 dark; ECAM shows STAT INV dashes on ground.'},
+  S10:{n:'S10 Flight – emergency (RAT / EMER GEN)',env:{flight:1,eng:[0,0,0,0],apu:0,gpu:[0,0,0,0]},sw:{},talk:'TEFO → RAT auto-extends; EMER GEN 70 kVA feeds AC ESS and AC EMER; DC ESS from BCRU ESS.'},
+  S11:{n:'S11 Ground service (EXT 1 + GND SVCE CTL)',env:{flight:0,eng:[0,0,0,0],apu:0,gpu:[1,0,0,0]},sw:{gnd:1,bat1:0,bat2:0,batEss:0},talk:'EXT 1 feeds the GS busbars only; EXT 1 shows green AVAIL; main network dark; no ECAM indication.'},
+  S12:{n:'S12 Ground – APU start on battery',env:{flight:0,eng:[0,0,0,0],apu:0,gpu:[0,0,0,0]},sw:{batApu:1},talk:'APU STARTING BUS from the APU BAT because AC BUS 4 is dark.'},
+  FREE:{n:'Free-play',env:null,sw:null,talk:'Use any switch.'}
+ },
+ faults:{
+  VFG2:{n:'F1 VFG 2 electrical fault (GGPCU 2 protection trip)',ind:'GEN 2 FAULT amber; AC BUS 2 via BTC 1-2; ECAM GEN 2 dashes',path:['Observe GEN 2 FAULT + ECAM','Hypothesis: VFG 2 / GGPCU 2 trip','Test: VFG 2 output 0 V, AC BUS 2 115 V (transfer)','Isolate: release GEN 2','Replace VFG 2 / reset GGPCU 2','Verify: press GEN 2 in, FAULT out'],min:2,lru:'VFG2',iso:'gen2',mis:'M1'},
+  DRIVE3:{n:'F2 VFG 3 drive fault (oil/overheat)',ind:'DRIVE 3 FAULT amber; GEN 3 output still present until DRIVE released',path:['Observe DRIVE 3 FAULT','Hypothesis: generator drive','Test: none needed (indication is unambiguous)','Isolate: release DRIVE 3 (mechanical disconnect – not reconnectable in flight)','Replace VFG 3 on ground','Verify'],min:0,lru:'VFG3',iso:'drive3',mis:'M1'},
+  APUA:{n:'F3 APU GEN A fault',ind:'APU GEN A FAULT amber; side 1 taken over by other source',path:['Observe APU GEN A FAULT','Hypothesis: APU GEN A / GGPCU 5','Test: APU GEN A output 0 V','Isolate: release APU GEN A','Replace APU GEN A / GGPCU 5','Verify'],min:1,lru:'APUA',iso:'apuA',mis:null},
+  EXT2:{n:'F4 GPU 2 unplugged while ON',ind:'EXT 2 ON legend out, AVAIL out; AC BUS 2 via transfer',path:['Observe EXT 2 legends out','Hypothesis: GPU 2 / plug 2','Test: EXT PWR 2 0 V','Isolate: release EXT 2','Reconnect GPU 2','Verify AVAIL then ON'],min:1,lru:'EXT2',iso:'ext2',mis:'M5'},
+  BCRU2:{n:'F5 BCRU 2 failure',ind:'TR 2 takes over DC BUS 2 (unregulated); BAT 2 connected by TR 2; ECAM DC: TR 2 in use',path:['Observe ECAM DC – DC BUS 2 supplied by TR 2','Hypothesis: BCRU 2','Test: BCRU 2 output 0 V; AC BUS 3 115 V (input OK); TR 2 output 28 V','Isolate: BCRU 2','Replace BCRU 2','Verify: DC BUS 2 back on BCRU 2, regulated'],min:2,lru:'BCRU2',iso:'BCRU2',mis:'M6'},
+  BCRUESS:{n:'F6 BCRU ESS failure',ind:'DC ESS BUS held by BAT ESS (+ BAT 1); ECAM DC: batteries discharging',path:['Observe ECAM DC – BAT ESS discharging','Hypothesis: BCRU ESS','Test: AC ESS 115 V (input OK), BCRU ESS output 0 V','Isolate: BCRU ESS','Replace BCRU ESS','Verify batteries charging'],min:2,lru:'BCRUESS',iso:'BCRUESS',mis:'M3'},
+  BAT1:{n:'F7 BAT 1 depleted (≤ 25 V with current flow)',ind:'BAT 1 FAULT amber; ECAM DC BAT 1 voltage low',path:['Observe BAT 1 FAULT','Hypothesis: BAT 1','Test: BAT 1 voltage on BAT panel 1255VM / multimeter ≤ 25 V','Isolate: release BAT 1','Replace / recharge BAT 1','Verify > 25 V, FAULT out'],min:1,lru:'BAT1',iso:'bat1',mis:null},
+  GLC1:{n:'F8 GLC 1 welded open',ind:'GEN 1 pressed in, no FAULT, but AC BUS 1 fed via BTC 1-2; ECAM: GEN 1 not allocated',path:['Observe ECAM AC – GEN 1 not feeding AC BUS 1','Hypothesis: GLC 1 (contactor) not GEN 1','Test: VFG 1 output 115 V (source OK); GLC 1 continuity OL (open)','Isolate: release GEN 1','Replace GLC 1 (PEPDC)','Verify'],min:2,lru:'GLC1',iso:'gen1',mis:null},
+  LMES:{n:'F9 Loss of all AC Main busbars in flight (LMES)',ind:'RAT auto-extends; EMER GEN feeds AC ESS/AC EMER; galleys and DC BUS 1/2 lost',path:['Observe all GEN FAULT / buses lost','Hypothesis: LMES','Test: AC ESS 115 V from EMER GEN','Isolate: nothing (emergency configuration)','No LRU – fly the aircraft','Verify EMER GEN connected, no red FAULT'],min:1,lru:null,iso:null,mis:'M3'},
+  EMERGEN:{n:'F10 EMER GEN failure after RAT extension',ind:'EMER GEN red FAULT; STAT INV supplies AC EMER only; AC ESS lost',path:['Observe EMER GEN red FAULT','Hypothesis: EMER GEN / GCU','Test: AC ESS 0 V, AC EMER 115 V (STAT INV)','Isolate: none','Replace EMER GEN / GCU on ground','Verify'],min:1,lru:'EMERGEN',iso:null,mis:'M4'},
+  WRONGSW:{n:'F11 Wrong switch: BAT ESS released in batteries-only',ind:'STAT INV not available; AC EMER dark; DC ESS from BAT 1 only (assumed)',path:['Observe AC EMER dark, BAT ESS OFF legend','Hypothesis: switch position','Test: none','Isolate: none','Rectify: press BAT ESS in','Verify STAT INV on'],min:0,lru:null,iso:'batEss',mis:'M4'}
+ },
+ misconceptions:{M1:'DRIVE and GEN P/BSW are not the same: DRIVE = mechanical disconnect (irreversible in flight), GEN = electrical (resettable).',M2:'One source only feeds its own side.',M3:'Batteries only feed the DC ESS BUS (and hot buses), not DC BUS 1/2.',M4:'The STAT INV feeds the AC EMER BUS, not the AC ESS BUS.',M5:'Sources are never paralleled; EXT stays AVAIL while another source feeds the bus.',M6:'TR 2 is unregulated and does not regulate battery charge.'}
+};
+
+/* =====================================================================================
+   ENGINE — SYSTEM power-flow solver. Input: state (switches, environment, faults). Output: solved network.
+   ===================================================================================== */
+const DEFAULT_SW = {drive1:1,drive2:1,drive3:1,drive4:1,gen1:1,gen2:1,gen3:1,gen4:1,apuA:0,apuB:0,ext1:0,ext2:0,ext3:0,ext4:0,busTie:1,bat1:1,bat2:1,batEss:1,batApu:0,ratMan:0,gnd:0};
+const DEFAULT_ENV = {flight:1,eng:[1,1,1,1],apu:0,gpu:[0,0,0,0],lowSpeed:0};
+function newState(){return {sw:{...DEFAULT_SW},env:JSON.parse(JSON.stringify(DEFAULT_ENV)),faults:{},scen:'S1',bat:{BAT1:1,BAT2:1,BATESS:1,APUBAT:1}}}
+
+function solve(st){
+ const sw=st.sw, env=st.env, F=st.faults||{};
+ const c={}; // contactor closed?
+ const bus={}; // bus id -> {live,src,path,kind}
+ const out={c,bus,lights:{},warn:[],shed:{},flags:{},srcAvail:{},srcOn:{}};
+ const has=id=>!!F[id];
+ // ---- source availability (0.4 rule 1)
+ const vfg=[];
+ for(let i=1;i<=4;i++){
+  const drv=sw['drive'+i]&&!has('DRIVE'+i+'_DISC');
+  const avail=env.eng[i-1]&&drv; // generator turning & coupled
+  const fault=has('VFG'+i)||has('DRIVE'+i); // electrical fault or drive fault (drive fault: still produces until disconnected)
+  const ok=avail&&sw['gen'+i]&&!has('VFG'+i)&&!has('GLC'+i);
+  vfg[i]=ok; out.srcAvail['VFG'+i]=avail&&!has('VFG'+i); out.srcOn['VFG'+i]=ok;
+  out.lights['gen'+i]={fault:has('VFG'+i)?1:0,off:!sw['gen'+i]?1:0};
+  out.lights['drive'+i]={fault:has('DRIVE'+i)&&drv?1:0,off:!drv?1:0};
+ }
+ const apu={A:env.apu&&sw.apuA&&!has('APUA'),B:env.apu&&sw.apuB&&!has('APUB')};
+ out.srcAvail.APUA=env.apu&&!has('APUA'); out.srcAvail.APUB=env.apu&&!has('APUB'); out.srcOn.APUA=apu.A; out.srcOn.APUB=apu.B;
+ out.lights.apuA={fault:has('APUA')?1:0,off:!sw.apuA?1:0}; out.lights.apuB={fault:has('APUB')?1:0,off:!sw.apuB?1:0};
+ const ext=[];
+ for(let i=1;i<=4;i++){const plugged=env.gpu[i-1]&&!has('EXT'+i)&&!env.flight; ext[i]=plugged&&sw['ext'+i]; out.srcAvail['EXT'+i]=plugged; out.srcOn['EXT'+i]=ext[i];}
+ // ---- AC Main busbars: own source first (VFG > EXT (assumed order)), then transfer circuit
+ const direct={};
+ for(let i=1;i<=4;i++){
+  if(vfg[i]) direct[i]={src:'VFG'+i,path:['VFG'+i,'GLC'+i]};
+  else if(ext[i]) direct[i]={src:'EXT'+i,path:['EXT'+i,'EPC'+i]};
+ }
+ // EXT pressed while VFG feeds → stays AVAIL, not connected (assumed)
+ for(let i=1;i<=4;i++){ out.srcOn['EXT'+i]=!!(direct[i]&&direct[i].src==='EXT'+i); c['GLC'+i]=!!(direct[i]&&direct[i].src==='VFG'+i); c['EPC'+i]=out.srcOn['EXT'+i]; }
+ // APU gens connect to their side only if the side has an unsupplied bus (and no other source on that bus). Paralleling forbidden.
+ const nDirect=Object.keys(direct).length;
+ const sideHasDirect=s=> s===1?(direct[1]||direct[2]):(direct[3]||direct[4]);
+ const sideNeed=s=> s===1?(!direct[1]||!direct[2]):(!direct[3]||!direct[4]);
+ let apuOn={A:false,B:false};
+ if(apu.A&&sideNeed(1)&&!sideHasDirect(1)) apuOn.A=true;
+ if(apu.B&&sideNeed(2)&&!sideHasDirect(2)) apuOn.B=true;
+ // if a side has one VFG and one dead bus, the transfer circuit (same-side tie) is preferred over APU (assumed)
+ c.AGCA=apuOn.A; c.AGCB=apuOn.B; out.srcOn.APUA=apuOn.A; out.srcOn.APUB=apuOn.B;
+ const tieOK=sw.busTie&&!has('BUSTIE');
+ const B={};
+ const setBus=(i,src,path)=>{B[i]={live:1,src,path:path.concat(['ACBUS'+i])}};
+ for(let i=1;i<=4;i++) if(direct[i]) setBus(i,direct[i].src,direct[i].path);
+ c.BTC12=false;c.BTC34=false;c.SIC=false;
+ const totalSources=nDirect+(apuOn.A?1:0)+(apuOn.B?1:0);
+ // APU feeds its side pair via the tie point
+ if(apuOn.A){ if(!B[2]) setBus(2,'APUA',['APUA','AGCA']); if(!B[1]) setBus(1,'APUA',['APUA','AGCA','ACBUS2','BTC12']); c.BTC12=!!(B[1]&&B[1].src==='APUA'); }
+ if(apuOn.B){ if(!B[3]) setBus(3,'APUB',['APUB','AGCB']); if(!B[4]) setBus(4,'APUB',['APUB','AGCB','ACBUS3','BTC34']); c.BTC34=!!(B[4]&&B[4].src==='APUB'); }
+ if(tieOK){
+  // same-side transfer (rule 4)
+  const pair={1:2,2:1,3:4,4:3};
+  for(let i=1;i<=4;i++){ if(!B[i]&&B[pair[i]]&&B[pair[i]].src!=='APUA'&&B[pair[i]].src!=='APUB'){ setBus(i,B[pair[i]].src,B[pair[i]].path.concat([i<3?'BTC12':'BTC34'])); if(i<3)c.BTC12=true; else c.BTC34=true; } }
+  // cross-side transfer: only if ≥2 sources in total (single source → its side only)
+  const bothApu=apuOn.A&&apuOn.B;
+  if(totalSources>=2&&!bothApu){
+   const s1=B[2]||B[1], s2=B[3]||B[4];
+   if(!s1&&s2){ // side 1 dark
+    const via=B[3]?B[3]:B[4]; const p=via.path.concat(B[3]?['SIC']:['BTC34','SIC']);
+    setBus(2,via.src,p); setBus(1,via.src,p.concat(['BTC12'])); c.SIC=true;c.BTC12=true; if(!B[3])c.BTC34=true;
+   } else if(!s2&&s1){
+    const via=B[2]?B[2]:B[1]; const p=via.path.concat(B[2]?['SIC']:['BTC12','SIC']);
+    setBus(3,via.src,p); setBus(4,via.src,p.concat(['BTC34'])); c.SIC=true;c.BTC34=true; if(!B[2])c.BTC12=true;
+   }
+  }
+ }
+ for(let i=1;i<=4;i++){ bus['ACBUS'+i]=B[i]||{live:0,src:null,path:[]}; bus['ACBUS'+i].kind='ac'; }
+ const anyMain=[1,2,3,4].some(i=>B[i]);
+ // ---- load shed (rule 5, generalised: galleys need ≥3 direct VFG/GPU sources) (assumed generalisation)
+ const nV=vfg.filter(Boolean).length, nE=[1,2,3,4].filter(i=>out.srcOn['EXT'+i]).length;
+ out.shed.galley=!(nV>=3||nE>=3||(nV+nE)>=3); out.shed.galleyNote= nE===3&&nV===0?'3 GPUs: galleys may shed on overload':'';
+ out.flags.nV=nV;out.flags.nE=nE;out.flags.totalSources=totalSources;
+ // ---- emergency: RAT / EMER GEN (rule 13)
+ const allEngOff=env.eng.every(e=>!e);
+ const lmes=env.flight&&!anyMain;
+ const tefo=env.flight&&allEngOff;
+ const ratExt=(lmes||tefo||sw.ratMan)&&env.flight; // (on ground RAT MAN ON is inhibited – assumed)
+ const emerOK=ratExt&&!has('EMERGEN')&&!env.lowSpeed;
+ out.flags.ratExt=ratExt; out.flags.emergency=lmes||tefo; out.srcAvail.EMERGEN=ratExt; out.srcOn.EMERGEN=emerOK&&!anyMain;
+ out.lights.emerGen={fault:(lmes||tefo)&&!emerOK?1:0};
+ // ---- AC ESS (rule 6)
+ c.ESSC1=false;c.ESSC4=false;c.EGLC=false;
+ if(B[1]&&!has('ESSC1')){bus.ACESS={live:1,src:B[1].src,path:B[1].path.concat(['ESSC1','ACESS'])};c.ESSC1=true;}
+ else if(B[4]){bus.ACESS={live:1,src:B[4].src,path:B[4].path.concat(['ESSC4','ACESS'])};c.ESSC4=true;}
+ else if(out.srcOn.EMERGEN){bus.ACESS={live:1,src:'EMERGEN',path:['EMERGEN','EGLC','ACESS']};c.EGLC=true;}
+ else bus.ACESS={live:0,src:null,path:[]};
+ bus.ACESS.kind='em';
+ // ---- batteries (rules 8–12)
+ const batOK=id=>st.bat[id]>0&&!has(id);
+ const b1=sw.bat1&&batOK('BAT1'), b2=sw.bat2&&batOK('BAT2'), bE=sw.batEss&&batOK('BATESS');
+ out.lights.bat1={fault:has('BAT1')?1:0,off:!sw.bat1?1:0}; out.lights.bat2={fault:has('BAT2')?1:0,off:!sw.bat2?1:0}; out.lights.batEss={fault:has('BATESS')?1:0,off:!sw.batEss?1:0}; out.lights.batApu={fault:has('APUBAT')?1:0,off:!sw.batApu?1:0};
+ const noAC=!anyMain&&!bus.ACESS.live;
+ // STAT INV (rule 7)
+ const statInv=noAC&&b1&&bE&&!has('STATINV');
+ out.srcOn.STATINV=statInv;
+ // AC EMER
+ c.EMERC=false;
+ if(bus.ACESS.live){bus.ACEMER={live:1,src:bus.ACESS.src,path:bus.ACESS.path.concat(['EMERC','ACEMER'])};c.EMERC=true;}
+ else if(statInv) bus.ACEMER={live:1,src:'STATINV',path:['BAT1','B1ESS','BATESS','BATLCE','DCESS','STATINV','ACEMER']};
+ else bus.ACEMER={live:0,src:null,path:[]};
+ bus.ACEMER.kind='em';
+ // ---- DC buses
+ const bcru1=B[2]&&!has('BCRU1'), bcru2=B[3]&&!has('BCRU2'), tr2=B[3]&&!has('TR2'), bcruE=bus.ACESS.live&&!has('BCRUESS');
+ out.srcOn.BCRU1=bcru1;out.srcOn.BCRU2=bcru2;out.srcOn.TR2=tr2&&!bcru2;out.srcOn.BCRUESS=bcruE;
+ c.TRLC1=bcru1;c.TRLC2=bcru2;c.TRLC2B=!bcru2&&tr2;c.TRLCE=bcruE;
+ c.BATLC1=b1&&anyMain; c.BATLC2=b2&&anyMain; c.BATLCE=bE; c.B1ESS=b1&&noAC;
+ // In flight with EMER GEN: L1 says DC ESS in parallel with BCRU ESS, ESS BAT and BAT 1 → keep B1ESS closed too when no Main AC
+ if(!anyMain&&b1) c.B1ESS=true;
+ if(bcru1) bus.DCBUS1={live:1,src:'BCRU1',path:B[2].path.concat(['BCRU1','TRLC1','DCBUS1'])};
+ else if(c.BATLC1) bus.DCBUS1={live:1,src:'BAT1',path:['BAT1','BATLC1','DCBUS1'],nbpt:1};
+ else bus.DCBUS1={live:0,src:null,path:[]};
+ if(bcru2) bus.DCBUS2={live:1,src:'BCRU2',path:B[3].path.concat(['BCRU2','TRLC2','DCBUS2'])};
+ else if(c.TRLC2B) bus.DCBUS2={live:1,src:'TR2',path:B[3].path.concat(['TR2','TRLC2B','DCBUS2']),unreg:1};
+ else if(c.BATLC2) bus.DCBUS2={live:1,src:'BAT2',path:['BAT2','BATLC2','DCBUS2'],nbpt:1};
+ else bus.DCBUS2={live:0,src:null,path:[]};
+ if(bcruE) bus.DCESS={live:1,src:'BCRUESS',path:bus.ACESS.path.concat(['BCRUESS','TRLCE','DCESS'])};
+ else if(bE&&b1&&c.B1ESS) bus.DCESS={live:1,src:'BAT1+BATESS',path:['BAT1','B1ESS','BATESS','BATLCE','DCESS']};
+ else if(bE) bus.DCESS={live:1,src:'BATESS',path:['BATESS','BATLCE','DCESS']};
+ else if(b1&&c.B1ESS) bus.DCESS={live:1,src:'BAT1',path:['BAT1','B1ESS','DCESS']};
+ else bus.DCESS={live:0,src:null,path:[]};
+ bus.DCBUS1.kind='dc';bus.DCBUS2.kind='dc';bus.DCESS.kind='em';
+ // APU starting bus (rule 14)
+ const aputr=B[4]&&!has('APUTR'); c.APUTRC=!!aputr; c.APUBATC=!aputr&&sw.batApu&&batOK('APUBAT');
+ out.srcOn.APUTR=!!aputr;
+ if(aputr) bus.APUSTART={live:1,src:'APUTR',path:B[4].path.concat(['APUTR','APUTRC','APUSTART'])};
+ else if(c.APUBATC) bus.APUSTART={live:1,src:'APUBAT',path:['APUBAT','APUBATC','APUSTART']};
+ else bus.APUSTART={live:0,src:null,path:[]};
+ bus.APUSTART.kind='dc';
+ // Ground service (rule 15)
+ c.GSLC=!!B[1]; c.GNDSVC=!!sw.gnd;
+ if(B[1]) bus.GS={live:1,src:B[1].src,path:B[1].path.concat(['GSLC','GS'])};
+ else if(!anyMain&&!env.flight&&out.srcAvail.EXT1&&sw.gnd) bus.GS={live:1,src:'EXT1',path:['EXT1','GNDSVC','GS'],gnd:1};
+ else bus.GS={live:0,src:null,path:[]};
+ bus.GS.kind='ac';
+ // loads
+ bus.GALLEY={live:B[3]&&!out.shed.galley?1:0,src:B[3]?B[3].src:null,path:B[3]?B[3].path.concat(['GALLEY']):[],kind:'ac',shed:out.shed.galley&&!!B[3]};
+ bus.EMERLD={...bus.ACEMER,path:bus.ACEMER.path.concat(['EMERLD'])};
+ bus.DCLD1={...bus.DCBUS1,path:bus.DCBUS1.path.concat(['DCLD1'])}; bus.DCLD2={...bus.DCBUS2,path:bus.DCBUS2.path.concat(['DCLD2'])};
+ bus.DCESSLD={...bus.DCESS,path:bus.DCESS.path.concat(['DCESSLD'])}; bus.APUSTR={...bus.APUSTART,path:bus.APUSTART.path.concat(['APUSTR'])};
+ // ---- EXT legends: AVAIL green when plugged & not connected; ON blue when connected
+ for(let i=1;i<=4;i++) out.lights['ext'+i]={avail:out.srcAvail['EXT'+i]&&!out.srcOn['EXT'+i]?1:0,on:out.srcOn['EXT'+i]?1:0};
+ out.lights.busTie={off:!sw.busTie?1:0};
+ // ---- battery state: charging / discharging / off
+ const batState={};
+ batState.BAT1= !sw.bat1?'OFF': (bus.DCBUS1.src==='BCRU1'&&c.BATLC1)?'CHG': (bus.DCBUS1.src==='BAT1'||c.B1ESS)?'DIS':'IDLE';
+ batState.BAT2= !sw.bat2?'OFF': (c.BATLC2&&(bus.DCBUS2.src==='BCRU2'||bus.DCBUS2.src==='TR2'))?'CHG': bus.DCBUS2.src==='BAT2'?'DIS':'IDLE';
+ batState.BATESS= !sw.batEss?'OFF': (bus.DCESS.src==='BCRUESS')?'CHG': /BATESS/.test(bus.DCESS.src||'')?'DIS':'IDLE';
+ batState.APUBAT= !sw.batApu?'OFF': c.APUBATC?'DIS':(aputr?'CHG':'IDLE');
+ out.batState=batState;
+ // ---- warnings (captions are assumed wording; legends are from the notes)
+ for(let i=1;i<=4;i++){ if(has('VFG'+i)) out.warn.push('ELEC GEN '+i+' FAULT'); if(has('DRIVE'+i)&&sw['drive'+i]) out.warn.push('ELEC DRIVE '+i+' FAULT (release DRIVE '+i+')'); }
+ if(has('APUA')) out.warn.push('ELEC APU GEN A FAULT'); if(has('APUB')) out.warn.push('ELEC APU GEN B FAULT');
+ if(has('BCRU2')&&out.srcOn.TR2) out.warn.push('ELEC BCRU 2 FAULT – DC BUS 2 on TR 2 (unregulated)');
+ if(has('BCRU1')) out.warn.push('ELEC BCRU 1 FAULT'); if(has('BCRUESS')) out.warn.push('ELEC BCRU ESS FAULT');
+ ['BAT1','BAT2','BATESS'].forEach(b=>{if(has(b)) out.warn.push('ELEC '+MODEL.comp[b].n+' FAULT (≤ 25 V with current flow)')});
+ if(lmes) out.warn.push('ELEC EMER CONFIG (LMES)'); if(tefo) out.warn.push('ELEC EMER CONFIG (TEFO)');
+ if(out.lights.emerGen.fault) out.warn.push('EMER GEN FAULT (red)');
+ if(out.shed.galley&&anyMain) out.warn.push('ELM: galleys shed');
+ [1,2,3,4].forEach(i=>{if(!B[i]&&(anyMain||env.flight)) out.warn.push('ELEC AC BUS '+i+' FAULT')});
+ if(!bus.DCBUS1.live&&anyMain) out.warn.push('ELEC DC BUS 1 FAULT'); if(!bus.DCBUS2.live&&anyMain) out.warn.push('ELEC DC BUS 2 FAULT');
+ if(!bus.ACESS.live&&anyMain) out.warn.push('ELEC AC ESS BUS FAULT'); if(!bus.DCESS.live) out.warn.push('ELEC DC ESS BUS FAULT');
+ out.anyMain=anyMain; out.noAC=noAC; out.statInv=statInv;
+ return out;
+}
+// ---- helper: voltage / frequency reading of a node for meters & ECAM (specified values only)
+function nodeReading(S,id,st){
+ const bus=S.bus[id];
+ const srcHz=s=>/^VFG/.test(s)?'370–770':/^EMERGEN/.test(s)?'370–800':'400';
+ if(bus){ if(!bus.live) return {v:0,ac:bus.kind!=='dc'&&id!=='DCESS',hz:'—',txt:'0 V'};
+  const dc=bus.kind==='dc'||id==='DCESS'||id==='DCESSLD'||/^DC/.test(id)||id==='APUSTART'||id==='APUSTR';
+  if(dc) return {v:28,ac:false,hz:'—',txt:(bus.unreg?'28 V DC (unreg.)':'28 V DC')};
+  return {v:115,ac:true,hz:srcHz(bus.src),txt:'115 V AC · '+srcHz(bus.src)+' Hz'+(bus.src==='STATINV'?' · 1 ph':'')};
+ }
+ if(/^VFG|^EXT|^APU[AB]$|^EMERGEN/.test(id)){ const on=S.srcAvail[id]; return on?{v:115,ac:true,hz:srcHz(id),txt:'115 V AC · '+srcHz(id)+' Hz'}:{v:0,ac:true,hz:'—',txt:'0 V'}; }
+ if(id==='STATINV') return S.srcOn.STATINV?{v:115,ac:true,hz:'400',txt:'115 V AC · 400 Hz · 1 ph'}:{v:0,txt:'0 V'};
+ if(/^BCRU|^TR2$|^APUTR$/.test(id)) return S.srcOn[id]?{v:28,txt:'28 V DC'+(id==='TR2'?' (unreg.)':'')}:{v:0,txt:'0 V'};
+ if(/^BAT|^APUBAT/.test(id)){ const dep=st.faults[id]; return {v:dep?24:27,txt:(dep?'24.0 V DC (≤ 25 V: FAULT)':'27.2 V DC (assumed charged value)')}; }
+ if(S.c[id]!==undefined) return {closed:S.c[id],txt:S.c[id]?'0.0 Ω (closed)':'OL (open)'};
+ return {txt:'—'};
+}
+</script>
+<script>
+/* =====================================================================================
+   VIEW — SVG synoptic layout (viewBox 1400×820), rendering, animation, pan/zoom.
+   ===================================================================================== */
+const NS='http://www.w3.org/2000/svg';
+function svgEl(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs){if(k==='text')e.textContent=attrs[k];else e.setAttribute(k,attrs[k]);}if(parent)parent.appendChild(e);return e;}
+function h(tag,attrs,parent){const e=document.createElement(tag);for(const k in attrs||{}){if(k==='text')e.textContent=attrs[k];else if(k==='html')e.innerHTML=attrs[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),attrs[k]);else e.setAttribute(k,attrs[k]);}if(parent)parent.appendChild(e);return e;}
+const $=id=>document.getElementById(id);
+
+// Node layout: id → {x,y,w,h,shape}
+const L={
+ VFG1:[110,55,'gen'],EXT1:[230,55,'ext'],VFG2:[370,55,'gen'],EXT2:[490,55,'ext'],APUA:[640,55,'gen'],APUB:[760,55,'gen'],VFG3:[900,55,'gen'],EXT3:[1020,55,'ext'],VFG4:[1170,55,'gen'],EXT4:[1290,55,'ext'],
+ GLC1:[110,125,'ct'],EPC1:[230,125,'ct'],GLC2:[370,125,'ct'],EPC2:[490,125,'ct'],AGCA:[640,125,'ct'],AGCB:[760,125,'ct'],GLC3:[900,125,'ct'],EPC3:[1020,125,'ct'],GLC4:[1170,125,'ct'],EPC4:[1290,125,'ct'],
+ ACBUS1:[170,185,'bus',200],ACBUS2:[430,185,'bus',200],ACBUS3:[960,185,'bus',200],ACBUS4:[1230,185,'bus',200],
+ BTC12:[300,185,'ct'],SIC:[700,185,'ct'],BTC34:[1095,185,'ct'],
+ ESSC1:[520,265,'ct'],ESSC4:[1150,265,'ct'],ACESS:[700,265,'bus',200],EGLC:[570,300,'ct'],EMERC:[700,300,'ct'],
+ EMERGEN:[470,335,'gen'],ACEMER:[700,335,'bus',120],STATINV:[800,430,'box'],GS:[150,335,'box',120],GSLC:[130,250,'ct'],GNDSVC:[40,260,'ct'],GALLEY:[1000,335,'load'],
+ BCRU1:[380,430,'box'],BCRUESS:[620,430,'box'],BCRU2:[920,430,'box'],TR2:[1040,430,'box'],APUTR:[1230,430,'box'],
+ TRLC1:[380,485,'ct'],TRLCE:[620,485,'ct'],TRLC2:[920,485,'ct'],TRLC2B:[1040,485,'ct'],APUTRC:[1230,485,'ct'],
+ DCBUS1:[380,520,'bus',160],DCESS:[620,520,'bus',160],DCBUS2:[980,520,'bus',240],APUSTART:[1230,520,'bus',190],
+ BATLC1:[340,560,'ct'],BATLCE:[580,560,'ct'],BATLC2:[900,560,'ct'],APUBATC:[1230,560,'ct'],B1ESS:[420,585,'ct'],
+ BAT1:[340,620,'bat'],BATESS:[580,620,'bat'],BAT2:[900,620,'bat'],APUBAT:[1230,620,'bat'],
+ DCLD1:[440,620,'load'],DCESSLD:[680,620,'load'],DCLD2:[1030,620,'load'],APUSTR:[1305,620,'load'],EMERLD:[700,400,'load']
+};
+// Wires: [fromId,toId,kind,points,onRule]  onRule: 'src'(from source avail) | 'ct:<id>' (contactor closed) | 'bus:<id>' (bus live) | 'conv:<id>' (converter on)
+const W=[];
+function wire(a,b,kind,pts,on){W.push({a,b,kind,pts,on});}
+[1,2,3,4].forEach(i=>{const x=L['VFG'+i][0],xe=L['EXT'+i][0];
+ wire('VFG'+i,'GLC'+i,'ac',[[x,75],[x,112]],'src:VFG'+i); wire('GLC'+i,'ACBUS'+i,'ac',[[x,138],[x,185]],'ct:GLC'+i);
+ wire('EXT'+i,'EPC'+i,'ac',[[xe,75],[xe,112]],'src:EXT'+i); wire('EPC'+i,'ACBUS'+i,'ac',[[xe,138],[xe,185]],'ct:EPC'+i);});
+wire('APUA','AGCA','ac',[[640,75],[640,112]],'src:APUA'); wire('AGCA','ACBUS2','ac',[[640,138],[640,185]],'ct:AGCA');
+wire('APUB','AGCB','ac',[[760,75],[760,112]],'src:APUB'); wire('AGCB','ACBUS3','ac',[[760,138],[760,185]],'ct:AGCB');
+wire('ACBUS1','BTC12','ac',[[270,185],[288,185]],'bus:ACBUS1'); wire('BTC12','ACBUS2','ac',[[312,185],[330,185]],'bus:ACBUS2');
+wire('ACBUS2','SIC','ac',[[530,185],[688,185]],'bus:ACBUS2'); wire('SIC','ACBUS3','ac',[[712,185],[860,185]],'bus:ACBUS3');
+wire('ACBUS3','BTC34','ac',[[1060,185],[1083,185]],'bus:ACBUS3'); wire('BTC34','ACBUS4','ac',[[1107,185],[1130,185]],'bus:ACBUS4');
+wire('ACBUS1','ESSC1','ac',[[240,185],[240,265],[508,265]],'bus:ACBUS1'); wire('ESSC1','ACESS','em',[[532,265],[600,265]],'ct:ESSC1');
+wire('ACBUS4','ESSC4','ac',[[1300,185],[1300,265],[1162,265]],'bus:ACBUS4'); wire('ESSC4','ACESS','em',[[1138,265],[800,265]],'ct:ESSC4');
+wire('EMERGEN','EGLC','em',[[510,335],[570,335],[570,312]],'src:EMERGEN'); wire('EGLC','ACESS','em',[[570,288],[570,265]],'ct:EGLC');
+wire('ACESS','EMERC','em',[[700,265],[700,288]],'bus:ACESS'); wire('EMERC','ACEMER','em',[[700,312],[700,335]],'ct:EMERC');
+wire('STATINV','ACEMER','em',[[800,410],[800,335],[760,335]],'conv:STATINV'); wire('DCESS','STATINV','em',[[700,520],[800,520],[800,450]],'conv:STATINV');
+wire('ACEMER','EMERLD','em',[[700,335],[700,385]],'bus:ACEMER');
+wire('ACBUS1','GSLC','ac',[[130,185],[130,238]],'bus:ACBUS1'); wire('GSLC','GS','ac',[[130,262],[130,315]],'ct:GSLC');
+wire('EXT1','GNDSVC','ac',[[230,95],[40,95],[40,248]],'src:EXT1'); wire('GNDSVC','GS','ac',[[40,272],[40,335],[90,335]],'gnd');
+wire('ACBUS3','GALLEY','ac',[[1000,185],[1000,320]],'bus:GALLEY');
+wire('ACBUS2','BCRU1','ac',[[380,185],[380,410]],'bus:ACBUS2'); wire('BCRU1','TRLC1','dc',[[380,450],[380,473]],'conv:BCRU1'); wire('TRLC1','DCBUS1','dc',[[380,497],[380,520]],'ct:TRLC1');
+wire('ACESS','BCRUESS','em',[[620,265],[620,410]],'bus:ACESS'); wire('BCRUESS','TRLCE','dc',[[620,450],[620,473]],'conv:BCRUESS'); wire('TRLCE','DCESS','dc',[[620,497],[620,520]],'ct:TRLCE');
+wire('ACBUS3','BCRU2','ac',[[920,185],[920,410]],'bus:ACBUS3'); wire('BCRU2','TRLC2','dc',[[920,450],[920,473]],'conv:BCRU2'); wire('TRLC2','DCBUS2','dc',[[920,497],[920,520]],'ct:TRLC2');
+wire('ACBUS3','TR2','ac',[[1040,185],[1040,410]],'bus:ACBUS3'); wire('TR2','TRLC2B','dc',[[1040,450],[1040,473]],'conv:TR2'); wire('TRLC2B','DCBUS2','dc',[[1040,497],[1040,520]],'ct:TRLC2B');
+wire('ACBUS4','APUTR','ac',[[1230,185],[1230,410]],'bus:ACBUS4'); wire('APUTR','APUTRC','dc',[[1230,450],[1230,473]],'conv:APUTR'); wire('APUTRC','APUSTART','dc',[[1230,497],[1230,520]],'ct:APUTRC');
+wire('BAT1','BATLC1','dc',[[340,600],[340,572]],'bat:BAT1'); wire('BATLC1','DCBUS1','dc',[[340,548],[340,520]],'ct:BATLC1');
+wire('BATESS','BATLCE','dc',[[580,600],[580,572]],'bat:BATESS'); wire('BATLCE','DCESS','dc',[[580,548],[580,520]],'ct:BATLCE');
+wire('BAT2','BATLC2','dc',[[900,600],[900,572]],'bat:BAT2'); wire('BATLC2','DCBUS2','dc',[[900,548],[900,520]],'ct:BATLC2');
+wire('APUBAT','APUBATC','dc',[[1230,600],[1230,572]],'bat:APUBAT'); wire('APUBATC','APUSTART','dc',[[1230,548],[1230,520]],'ct:APUBATC');
+wire('BAT1','B1ESS','dc',[[340,585],[408,585]],'bat:BAT1'); wire('B1ESS','DCESS','em',[[432,585],[500,585],[500,520],[540,520]],'ct:B1ESS');
+wire('DCBUS1','DCLD1','dc',[[440,520],[440,602]],'bus:DCBUS1'); wire('DCESS','DCESSLD','dc',[[680,520],[680,602]],'bus:DCESS'); wire('DCBUS2','DCLD2','dc',[[1030,520],[1030,602]],'bus:DCBUS2'); wire('APUSTART','APUSTR','dc',[[1300,520],[1300,602]],'bus:APUSTART');
+
+const REVEAL={VFG1:['VFG1','GLC1'],GLC1:[],ACBUS1:['ACBUS1'],VFG2:['VFG2','GLC2','ACBUS2'],VFG3:['VFG3','GLC3','ACBUS3','VFG4','GLC4','ACBUS4'],BTC12:['BTC12','SIC','BTC34'],EXT1:['EXT1','EPC1','EXT2','EPC2','EXT3','EPC3','EXT4','EPC4'],APUA:['APUA','AGCA','APUB','AGCB'],ACESS:['ESSC1','ESSC4','ACESS'],BCRU1:['BCRU1','TRLC1'],DCBUS1:['DCBUS1','BATLC1','BAT1','DCLD1'],BCRU2:['BCRU2','TRLC2','TR2','TRLC2B','DCBUS2','BATLC2','BAT2','DCLD2'],BCRUESS:['BCRUESS','TRLCE','DCESS','BATLCE','BATESS','DCESSLD'],APUTR:['APUTR','APUTRC','APUSTART','APUBATC','APUBAT','APUSTR'],GS:['GS','GSLC','GNDSVC'],STATINV:['STATINV','B1ESS','EMERC','ACEMER','EMERLD'],EMERGEN:['EMERGEN','EGLC'],GALLEY:['GALLEY']};
+
+const PB=[ // pushbuttons: [switch id, label, legend kinds, group]
+ ['ext1','EXT 1',['avail','on']],['ext2','EXT 2',['avail','on']],['ext3','EXT 3',['avail','on']],['ext4','EXT 4',['avail','on']],
+ ['apuA','APU GEN A',['fault','off']],['apuB','APU GEN B',['fault','off']],['busTie','BUS TIE',['off']],
+ ['drive1','DRIVE 1',['fault','off']],['gen1','GEN 1',['fault','off']],['drive2','DRIVE 2',['fault','off']],['gen2','GEN 2',['fault','off']],['drive3','DRIVE 3',['fault','off']],['gen3','GEN 3',['fault','off']],['drive4','DRIVE 4',['fault','off']],['gen4','GEN 4',['fault','off']],
+ ['bat1','BAT 1',['fault','off']],['batEss','BAT ESS',['fault','off']],['bat2','BAT 2',['fault','off']],['batApu','BAT APU',['fault','off']],
+ ['ratMan','RAT MAN ON',['red']],['gnd','GND SVCE CTL',['on']]
+];
+const SWMAP={ratMan:'emerGen'};
+
+/* ---------- Synoptic renderer (used by Explore and Fault Lab) ---------- */
+class Synoptic{
+ constructor(wrap,opts){
+  this.wrap=wrap; this.opts=opts||{}; this.nodes={}; this.wires=[]; this.vb={x:0,y:0,w:1400,h:820}; this.hidden=null; this.trace=null; this.sel=null;
+  const svg=svgEl('svg',{class:'syn',viewBox:'0 0 1400 820','aria-label':'A380 electrical synoptic'},wrap); this.svg=svg;
+  svgEl('defs',{},svg).innerHTML='<pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#fff" stroke-width="1.5" opacity=".35"/></pattern>';
+  const g=svgEl('g',{},svg); this.g=g;
+  // region labels
+  [['PEPDC side 1',300,20],['PEPDC side 2',1100,20],['EEPDC (emergency)',700,232],['APU network',1230,395],['DC network',600,470]].forEach(([t,x,y])=>svgEl('text',{x,y,'text-anchor':'middle','font-size':13,fill:'#6b7791',text:t},g));
+  this.gw=svgEl('g',{},g); this.gn=svgEl('g',{},g);
+  W.forEach(w=>{const d='M'+w.pts.map(p=>p.join(' ')).join(' L ');const base=svgEl('path',{class:'wire',d},this.gw);const flow=svgEl('path',{class:'flow',d,fill:'none',stroke:'#fff','stroke-width':3,'stroke-dasharray':'3 22','stroke-linecap':'round',opacity:0},this.gw);this.wires.push({...w,el:base,flow,len:pathLen(w.pts)});});
+  // junction dots where a wire endpoint sits on another wire interior
+  const ends=[];W.forEach(w=>{ends.push(w.pts[0],w.pts[w.pts.length-1]);});
+  ends.forEach(p=>{if(W.some(w=>onInterior(p,w.pts)))svgEl('circle',{cx:p[0],cy:p[1],r:4,fill:'#c8d0e0'},this.gw);});
+  for(const id in L) this.makeNode(id);
+  this.bindPanZoom();
+ }
+ makeNode(id){
+  const [x,y,shape,w0]=L[id]; const c=MODEL.comp[id]||{n:id,k:'ac'}; const g=svgEl('g',{class:'node '+c.k+(shape==='ct'?' ct':''),'data-id':id,tabindex:0,role:'button','aria-label':c.n},this.gn);
+  let hit;
+  if(shape==='bus'){const w=w0||200;svgEl('rect',{class:'bus',x:x-w/2,y:y-6,width:w,height:12},g);svgEl('text',{class:'busT',x,y:y+4,'text-anchor':'middle','font-size':15,'font-weight':700,text:c.n.replace(/ \(.*/,'')},g);hit=svgEl('rect',{x:x-w/2,y:y-14,width:w,height:28,fill:'transparent'},g);}
+  else if(shape==='ct'){svgEl('circle',{cx:x,cy:y,r:11},g);const bl=svgEl('line',{class:'blade',x1:x,y1:y-9,x2:x,y2:y+9},g);g._blade=bl;svgEl('text',{x:x+14,y:y+4,'font-size':12,style:'pointer-events:auto;cursor:pointer',text:id.replace(/^(TRLC2B)$/,'TR2 LC').replace(/^B1ESS$/,'BAT1→ESS').replace(/^GNDSVC$/,'GND SVCE').replace(/^ESSC/,'ESS ')},g);hit=svgEl('circle',{cx:x,cy:y,r:16,fill:'transparent'},g);}
+  else{const w=w0||(shape==='bat'?60:shape==='load'?70:80),hh=shape==='load'?32:40;const r=svgEl('rect',{class:'box',x:x-w/2,y:y-hh/2,width:w,height:hh,rx:5},g);
+   if(shape==='gen'){svgEl('circle',{cx:x-24,cy:y,r:11,fill:'none',stroke:'currentColor','stroke-width':1.5,class:'genc'},g);const rot=svgEl('path',{d:`M${x-31} ${y} q3.5 -6 7 0 t7 0`,fill:'none',stroke:'currentColor','stroke-width':1.5},g);g._rot=rot;svgEl('text',{x:x+6,y:y-3,'text-anchor':'middle','font-size':13,'font-weight':700,text:c.n.replace(/ \(.*/,'')},g);svgEl('text',{x:x+6,y:y+12,'text-anchor':'middle','font-size':11,fill:'#9aa5bd',text:(id.startsWith('VFG')?'150 kVA VF':id.startsWith('APU')?'120 kVA 400Hz':'70 kVA')},g);}
+   else if(shape==='ext'){svgEl('text',{x,y:y-2,'text-anchor':'middle','font-size':13,'font-weight':700,text:c.n},g);svgEl('text',{x,y:y+12,'text-anchor':'middle','font-size':11,fill:'#9aa5bd',text:'90 kVA 400Hz'},g);}
+   else if(shape==='bat'){svgEl('text',{x,y:y-4,'text-anchor':'middle','font-size':13,'font-weight':700,text:c.n},g);svgEl('rect',{x:x-22,y:y+3,width:44,height:8,fill:'#0a0f18',stroke:'#667'},g);g._chg=svgEl('rect',{x:x-21,y:y+4,width:42,height:6,fill:'var(--dc)'},g);svgEl('text',{x,y:y+18,'text-anchor':'middle','font-size':9,fill:'#9aa5bd',text:'50 Ah'},g);}
+   else if(shape==='load'){svgEl('text',{x,y:y+4,'text-anchor':'middle','font-size':12,text:c.n.replace(/ \(.*/,'')},g);g._shed=svgEl('rect',{x:x-w/2,y:y-hh/2,width:w,height:hh,rx:5,fill:'url(#hatch)',opacity:0},g);}
+   else{const lines=c.n.replace(/ \(.*/,'').split(' + ');svgEl('text',{x,y:y-4,'text-anchor':'middle','font-size':13,'font-weight':700,text:lines[0]},g);svgEl('text',{x,y:y+10,'text-anchor':'middle','font-size':9,fill:'#9aa5bd',text:(id==='STATINV'?'2.5 kVA 1ph 400Hz':id==='GS'?'AC GS 1-4 · DC GS':id==='TR2'?'28 V unreg · 300 A':id==='APUTR'?'300 A':'115→28 V · 300 A')},g);}
+   hit=r;}
+  g.addEventListener('click',()=>this.opts.onClick&&this.opts.onClick(id));
+  g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();this.opts.onClick&&this.opts.onClick(id);}});
+  g.addEventListener('mouseenter',()=>this.opts.onHover&&this.opts.onHover(id,g)); g.addEventListener('mouseleave',()=>this.opts.onHover&&this.opts.onHover(null));
+  this.nodes[id]=g;
+ }
+ update(S,st){
+  this.S=S;
+  const live=id=>{const b=S.bus[id];if(b)return !!b.live;if(S.srcOn[id]!==undefined)return !!S.srcOn[id]||(S.srcAvail[id]&&/^EXT|^VFG|^APU|^EMERGEN/.test(id)&&false);if(S.c[id]!==undefined)return !!S.c[id];return false;};
+  for(const id in this.nodes){const g=this.nodes[id];const b=S.bus[id];
+   let on=false, kind=(MODEL.comp[id]||{}).k;
+   if(b){on=!!b.live;kind=b.kind;if(b.src==='STATINV'||b.src==='EMERGEN'||/BAT/.test(b.src||''))kind='em';if(b.kind==='dc')kind='dc';}
+   else if(/^VFG|^EXT|^APU[AB]$|^EMERGEN/.test(id)) on=!!S.srcAvail[id];
+   else if(S.c[id]!==undefined){on=!!S.c[id];}
+   else if(S.srcOn[id]!==undefined) on=!!S.srcOn[id];
+   else if(/^BAT|^APUBAT/.test(id)) on=st.sw[{BAT1:'bat1',BAT2:'bat2',BATESS:'batEss',APUBAT:'batApu'}[id]]&&!st.faults[id];
+   g.classList.toggle('live',!!on); g.classList.remove('ac','dc','em'); g.classList.add(kind||'ac');
+   g.classList.toggle('fault',!!(st.faults[id]||(id==='EMERGEN'&&S.lights.emerGen.fault)||(/^VFG\d/.test(id)&&st.faults['DRIVE'+id[3]]&&st.sw['drive'+id[3]])));
+   g.classList.toggle('hidden',!!(this.hidden&&!this.hidden.has(id)));
+   if(g._blade){const [x,y]=L[id];g._blade.setAttribute('transform',S.c[id]?'':`rotate(-40 ${x} ${y-9})`);}
+   if(g._chg){const q=st.bat[id]||0;g._chg.setAttribute('width',Math.max(0,42*q));g._chg.setAttribute('fill',q<0.3?'var(--fault)':'var(--dc)');}
+   if(g._shed){g._shed.setAttribute('opacity',b&&b.shed?1:0);}
+   if(g._rot){g._rot.style.animation=on?'spin 1.2s linear infinite':'none';}
+   g.classList.toggle('traced',!!(this.trace&&this.trace.includes(id)));
+   g.classList.toggle('sel',this.sel===id);
+  }
+  this.wires.forEach(w=>{let on=false;const [t,ref]=w.on.split(':');
+   if(t==='src')on=!!S.srcAvail[ref];else if(t==='ct')on=!!S.c[ref];else if(t==='bus')on=!!(S.bus[ref]&&S.bus[ref].live);else if(t==='conv')on=!!S.srcOn[ref];else if(t==='bat')on=!!(st.sw[{BAT1:'bat1',BAT2:'bat2',BATESS:'batEss',APUBAT:'batApu'}[ref]]&&!st.faults[ref]);else if(t==='gnd')on=!!(S.bus.GS.live&&S.bus.GS.gnd);
+   if(t==='bus'&&ref==='GALLEY') on=!!(S.bus.GALLEY.live);
+   let kind=w.kind; if(t==='bus'&&S.bus[ref]&&(S.bus[ref].src==='STATINV'||S.bus[ref].src==='EMERGEN'||/BAT/.test(S.bus[ref].src||'')))kind='em';
+   if(t==='ct'&&/^ESSC|^EGLC|^EMERC|^B1ESS|^TRLCE/.test(ref))kind='em'; if(t==='ct'&&ref==='TRLCE')kind='dc';
+   const hid=this.hidden&&!(this.hidden.has(w.a)&&this.hidden.has(w.b));
+   w.el.setAttribute('class','wire'+(on?' '+kind:'')+(this.trace&&this.trace.includes(w.a)&&this.trace.includes(w.b)?' traced':''));
+   w.el.style.display=hid?'none':'';w.flow.style.display=hid?'none':'';
+   w.flow.setAttribute('opacity',on?0.9:0);
+   if(on){const speed=(kind==='em'?1.6:kind==='dc'?1.2:0.9)*(S.shed&&S.shed.galley?0.8:1);w.flow.style.animation=`dash ${(w.len/60/speed).toFixed(2)}s linear infinite`;}else w.flow.style.animation='none';
+  });
+ }
+ setTrace(path){this.trace=path;if(this.S)this.update(this.S,STATE);}
+ select(id){this.sel=id;if(this.S)this.update(this.S,STATE);}
+ setHidden(set){this.hidden=set;if(this.S)this.update(this.S,STATE);}
+ bindPanZoom(){
+  const svg=this.svg,self=this;let drag=null,pinch=null;const ptrs=new Map();
+  const apply=()=>svg.setAttribute('viewBox',`${self.vb.x} ${self.vb.y} ${self.vb.w} ${self.vb.h}`);
+  this.fit=()=>{self.vb={x:0,y:0,w:1400,h:820};apply();};
+  this.zoom=(f,cx,cy)=>{const v=self.vb;const r=svg.getBoundingClientRect();const px=cx===undefined?v.x+v.w/2:v.x+(cx-r.left)/r.width*v.w,py=cy===undefined?v.y+v.h/2:v.y+(cy-r.top)/r.height*v.h;v.w/=f;v.h/=f;v.x=px-(px-v.x)/f;v.y=py-(py-v.y)/f;apply();};
+  svg.addEventListener('wheel',e=>{e.preventDefault();self.zoom(e.deltaY<0?1.15:1/1.15,e.clientX,e.clientY);},{passive:false});
+  // NOTE: pointer capture is taken only once a drag really starts – capturing on pointerdown would steal the click from the nodes.
+  svg.addEventListener('pointerdown',e=>{ptrs.set(e.pointerId,e);if(ptrs.size===1)drag={x:e.clientX,y:e.clientY,vx:self.vb.x,vy:self.vb.y,cap:false};else if(ptrs.size===2){const [a,b]=[...ptrs.values()];pinch={d:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),w:self.vb.w,h:self.vb.h};drag=null;}});
+  svg.addEventListener('pointermove',e=>{if(!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,e);const r=svg.getBoundingClientRect();
+   if(pinch&&ptrs.size===2){const [a,b]=[...ptrs.values()];const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);const f=d/pinch.d;self.vb.w=pinch.w/f;self.vb.h=pinch.h/f;apply();}
+   else if(drag){if(!drag.cap&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>4){drag.cap=true;try{svg.setPointerCapture(e.pointerId);}catch(x){}}if(drag.cap){self.vb.x=drag.vx-(e.clientX-drag.x)*self.vb.w/r.width;self.vb.y=drag.vy-(e.clientY-drag.y)*self.vb.h/r.height;apply();}}});
+  const up=e=>{ptrs.delete(e.pointerId);if(ptrs.size<2)pinch=null;if(ptrs.size===0)drag=null;};
+  svg.addEventListener('pointerup',up);svg.addEventListener('pointercancel',up);
+  svg.addEventListener('keydown',e=>{const s=self.vb.w*0.05;if(e.key==='ArrowLeft'){self.vb.x-=s;apply();}else if(e.key==='ArrowRight'){self.vb.x+=s;apply();}else if(e.key==='ArrowUp'){self.vb.y-=s;apply();}else if(e.key==='ArrowDown'){self.vb.y+=s;apply();}else if(e.key==='+'){self.zoom(1.2);}else if(e.key==='-'){self.zoom(1/1.2);}else return;e.preventDefault();});
+  svg.setAttribute('tabindex','0');
+ }
+}
+function pathLen(p){let l=0;for(let i=1;i<p.length;i++)l+=Math.abs(p[i][0]-p[i-1][0])+Math.abs(p[i][1]-p[i-1][1]);return l;}
+function onInterior(p,pts){for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i];if(a[0]===b[0]&&p[0]===a[0]){const y1=Math.min(a[1],b[1]),y2=Math.max(a[1],b[1]);if(p[1]>y1&&p[1]<y2)return true;}if(a[1]===b[1]&&p[1]===a[1]){const x1=Math.min(a[0],b[0]),x2=Math.max(a[0],b[0]);if(p[0]>x1&&p[0]<x2)return true;}}return false;}
+const styleAnim=document.createElement('style');styleAnim.textContent='@keyframes dash{to{stroke-dashoffset:-25}}@keyframes spin{to{transform:rotate(360deg)}}.genc{transform-box:fill-box;transform-origin:center}.node path{transform-box:fill-box;transform-origin:center}';document.head.appendChild(styleAnim);
+
+/* =====================================================================================
+   UI — global state, panel, inspector, trace, scenarios, ECAM, build-up
+   ===================================================================================== */
+let STATE=newState(); let SOLVED=null; let SYN=null, SYN2=null; let UI={tab:'explore',hc:0,proj:0,buildup:-1,traceId:null,selId:null};
+function glossify(text){ // wrap acronyms with hover definitions
+ const keys=Object.keys(MODEL.glossary).sort((a,b)=>b.length-a.length);
+ let out=text.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+ keys.forEach(k=>{const re=new RegExp('(^|[^\\w/])('+k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')(?![\\w])','g');out=out.replace(re,(m,p,w)=>p+'<abbr class="gl" data-g="'+k+'">'+w+'</abbr>');});
+ return out;
+}
+document.addEventListener('mouseover',e=>{const a=e.target.closest&&e.target.closest('abbr.gl');const tip=$('glossTip');if(!a){tip.style.display='none';return;}tip.textContent=a.dataset.g+': '+MODEL.glossary[a.dataset.g];tip.style.display='block';const r=a.getBoundingClientRect();tip.style.left=Math.min(r.left,window.innerWidth-340)+'px';tip.style.top=(r.bottom+6)+'px';});
+
+function recompute(){ try{ SOLVED=solve(STATE); }catch(err){ showErr('Solver error: '+err.message); return; }
+ try{ if(SYN)SYN.update(SOLVED,STATE); if(SYN2)SYN2.update(SOLVED,STATE); renderPanel(); renderECAM(); if(UI.traceId)doTrace(UI.traceId,true); if(UI.selId)renderInspector(UI.selId); if(typeof faultTick==='function')faultTick(); if(typeof learnTick==='function')learnTick(); saveHash(); }catch(err){ showErr('Render error: '+err.message); console.error(err);} }
+function showErr(m){const b=$('errbar');b.textContent=m;b.style.display='block';console.error(m);}
+
+function renderPanel(){
+ ['pbrow','pbrow2'].forEach(rowId=>{const row=$(rowId);if(!row)return;
+  if(!row.children.length){PB.forEach(([id,name,legs])=>{const b=h('button',{class:'pb',id:rowId+'_'+id,'aria-label':name,'aria-pressed':'false'},row);h('span',{class:'nm',text:name},b);legs.forEach(k=>h('span',{class:'lg',text:k==='avail'?'AVAIL':k==='on'?'ON':k==='fault'?'FAULT':k==='red'?'FAULT':'OFF','data-k':k},b));h('span',{class:'lg',style:'background:#3a4358;color:#3a4358;height:6px'},b);
+   b.addEventListener('click',()=>{toggleSwitch(id);});});}
+  PB.forEach(([id,name,legs])=>{const b=$(rowId+'_'+id);const on=!!STATE.sw[id];b.classList.toggle('in',on);b.classList.toggle('out',!on);b.setAttribute('aria-pressed',on?'true':'false');
+   const li=SOLVED.lights[SWMAP[id]||id]||{};
+   b.querySelectorAll('.lg[data-k]').forEach(s=>{const k=s.dataset.k;let lit=false;
+    if(k==='fault')lit=!!li.fault;else if(k==='off')lit=!!li.off;else if(k==='avail')lit=!!li.avail;else if(k==='on')lit=id==='gnd'?!!STATE.sw.gnd:!!li.on;else if(k==='red')lit=!!li.fault;
+    s.className='lg'+(lit?' on-'+k:'');});
+   b.title=name+': '+(on?'pressed in':'released out')+(li.fault?' · FAULT':'')+(li.avail?' · AVAIL':'')+(li.on?' · ON':'');});
+ });
+ const env=$('envrow'); if(!env.children.length){
+  const mk=(lbl,get,set)=>{const b=h('button',{class:'tog small',text:lbl},env);b.addEventListener('click',()=>{set(!get());STATE.scen='FREE';$('scen').value='FREE';recompute();});b._get=get;return b;};
+  mk('FLIGHT',()=>STATE.env.flight,v=>STATE.env.flight=v?1:0);
+  [1,2,3,4].forEach(i=>mk('ENG '+i+' RUN',()=>STATE.env.eng[i-1],v=>STATE.env.eng[i-1]=v?1:0));
+  mk('APU RUN',()=>STATE.env.apu,v=>STATE.env.apu=v?1:0);
+  [1,2,3,4].forEach(i=>mk('GPU '+i+' plugged',()=>STATE.env.gpu[i-1],v=>STATE.env.gpu[i-1]=v?1:0));
+  mk('LOW AIRSPEED (landing)',()=>STATE.env.lowSpeed,v=>STATE.env.lowSpeed=v?1:0);
+  h('span',{class:'hint',text:'← environment (not cockpit controls)'},env);
+ }
+ [...env.children].forEach(b=>{if(b._get){b.classList.toggle('on',!!b._get());b.setAttribute('aria-pressed',b._get()?'true':'false');}});
+}
+function toggleSwitch(id){
+ // DRIVE: once released in flight it cannot be re-engaged (mechanical disconnect) – conservative assumption
+ if(/^drive/.test(id)&&!STATE.sw[id]&&STATE.env.flight){if(typeof logF==='function')logF('DRIVE '+id[5]+' cannot be reconnected in flight (mechanical disconnect).');flashMsg('DRIVE '+id[5]+' is mechanically disconnected – not reconnectable in flight (assumed).');return;}
+ STATE.sw[id]=STATE.sw[id]?0:1; STATE.scen='FREE'; $('scen').value='FREE';
+ if(typeof logF==='function') logF('Switch '+id.toUpperCase()+' → '+(STATE.sw[id]?'IN':'OUT'));
+ // GEN pressed in after a fault: if the fault was cleared (LRU replaced) the FAULT resets
+ recompute();
+}
+function flashMsg(m){const b=$('errbar');b.textContent=m;b.style.display='block';clearTimeout(flashMsg.t);flashMsg.t=setTimeout(()=>b.style.display='none',2500);}
+function applyScenario(key){
+ const sc=MODEL.scenarios[key]; STATE.scen=key; if(!sc||!sc.env){recompute();return;}
+ STATE.sw={...DEFAULT_SW,...sc.sw}; STATE.env=JSON.parse(JSON.stringify({...DEFAULT_ENV,...sc.env})); STATE.faults={}; (sc.faults||[]).forEach(f=>STATE.faults[f]=1); STATE.bat={BAT1:1,BAT2:1,BATESS:1,APUBAT:1};
+ UI.traceId=null; $('traceCard').innerHTML='<h3>Signal trace</h3><div class="small"><strong>Talking point:</strong> '+glossify(sc.talk)+'</div><div class="muted small">Click a bus or load to trace its supply path.</div>';
+ recompute();
+}
+function renderInspector(id){
+ UI.selId=id; const c=MODEL.comp[id]||{n:id}; const S=SOLVED; const box=$('inspector'); const rd=nodeReading(S,id,STATE);
+ const ins=W.filter(w=>w.b===id).map(w=>MODEL.comp[w.a]?MODEL.comp[w.a].n:w.a), outs=W.filter(w=>w.a===id).map(w=>MODEL.comp[w.b]?MODEL.comp[w.b].n:w.b);
+ let stateTxt='';const b=S.bus[id];
+ if(b) stateTxt=b.live?'LIVE – supplied by '+(MODEL.comp[b.src]?MODEL.comp[b.src].n:b.src)+(b.nbpt?' (NBPT – battery holding)':'')+(b.unreg?' (unregulated)':'')+(b.shed?' – SHED by ELM':''):'DE-ENERGISED';
+ else if(S.c[id]!==undefined) stateTxt=S.c[id]?'CLOSED':'OPEN';
+ else if(S.srcOn[id]!==undefined) stateTxt=(S.srcAvail[id]?'available':'not available')+' · '+(S.srcOn[id]?'connected':'not connected');
+ else if(/^BAT|^APUBAT/.test(id)) stateTxt=(SOLVED.batState[id]||'')+' · charge '+Math.round((STATE.bat[id]||0)*100)+'% (assumed)';
+ if(STATE.faults[id]) stateTxt+=' · FAULT INJECTED';
+ box.innerHTML='<h3>'+glossify(c.n)+'</h3><div class="small"><span class="muted">Type:</span> '+(c.t||'')+'</div>'+
+  (c.r?'<div class="small"><span class="muted">Ratings (specified):</span> '+glossify(c.r)+'</div>':'')+
+  '<div class="small"><span class="muted">Function:</span> '+glossify(c.f||'')+'</div>'+
+  '<div class="small"><span class="muted">State:</span> <strong>'+stateTxt+'</strong> · '+rd.txt+'</div>'+
+  (ins.length||outs.length?'<div class="small"><span class="muted">Inputs:</span> '+(ins.join(', ')||'—')+' · <span class="muted">Outputs:</span> '+(outs.join(', ')||'—')+'</div>':'')+
+  (c.q?'<div class="small assumed">Notes: '+c.q+'</div>':'')+(c.fail?'<div class="small"><span class="muted">What if it fails:</span> '+glossify(c.fail)+'</div>':'')+
+  (STATE.faults[id]?'':'<button class="small" style="margin-top:6px" onclick="injectFault(\''+id+'\',true)">Inject fault here</button>');
+ if(SYN)SYN.select(id); if(SYN2)SYN2.select(id);
+}
+function doTrace(id,silent){
+ const b=SOLVED.bus[id]; if(!b){return false;} UI.traceId=id; const card=$('traceCard');
+ if(!b.live){card.innerHTML='<h3>Signal trace: '+MODEL.comp[id].n+'</h3><div class="warn">De-energised – no supply path.</div>';SYN.setTrace([id]);if(SYN2)SYN2.setTrace([id]);return true;}
+ const names=b.path.map((p,i)=>'<li>'+glossify(MODEL.comp[p]?MODEL.comp[p].n:p)+'</li>').join('');
+ card.innerHTML='<h3>Signal trace: '+MODEL.comp[id].n+'</h3><div class="small">Source → load:</div><ol class="tight small">'+names+'</ol><div class="small muted">'+nodeReading(SOLVED,id,STATE).txt+'</div>';
+ SYN.setTrace(b.path); if(SYN2)SYN2.setTrace(b.path); if(!silent&&typeof learnTick==='function')learnTick(); return true;
+}
+function renderECAM(){
+ const S=SOLVED,st=STATE; const pct=(id)=>{ if(!S.srcOn[id])return ' --';const n=S.flags.totalSources||1;return String(Math.min(99,Math.round(60/n+(S.shed.galley?0:15)))).padStart(3)+'%'; };
+ const alloc=id=>Object.keys(S.bus).filter(b=>/^ACBUS/.test(b)&&S.bus[b].src===id).map(b=>b.slice(-1)).join('');
+ let a='<span class="muted">ELEC AC              LOAD  VOLT   FREQ  BUS</span>\n';
+ [1,2,3,4].forEach(i=>{const id='VFG'+i,on=S.srcAvail[id];a+=(S.srcOn[id]?'<span class="g">':st.faults[id]?'<span class="r">':'<span class="muted">')+('GEN '+i).padEnd(20)+pct(id)+(on?'  115 V  VF Hz':'  --- V  --- Hz')+'  '+(alloc(id)||'-')+'</span>\n';});
+ ['A','B'].forEach(k=>{const id='APU'+k,on=S.srcAvail[id];a+=(S.srcOn[id]?'<span class="g">':'<span class="muted">')+('APU GEN '+k).padEnd(20)+pct(id)+(on?'  115 V  400 Hz':'  --- V  --- Hz')+'  '+(alloc(id)||'-')+'</span>\n';});
+ [1,2,3,4].forEach(i=>{const id='EXT'+i;if(S.srcAvail[id])a+=(S.srcOn[id]?'<span class="a">':'<span class="muted">')+('EXT '+i+(S.srcOn[id]?' ON':' AVAIL')).padEnd(24)+'  115 V  400 Hz  '+(alloc(id)||'-')+'</span>\n';});
+ if(S.flags.ratExt)a+=(S.srcOn.EMERGEN?'<span class="g">':'<span class="r">')+'EMER GEN'.padEnd(24)+(S.srcOn.EMERGEN?'  115 V  VF Hz   ESS':'  FAULT')+'</span>\n';
+ if(S.statInv)a+='<span class="g">'+'STAT INV'.padEnd(24)+(st.env.flight?'  115 V  400 Hz  EMER':'  --- V  --- Hz  EMER')+'</span>\n';
+ a+='<span class="muted">AC BUS  1:'+(S.bus.ACBUS1.live?'ON ':'OFF')+' 2:'+(S.bus.ACBUS2.live?'ON ':'OFF')+' 3:'+(S.bus.ACBUS3.live?'ON ':'OFF')+' 4:'+(S.bus.ACBUS4.live?'ON ':'OFF')+'  ESS:'+(S.bus.ACESS.live?'ON':'OFF')+' EMER:'+(S.bus.ACEMER.live?'ON':'OFF')+'</span>'+(S.shed.galley&&S.anyMain?'\n<span class="a">GALLEY SHED</span>':'')+'\n<span class="muted">(LOAD % illustrative – assumed)</span>';
+ let d='<span class="muted">ELEC DC        VOLT   AMP   STATUS</span>\n';
+ [['BAT1','BAT 1'],['BAT2','BAT 2'],['BATESS','BAT ESS'],['APUBAT','BAT APU']].forEach(([id,n])=>{const s=S.batState[id];const v=st.faults[id]?'24.0':(s==='DIS'?'25.6':'27.2');const i=s==='CHG'?' +12 ':s==='DIS'?' -40 ':'   0 ';d+=(s==='OFF'?'<span class="muted">':st.faults[id]?'<span class="r">':'<span class="g">')+n.padEnd(14)+(s==='OFF'?'  OFF':'  '+v+' V'+i+'A  '+(s==='CHG'?'CHARGING':s==='DIS'?'DISCHARGING':'—'))+'</span>\n';});
+ const src=b=>b.live?(MODEL.comp[b.src]?MODEL.comp[b.src].n.replace(/ \(.*/,''):b.src)+(b.unreg?' (unreg)':''):'OFF';
+ d+='<span class="muted">DC BUS 1: </span>'+src(S.bus.DCBUS1)+'\n<span class="muted">DC BUS 2: </span>'+src(S.bus.DCBUS2)+'\n<span class="muted">DC ESS  : </span>'+src(S.bus.DCESS)+'\n<span class="muted">APU START:</span> '+src(S.bus.APUSTART)+'\n<span class="muted">(battery V/A values illustrative – specified: 24 V nominal, > 25 V charged, FAULT ≤ 25 V)</span>';
+ const w=S.warn.length?'<div class="warn">'+S.warn.map(x=>'⚠ '+x).join('<br>')+'</div><div class="hint">captions: assumed wording</div>':'<div class="muted small">No ECAM warnings.</div>';
+ ['ecamAC','ecamAC2'].forEach(i=>{if($(i))$(i).innerHTML=a;}); ['ecamDC','ecamDC2'].forEach(i=>{if($(i))$(i).innerHTML=d;}); ['warnings','warnings2'].forEach(i=>{if($(i))$(i).innerHTML=w;});
+}
+function setBuildup(k){
+ UI.buildup=k; const keys=MODEL.buildup; const set=new Set(); if(k>=0){for(let i=0;i<=k&&i<keys.length;i++)(REVEAL[keys[i][0]]||[]).forEach(x=>set.add(x));}
+ SYN.setHidden(k>=0?set:null); $('buildupCtl').hidden=k<0; $('btnBuildUp').classList.toggle('on',k>=0); $('btnBuildUp').setAttribute('aria-pressed',k>=0?'true':'false');
+ if(k>=0){$('buLabel').textContent=(k+1)+'/'+keys.length;$('traceCard').innerHTML='<h3>Build-up step '+(k+1)+'</h3><div class="small">'+glossify(keys[k][1])+'</div><div class="hint">Ask the class: what will the next component add?</div>';}
+}
+</script>
+<script>
+/* =====================================================================================
+   BUILD — Diode/Falstad-style constructor with the aircraft palette and a connectivity solver.
+   ===================================================================================== */
+const BT={ // type → {n,w,h,ports:[[dx,dy,dir]], kind:'srcac'|'srcdc'|'ct'|'bus'|'conv'|'inv'|'load', sub}
+ VFG:{n:'VFG',w:80,h:40,ports:[[40,0]],kind:'srcac',lbl:'150 kVA VF',hz:'VF'},APUGEN:{n:'APU GEN',w:80,h:40,ports:[[40,0]],kind:'srcac',lbl:'120 kVA 400 Hz',hz:'400'},EXTPWR:{n:'EXT PWR',w:80,h:40,ports:[[40,0]],kind:'srcac',lbl:'90 kVA 400 Hz',hz:'400'},EMERGEN:{n:'EMER GEN',w:80,h:40,ports:[[40,0]],kind:'srcac',lbl:'70 kVA VF',hz:'VF'},
+ CT:{n:'Contactor',w:50,h:30,ports:[[-25,0],[25,0]],kind:'ct'},CB:{n:'C/B',w:50,h:30,ports:[[-25,0],[25,0]],kind:'ct',cb:1},SW:{n:'Switch',w:50,h:30,ports:[[-25,0],[25,0]],kind:'ct'},
+ ACBUS:{n:'AC BUS',w:200,h:14,ports:[[-70,-7],[0,-7],[70,-7],[-70,7],[0,7],[70,7]],kind:'bus',ac:1},ACESS:{n:'AC ESS BUS',w:160,h:14,ports:[[-50,-7],[0,-7],[50,-7],[-50,7],[0,7],[50,7]],kind:'bus',ac:1},
+ BCRU:{n:'BCRU',w:80,h:40,ports:[[-40,0],[40,0]],kind:'conv',lbl:'115→28 V 300 A'},TR:{n:'TR',w:80,h:40,ports:[[-40,0],[40,0]],kind:'conv',lbl:'28 V unreg 300 A'},STATINV:{n:'STAT INV',w:80,h:40,ports:[[-40,0],[40,0]],kind:'inv',lbl:'2.5 kVA 1 ph'},
+ BAT:{n:'BAT',w:60,h:40,ports:[[0,-20]],kind:'srcdc',lbl:'50 Ah'},DCBUS:{n:'DC BUS',w:160,h:14,ports:[[-50,-7],[0,-7],[50,-7],[-50,7],[0,7],[50,7]],kind:'bus'},DCESS:{n:'DC ESS BUS',w:160,h:14,ports:[[-50,-7],[0,-7],[50,-7],[-50,7],[0,7],[50,7]],kind:'bus'},
+ LOAD:{n:'Load',w:70,h:32,ports:[[0,-16]],kind:'load'},GGPCU:{n:'GGPCU',w:70,h:32,ports:[],kind:'ctrl',lbl:'controller'}
+};
+const STARTERS={
+ s1:{n:'B1: VFG 1 → GLC 1 → AC BUS 1 → galley',comps:[['VFG',100,120,{name:'VFG 1'}],['CT',240,120,{name:'GLC 1',on:1}],['ACBUS',460,200,{name:'AC BUS 1'}],['LOAD',460,320,{name:'GALLEY'}]],wires:[[0,0,1,0],[1,1,2,0],[2,4,3,0]]},
+ s2:{n:'B2: AC BUS 2 → BCRU 1 → DC BUS 1 ∥ BAT 1',comps:[['VFG',100,80,{name:'VFG 2'}],['CT',240,80,{name:'GLC 2',on:1}],['ACBUS',460,140,{name:'AC BUS 2'}],['BCRU',460,260,{name:'BCRU 1'}],['CT',620,260,{name:'TRLC 1',on:1}],['DCBUS',760,360,{name:'DC BUS 1'}],['BAT',680,460,{name:'BAT 1'}],['CT',760,440,{name:'BATLC 1',on:1}],['LOAD',860,460,{name:'DC loads'}]],wires:[[0,0,1,0],[1,1,2,0],[2,4,3,0],[3,1,4,0],[4,1,5,0],[5,3,7,1],[7,0,6,0],[5,5,8,0]]},
+ s3:{n:'B3: APU starting bus – APU TR or APU BAT (never both)',comps:[['ACBUS',300,80,{name:'AC BUS 4'}],['TR',300,200,{name:'APU TR'}],['CT',460,200,{name:'APU TR CT',on:1}],['DCBUS',620,300,{name:'APU START BUS'}],['BAT',500,420,{name:'APU BAT'}],['CT',560,380,{name:'APU BAT CT',on:0}],['LOAD',700,420,{name:'APU starter'}]],wires:[[0,4,1,0],[1,1,2,0],[2,1,3,0],[3,3,5,1],[5,0,4,0],[3,5,6,0]]}
+};
+const TARGETS={
+ t1:{n:'DC ESS BUS supply path',checks:[
+  ['An AC source (VFG / APU GEN / EXT PWR) is present',B=>B.comps.some(c=>BT[c.type].kind==='srcac')],
+  ['A contactor sits between the source and an AC BUS',B=>B.comps.some(c=>c.type==='ACBUS'&&bFedVia(B,c,'ct','srcac'))],
+  ['AC BUS is energised',B=>B.comps.some(c=>c.type==='ACBUS'&&B.net[c.id+':0'].ac)],
+  ['AC ESS BUS is energised from the AC BUS',B=>B.comps.some(c=>c.type==='ACESS'&&B.net[c.id+':0'].ac)],
+  ['A BCRU input is on the AC ESS BUS',B=>B.comps.some(c=>c.type==='BCRU'&&bSameNet(B,c,0,'ACESS'))],
+  ['DC ESS BUS is energised by the BCRU (28 V DC)',B=>B.comps.some(c=>c.type==='DCESS'&&B.net[c.id+':0'].dc&&B.comps.some(k=>k.type==='BCRU'&&bSameNet(B,k,1,'DCESS')))],
+  ['BAT ESS is connected in parallel on the DC ESS BUS',B=>B.comps.some(c=>c.type==='BAT'&&bSameNet(B,c,0,'DCESS'))],
+  ['A load is supplied from the DC ESS BUS',B=>B.comps.some(c=>c.type==='LOAD'&&bSameNet(B,c,0,'DCESS')&&B.net[c.id+':0'].dc)]]},
+ t2:{n:'VFG → GLC → AC BUS → load',checks:[
+  ['VFG present',B=>B.comps.some(c=>c.type==='VFG')],['Contactor between VFG and AC BUS',B=>B.comps.some(c=>c.type==='ACBUS'&&bFedVia(B,c,'ct','srcac'))],['AC BUS energised',B=>B.comps.some(c=>c.type==='ACBUS'&&B.net[c.id+':0'].ac)],['Load supplied from AC BUS (115 V AC)',B=>B.comps.some(c=>c.type==='LOAD'&&bSameNet(B,c,0,'ACBUS')&&B.net[c.id+':0'].ac)]]},
+ t3:{n:'APU starting bus (TR or BAT, never both)',checks:[
+  ['TR fed from an AC BUS',B=>B.comps.some(c=>c.type==='TR'&&bSameNet(B,c,0,'ACBUS'))],['TR output on a DC BUS via a contactor',B=>B.comps.some(c=>c.type==='DCBUS'&&bFedVia(B,c,'ct','conv'))],['BAT on the same DC BUS via a contactor',B=>B.comps.some(c=>c.type==='DCBUS'&&bFedVia(B,c,'ct','srcdc'))],['Exactly one of the two contactors closed (no paralleling)',B=>{const bus=B.comps.find(c=>c.type==='DCBUS');if(!bus)return false;const g=bNetGroup(B,bus.id+':0');const srcs=new Set();B.comps.forEach(c=>{if((BT[c.type].kind==='conv'&&g.has(B.pn(c.id,1)))||(BT[c.type].kind==='srcdc'&&g.has(B.pn(c.id,0))))srcs.add(c.id);});return srcs.size===1;}],['DC BUS energised',B=>B.comps.some(c=>c.type==='DCBUS'&&B.net[c.id+':0'].dc)]]}
+};
+// ---- helpers used by target checks: bSameNet(comp port, type on same net); bFedVia(bus, via kind, from kind)
+function bNetGroup(B,pn){return B.groups[B.net[pn].id]||new Set([pn]);}
+function bSameNet(B,c,p,type){const g=bNetGroup(B,B.pn(c.id,p));return B.comps.some(k=>k.type===type&&k!==c&&BT[k.type].ports.some((_,i)=>g.has(B.pn(k.id,i))));}
+// "fed via" uses the OPEN topology (contactors treated as boundaries) so it works whether the contactor is closed or not
+function bFedVia(B,bus,viaKind,fromKind){const og=pn=>B.ogroups[B.onet[pn]]||new Set([pn]);const g=og(B.pn(bus.id,0));
+ return B.comps.some(ct=>BT[ct.type].kind===viaKind&&[0,1].some(i=>g.has(B.pn(ct.id,i)))&&[0,1].some(j=>{const g2=og(B.pn(ct.id,j));return !g2.has(B.pn(bus.id,0))&&B.comps.some(s=>BT[s.type].kind===fromKind&&BT[s.type].ports.some((_,k)=>g2.has(B.pn(s.id,k))&&(fromKind!=='conv'||k===1)));}));}
+
+class Builder{
+ constructor(wrap){
+  this.wrap=wrap; this.comps=[]; this.wires=[]; this.sel=null; this.selWire=null; this.placing=null; this.wireFrom=null; this.undo=[]; this.redo=[]; this.running=true; this.speed=1; this.nid=1; this.probeA=null; this.probeB=null; this.pickB=false; this.t=0;
+  const svg=svgEl('svg',{class:'bsvg',viewBox:'0 0 1000 600','aria-label':'Build canvas'},wrap); this.svg=svg;
+  const defs=svgEl('defs',{},svg); defs.innerHTML='<pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#243050" stroke-width="1"/></pattern>';
+  svgEl('rect',{width:1000,height:600,fill:'url(#grid)'},svg).addEventListener('click',e=>this.canvasClick(e));
+  this.gw=svgEl('g',{},svg); this.gc=svgEl('g',{},svg); this.tmp=svgEl('path',{class:'bwire',d:'','stroke-dasharray':'4 4'},svg);
+  svg.addEventListener('pointermove',e=>this.onMove(e)); svg.addEventListener('pointerup',e=>this.onUp(e));
+  svg.setAttribute('tabindex','0'); svg.addEventListener('keydown',e=>this.onKey(e));
+  this.buildPalette();
+ }
+ pt(e){const r=this.svg.getBoundingClientRect();return {x:(e.clientX-r.left)/r.width*1000,y:(e.clientY-r.top)/r.height*600};}
+ snap(v){return Math.round(v/20)*20;}
+ buildPalette(){const pal=$('palette');for(const t in BT){const b=h('button',{text:BT[t].n+(BT[t].lbl?' · '+BT[t].lbl:''),title:'Place '+BT[t].n},pal);b.addEventListener('click',()=>{this.placing=t;$('bHint').textContent='Click on the grid to place '+BT[t].n+' (Esc to cancel).';this.svg.focus();});}
+  const sel=$('bStarter');for(const k in STARTERS)h('option',{value:k,text:STARTERS[k].n},sel);sel.addEventListener('change',()=>{if(sel.value){this.load(STARTERS[sel.value]);}});
+  const tg=$('bTarget');for(const k in TARGETS)h('option',{value:k,text:TARGETS[k].n},tg);
+  $('bRun').addEventListener('click',()=>{this.running=!this.running;$('bRun').textContent=this.running?'⏸ Pause':'▶ Run';this.render();});
+  $('bStep').addEventListener('click',()=>{this.t+=0.0005;this.render();});
+  $('bReset').addEventListener('click',()=>{this.comps.forEach(c=>{if(BT[c.type].kind==='ct')c.on=c.type==='CB'?1:0;});this.t=0;this.render();});
+  $('bSpeed').addEventListener('input',e=>{this.speed=+e.target.value;this.render();});
+  $('bUndo').addEventListener('click',()=>this.doUndo());$('bRedo').addEventListener('click',()=>this.doRedo());
+  $('bRot').addEventListener('click',()=>{if(this.sel){this.snapshot();this.sel.rot=(this.sel.rot+1)%4;this.render();}});
+  $('bDup').addEventListener('click',()=>{if(this.sel){this.snapshot();const c=JSON.parse(JSON.stringify(this.sel));c.id='c'+(this.nid++);c.x+=40;c.y+=40;this.comps.push(c);this.sel=c;this.render();}});
+  $('bDel').addEventListener('click',()=>this.deleteSel());
+  $('bAll').addEventListener('click',()=>{this.multi=this.comps.slice();this.sel=this.comps[0]||null;this.render();$('bHint').textContent='All selected: use arrow keys to move everything.';});
+  $('bClear').addEventListener('click',()=>{this.snapshot();this.comps=[];this.wires=[];this.sel=null;this.render();});
+  $('bCheck').addEventListener('click',()=>this.check());
+  $('bExport').addEventListener('click',()=>{$('bJson').value=JSON.stringify(this.toJSON());});
+  $('bImport').addEventListener('click',()=>{try{this.fromJSON(JSON.parse($('bJson').value));}catch(e){flashMsg('Invalid JSON: '+e.message);}});
+  $('bCopy').addEventListener('click',()=>{$('bJson').value=JSON.stringify(this.toJSON());$('bJson').select();try{navigator.clipboard.writeText($('bJson').value);}catch(e){}flashMsg('Design JSON copied / shown in the box.');});
+  $('bLink').addEventListener('click',()=>{saveHash(true);$('bJson').value=location.href;flashMsg('Share link placed in the JSON box (URL hash holds the design).');});
+  $('bProbeB').addEventListener('click',()=>{this.pickB=true;$('bHint').textContent='Click a wire for CH2.';});
+  $('scT').addEventListener('change',()=>this.drawScope());$('scV').addEventListener('change',()=>this.drawScope());
+ }
+ snapshot(){this.undo.push(JSON.stringify(this.toJSON()));if(this.undo.length>50)this.undo.shift();this.redo=[];}
+ doUndo(){if(!this.undo.length)return;this.redo.push(JSON.stringify(this.toJSON()));this.fromJSON(JSON.parse(this.undo.pop()),true);}
+ doRedo(){if(!this.redo.length)return;this.undo.push(JSON.stringify(this.toJSON()));this.fromJSON(JSON.parse(this.redo.pop()),true);}
+ toJSON(){return {v:1,comps:this.comps.map(c=>({id:c.id,type:c.type,x:c.x,y:c.y,rot:c.rot,on:c.on,name:c.name})),wires:this.wires.map(w=>[w.a.c,w.a.p,w.b.c,w.b.p])};}
+ fromJSON(j,keepStack){if(!keepStack)this.snapshot();this.comps=(j.comps||[]).map(c=>({...c}));this.wires=(j.wires||[]).map(w=>({a:{c:w[0],p:w[1]},b:{c:w[2],p:w[3]}}));this.nid=this.comps.length+1;this.comps.forEach(c=>{const n=parseInt(String(c.id).slice(1));if(n>=this.nid)this.nid=n+1;});this.sel=null;this.render();}
+ load(s){this.snapshot();this.comps=s.comps.map((c,i)=>({id:'c'+(i+1),type:c[0],x:c[1],y:c[2],rot:0,on:c[3].on||0,name:c[3].name}));this.wires=s.wires.map(w=>({a:{c:'c'+(w[0]+1),p:w[1]},b:{c:'c'+(w[2]+1),p:w[3]}}));this.nid=this.comps.length+1;this.sel=null;this.render();$('bCheckOut').textContent='Starter loaded – Run, probe, modify, then Check.';}
+ portPos(c,i){const t=BT[c.type];const [dx,dy]=t.ports[i];const r=c.rot||0;const rx=[dx,-dy,-dx,dy][r],ry=[dy,dx,-dy,-dx][r];return {x:c.x+rx,y:c.y+ry};}
+ addComp(type,x,y){this.snapshot();const c={id:'c'+(this.nid++),type,x:this.snap(x),y:this.snap(y),rot:0,on:type==='CB'?1:0,name:BT[type].n};this.comps.push(c);this.sel=c;this.render();return c;}
+ canvasClick(e){const p=this.pt(e);if(this.placing){this.addComp(this.placing,p.x,p.y);this.placing=null;$('bHint').textContent='Placed. Click ports to wire; click a component to select.';}else{this.sel=null;this.selWire=null;this.wireFrom=null;this.tmp.setAttribute('d','');this.render();}}
+ deleteSel(){if(this.selWire!=null){this.snapshot();this.wires.splice(this.selWire,1);this.selWire=null;this.render();return;}if(this.sel){this.snapshot();const id=this.sel.id;this.comps=this.comps.filter(c=>c!==this.sel);this.wires=this.wires.filter(w=>w.a.c!==id&&w.b.c!==id);this.sel=null;this.render();}}
+ onKey(e){const k=e.key;if(k==='Escape'){this.placing=null;this.wireFrom=null;this.tmp.setAttribute('d','');return;}
+  if(k==='Delete'||k==='Backspace'){this.deleteSel();e.preventDefault();return;}
+  if((e.ctrlKey||e.metaKey)&&k.toLowerCase()==='z'){e.shiftKey?this.doRedo():this.doUndo();e.preventDefault();return;}
+  if((e.ctrlKey||e.metaKey)&&k.toLowerCase()==='y'){this.doRedo();e.preventDefault();return;}
+  if(k.startsWith('Arrow')&&this.sel){const d={ArrowLeft:[-20,0],ArrowRight:[20,0],ArrowUp:[0,-20],ArrowDown:[0,20]}[k];const set=this.multi||[this.sel];set.forEach(c=>{c.x+=d[0];c.y+=d[1];});this.render();e.preventDefault();}
+  if(k==='r'&&this.sel){this.sel.rot=(this.sel.rot+1)%4;this.render();}
+  if(k===' '&&this.sel&&BT[this.sel.type].kind==='ct'){this.sel.on=this.sel.on?0:1;this.render();e.preventDefault();}
+ }
+ onMove(e){if(this.drag){const p=this.pt(e);const dx=p.x-this.drag.x,dy=p.y-this.drag.y;if(Math.hypot(dx,dy)>4)this.drag.moved=true;if(this.drag.moved){this.drag.c.x=this.snap(this.drag.ox+dx);this.drag.c.y=this.snap(this.drag.oy+dy);this.render();}}
+  else if(this.wireFrom){const p=this.pt(e);const a=this.portPos(this.wireFrom.c,this.wireFrom.p);this.tmp.setAttribute('d',`M${a.x} ${a.y}L${p.x} ${p.y}`);}}
+ onUp(e){if(this.drag){if(this.drag.moved){this.undo.push(this.drag.snap);this.redo=[];}else{this.clickComp(this.drag.c);}this.drag=null;}}
+ clickComp(c){this.multi=null;this.selWire=null;if(BT[c.type].kind==='ct'){this.snapshot();c.on=c.on?0:1;}this.sel=c;this.render();}
+ clickPort(c,i,e){e.stopPropagation();if(this.pickB){this.pickB=false;}
+  if(!this.wireFrom){this.wireFrom={c,p:i};$('bHint').textContent='Now click the destination port (Esc to cancel).';this.render();return;}
+  if(this.wireFrom.c===c&&this.wireFrom.p===i){this.wireFrom=null;this.tmp.setAttribute('d','');this.render();return;}
+  this.snapshot();this.wires.push({a:{c:this.wireFrom.c.id,p:this.wireFrom.p},b:{c:c.id,p:i}});this.wireFrom=null;this.tmp.setAttribute('d','');$('bHint').textContent='Wired.';this.render();}
+ // ---- solver: union-find nets; energise by sources & converters
+ solve(){
+  const parent={};const find=x=>{while(parent[x]!==x){parent[x]=parent[parent[x]];x=parent[x];}return x;};const uni=(a,b)=>{a=find(a);b=find(b);if(a!==b)parent[a]=b;};
+  const byId={};this.comps.forEach(c=>{byId[c.id]=c;BT[c.type].ports.forEach((_,i)=>{parent[c.id+':'+i]=c.id+':'+i;});});
+  this.wires=this.wires.filter(w=>byId[w.a.c]&&byId[w.b.c]);
+  this.wires.forEach(w=>uni(w.a.c+':'+w.a.p,w.b.c+':'+w.b.p));
+  this.comps.forEach(c=>{const t=BT[c.type];if(t.kind==='bus')t.ports.forEach((_,i)=>uni(c.id+':0',c.id+':'+i));});
+  const onet={},ogroups={};for(const p in parent){const r=find(p);onet[p]=r;(ogroups[r]=ogroups[r]||new Set()).add(p);} // open topology (before closing contactors)
+  this.comps.forEach(c=>{const t=BT[c.type];if(t.kind==='ct'&&c.on)uni(c.id+':0',c.id+':1');});
+  const net={};const groups={};for(const p in parent){const r=find(p);net[p]={id:r,ac:0,dc:0,hz:null,srcs:[],loads:0};(groups[r]=groups[r]||new Set()).add(p);}
+  const N={};for(const p in net){N[net[p].id]=N[net[p].id]||{ac:0,dc:0,hz:null,srcs:[],loads:0,conflict:0};}
+  const mark=(p,kind,hz,src)=>{const n=N[net[p].id];if(kind==='ac'){n.ac=1;if(!n.hz)n.hz=hz;}else n.dc=1;n.srcs.push(src);};
+  this.comps.forEach(c=>{const t=BT[c.type];if(t.kind==='srcac')mark(c.id+':0','ac',t.hz,c.name);if(t.kind==='srcdc')mark(c.id+':0','dc','—',c.name);if(t.kind==='load')N[net[c.id+':0'].id].loads++;});
+  for(let it=0;it<6;it++){this.comps.forEach(c=>{const t=BT[c.type];if(t.kind==='conv'){const i=N[net[c.id+':0'].id];if(i.ac&&!N[net[c.id+':1'].id].srcs.includes(c.name))mark(c.id+':1','dc',null,c.name);}if(t.kind==='inv'){const i=N[net[c.id+':0'].id];if(i.dc&&!N[net[c.id+':1'].id].srcs.includes(c.name))mark(c.id+':1','ac','400',c.name);}});}
+  for(const k in N){const n=N[k];n.conflict=(n.ac&&n.dc)||n.srcs.filter(s=>s!==undefined).length>1&&n.ac?1:0;}
+  for(const p in net){const n=N[net[p].id];Object.assign(net[p],{ac:n.ac,dc:n.dc,hz:n.hz,loads:n.loads,conflict:n.conflict,srcs:n.srcs});}
+  return {comps:this.comps,wires:this.wires,net,groups,onet,ogroups,N,pn:(id,i)=>id+':'+i};
+ }
+ render(){
+  let B;try{B=this.solve();}catch(err){showErr('Build solver: '+err.message);return;}this.B=B;
+  const gc=this.gc,gw=this.gw;gc.innerHTML='';gw.innerHTML='';
+  this.wires.forEach((w,idx)=>{const ca=this.comps.find(c=>c.id===w.a.c),cb=this.comps.find(c=>c.id===w.b.c);if(!ca||!cb)return;const a=this.portPos(ca,w.a.p),b=this.portPos(cb,w.b.p);const mx=(a.x+b.x)/2;const d=a.y===b.y?`M${a.x} ${a.y}L${b.x} ${b.y}`:`M${a.x} ${a.y}L${mx} ${a.y}L${mx} ${b.y}L${b.x} ${b.y}`;
+   const n=B.net[w.a.c+':'+w.a.p];const live=n.ac||n.dc;const p=svgEl('path',{class:'bwire'+(n.conflict?' ':live?(n.ac?' ac':' dc'):'')+(this.selWire===idx?' sel':''),d,stroke:n.conflict?'var(--fault)':null},gw);
+   if(n.conflict)p.setAttribute('stroke','var(--fault)');
+   p.style.cursor='pointer';p.addEventListener('click',e=>{e.stopPropagation();if(this.pickB){this.probeB={w:idx};this.pickB=false;}else{this.probeA={w:idx};}this.selWire=idx;this.sel=null;this.render();});
+   if(live&&this.running){const f=svgEl('path',{d,fill:'none',stroke:'#fff','stroke-width':3,'stroke-dasharray':'3 18','stroke-linecap':'round',opacity:.9},gw);const len=pathLen(a.y===b.y?[[a.x,a.y],[b.x,b.y]]:[[a.x,a.y],[mx,a.y],[mx,b.y],[b.x,b.y]]);f.style.animation=`dash ${(len/80/Math.max(0.05,this.speed)).toFixed(2)}s linear infinite`;}
+   // junction dots at ports with >1 wire
+  });
+  this.comps.forEach(c=>{const t=BT[c.type];const g=svgEl('g',{class:'bcomp'+(this.sel===c||(this.multi&&this.multi.includes(c))?' sel':''),transform:`translate(${c.x} ${c.y}) rotate(${(c.rot||0)*90})`,tabindex:0,role:'button','aria-label':c.name},gc);
+   const n0=B.net[c.id+':0'];const live=n0&&(n0.ac||n0.dc);const isBus=t.kind==='bus';
+   const r=svgEl('rect',{class:'body',x:-t.w/2,y:-t.h/2,width:t.w,height:t.h},g);
+   if(isBus){r.setAttribute('fill',live?(n0.ac?'var(--ac)':'var(--dc)'):'var(--dead)');r.setAttribute('stroke','none');}
+   else{g.classList.toggle('live',!!(live&&n0.ac));g.classList.toggle('livedc',!!(live&&n0.dc));}
+   if(t.kind==='ct'){svgEl('line',{x1:-25,y1:0,x2:-9,y2:0,stroke:'var(--ink)','stroke-width':2},g);svgEl('line',{x1:9,y1:0,x2:25,y2:0,stroke:'var(--ink)','stroke-width':2},g);svgEl('line',{x1:-9,y1:0,x2:9,y2:c.on?0:-10,stroke:c.on?'var(--dc)':'var(--ink)','stroke-width':3,'stroke-linecap':'round'},g);svgEl('text',{y:-18,'text-anchor':'middle','font-size':10,text:c.name+(c.type==='CB'?(c.on?' (in)':' (popped)'):c.on?' (closed)':' (open)')},g);}
+   else if(isBus){svgEl('text',{y:4,'text-anchor':'middle','font-size':10,'font-weight':700,fill:live?'#000':'var(--ink)',text:c.name},g);}
+   else{svgEl('text',{y:t.lbl?-3:4,'text-anchor':'middle','font-size':11,'font-weight':700,text:c.name},g);if(t.lbl)svgEl('text',{y:11,'text-anchor':'middle','font-size':9,fill:'#9aa5bd',text:t.lbl},g);
+    if(t.kind==='load'){const on=B.net[c.id+':0'].ac||B.net[c.id+':0'].dc;svgEl('circle',{cx:t.w/2-8,cy:0,r:4,fill:on?'#ffe066':'#333'},g);}
+    if(t.kind==='srcac'){svgEl('circle',{cx:-t.w/2+12,cy:0,r:7,fill:'none',stroke:'var(--ac)','stroke-width':1.5},g);}}
+   t.ports.forEach(([dx,dy],i)=>{const hot=this.wireFrom&&this.wireFrom.c===c&&this.wireFrom.p===i;const pc=svgEl('circle',{class:'port'+(hot?' hot':''),cx:dx,cy:dy,r:5},g);pc.addEventListener('click',e=>this.clickPort(c,i,e));pc.addEventListener('pointerdown',e=>e.stopPropagation());});
+   g.addEventListener('pointerdown',e=>{e.stopPropagation();const p=this.pt(e);this.drag={c,x:p.x,y:p.y,ox:c.x,oy:c.y,moved:false,snap:JSON.stringify(this.toJSON())};try{this.svg.setPointerCapture(e.pointerId);}catch(x){}this.svg.focus();});
+   g.addEventListener('keydown',e=>{if(e.key==='Enter'){this.clickComp(c);e.preventDefault();}});
+  });
+  this.renderInsp();this.renderMeter();this.drawScope();
+ }
+ renderInsp(){const c=this.sel;const box=$('bInsp');if(!c){box.innerHTML='<h3>Component</h3><div class="muted">Nothing selected.</div>';return;}const t=BT[c.type];const n=this.B.net[c.id+':0'];
+  box.innerHTML='<h3>'+c.name+'</h3><div class="small muted">'+t.n+(t.lbl?' · '+t.lbl:'')+'</div><div class="small">Net: '+(n?(n.conflict?'<span class="warn">CONFLICT – two sources / AC+DC on one net (paralleling forbidden)</span>':n.ac?'115 V AC'+(n.hz?' '+n.hz+' Hz':''):n.dc?'28 V DC':'de-energised (floating)'):'—')+'</div>'+
+   '<label class="small">Name <input type="text" id="bName" value="'+c.name.replace(/"/g,'&quot;')+'" size="14"></label> '+(t.kind==='ct'?'<button class="small" id="bTog">'+(c.on?'Open':'Close')+'</button>':'')+
+   '<div class="hint">Edit while running: changes apply immediately.</div>';
+  $('bName').addEventListener('change',e=>{c.name=e.target.value;this.render();});const tg=$('bTog');if(tg)tg.addEventListener('click',()=>{c.on=c.on?0:1;this.render();});}
+ probeNet(pr){if(!pr)return null;const w=this.wires[pr.w];if(!w)return null;return this.B.net[w.a.c+':'+w.a.p];}
+ renderMeter(){const n=this.probeNet(this.probeA);if(!n){$('bProbe').textContent='No probe.';$('bVolt').textContent='—';$('bAmp').textContent='—';$('bWatt').textContent='—';$('bFreq').textContent='—';return;}
+  const v=n.conflict?'CONFLICT':n.ac?'115 V AC':n.dc?'28 V DC':'0 V';const i=(n.ac||n.dc)?n.loads*10:0;$('bProbe').textContent='CH1 on wire '+(this.probeA.w+1)+(this.probeB?' · CH2 on wire '+(this.probeB.w+1):'');
+  $('bVolt').textContent=v;$('bAmp').textContent=i+' A (assumed 10 A/load)';$('bWatt').textContent=((n.ac?115:n.dc?28:0)*i)+' W';$('bFreq').textContent=n.ac?(n.hz==='VF'?'370–770 Hz (VF)':'400 Hz'):n.dc?'DC':'—';}
+ drawScope(){const s=$('bScope');s.innerHTML='';for(let i=1;i<6;i++)svgEl('line',{x1:0,y1:i*20,x2:300,y2:i*20,stroke:'#223',},s);for(let i=1;i<10;i++)svgEl('line',{x1:i*30,y1:0,x2:i*30,y2:120,stroke:'#223'},s);
+  const tdiv=parseFloat($('scT').value)/1000,vdiv=parseFloat($('scV').value);const draw=(n,col,ph)=>{if(!n)return;let d='';for(let x=0;x<=300;x+=2){const t=x/300*tdiv*10+(this.running?this.t:0);let v=0;if(n.ac){const f=n.hz==='VF'?500:400;v=115*Math.SQRT2*Math.sin(2*Math.PI*f*t+ph);}else if(n.dc)v=28;const y=60-v/vdiv*20;d+=(x?'L':'M')+x+' '+y.toFixed(1);}svgEl('path',{d,fill:'none',stroke:col,'stroke-width':1.5},s);};
+  draw(this.probeNet(this.probeA),'#ffe066',0);draw(this.probeNet(this.probeB),'#4aa8ff',0.5);svgEl('text',{x:4,y:12,fill:'#9aa5bd','font-size':9,text:'CH1 '+$('scV').value+'/div · '+$('scT').value+'/div'+(this.probeNet(this.probeA)&&this.probeNet(this.probeA).hz==='VF'?' · VF shown at 500 Hz (assumed)':'')},s);}
+ check(){const key=$('bTarget').value;const T=TARGETS[key];const B=this.solve();let ok=0;const rows=T.checks.map(([m,f])=>{let r=false;try{r=!!f(B);}catch(e){r=false;}if(r)ok++;return '<div>'+(r?'✅':'❌')+' '+m+'</div>';});
+  $('bCheckOut').innerHTML='<strong>'+T.n+': '+ok+'/'+T.checks.length+(ok===T.checks.length?' – correct!':'')+'</strong>'+rows.join('');this.lastCheck={key,ok,total:T.checks.length};if(typeof learnTick==='function')learnTick();}
+ tick(dt){if(this.running&&this.B){this.t+=dt*this.speed;if(this.probeA)this.drawScope();}}
+}
+</script>
+<script>
+/* =====================================================================================
+   FAULT LAB — instructor injection, multimeter, O-H-T-I-R-V flow, scoring, debrief
+   ===================================================================================== */
+const FSETUP={VFG2:'S1',DRIVE3:'S1',APUA:'S4',EXT2:'S2',BCRU2:'S1',BCRUESS:'S1',BAT1:'S1',GLC1:'S1',LMES:'S1',EMERGEN:'S10',WRONGSW:'S9'};
+let FL=null; let MM='V';
+function logF(m){const el=$('fLog');if(!el)return;const d=h('div',{text:new Date().toLocaleTimeString()+' · '+m},el);el.scrollTop=el.scrollHeight;if(FL)FL.log.push(m);}
+function injectFault(key,fromInspector){
+ if(!MODEL.faults[key]){ // ad-hoc component fault from the inspector
+  STATE.faults[key]=1;STATE.scen='FREE';logF('Fault injected on '+(MODEL.comp[key]?MODEL.comp[key].n:key)+' (free-play)');recompute();return;}
+ applyScenario(FSETUP[key]||'S1');
+ if(key==='LMES'){[1,2,3,4].forEach(i=>STATE.faults['VFG'+i]=1);}
+ else if(key==='EMERGEN'){STATE.faults.EMERGEN=1;}
+ else if(key==='WRONGSW'){STATE.sw.batEss=0;}
+ else STATE.faults[key]=1;
+ FL={key,steps:{},tests:0,log:[],hypo:null,iso:null,lru:null,done:false};
+ ['fSteps'].forEach(()=>renderFlow()); $('fDebrief').hidden=true; $('fLog').innerHTML=''; logF('Instructor injected a fault. Observe the panel and ECAM.');
+ $('fStatus').textContent=UI.hideAns?'Active fault: (hidden)':'Active fault: '+MODEL.faults[key].n;
+ recompute();
+}
+function renderFlow(){const el=$('fSteps');el.innerHTML='';['Observe','Hypothesise','Test','Isolate','Rectify','Verify'].forEach(s=>h('span',{class:FL&&FL.steps[s]?'done':'',text:s},el));
+ $('fTests').textContent=FL?FL.tests:0;$('fStepN').textContent=FL?Object.keys(FL.steps).length:0;
+ if(FL&&FL.done){const f=MODEL.faults[FL.key];const eff=f.min===0?(FL.tests===0?100:Math.round(100/(1+FL.tests))):Math.round(100*Math.min(1,f.min/Math.max(FL.tests,f.min)));$('fEff').textContent=eff+'%';}else $('fEff').textContent='—';}
+function faultTick(){ if(!FL||FL.done)return; const f=MODEL.faults[FL.key]; const st=STATE,S=SOLVED;
+ // auto-detect isolate step by switch positions
+ if(f.iso&&/^[a-z]/.test(f.iso)&&!st.sw[f.iso]&&!FL.steps.Isolate&&FL.key!=='WRONGSW'){FL.steps.Isolate=1;FL.iso=f.iso;logF('Isolated by releasing '+f.iso.toUpperCase());}
+ renderFlow(); }
+function mmRead(id){ if(UI.tab!=='fault')return; const rd=nodeReading(SOLVED,id,STATE); let txt='';
+ if(MM==='V') txt=rd.v!==undefined?rd.txt:'n/a';
+ else if(MM==='A') txt=(SOLVED.bus[id]&&SOLVED.bus[id].live)?'load current (assumed)':(rd.v?'—':'0 A');
+ else if(MM==='R') txt=rd.closed!==undefined?rd.txt:(SOLVED.bus[id]?'bus – use Ω on a contactor':'n/a');
+ else txt=rd.closed!==undefined?(rd.closed?'BEEP – continuity':'no continuity (open)'):'n/a';
+ $('mmDisp').textContent=txt; if(FL&&!FL.done){FL.tests++;FL.steps.Test=1;logF('Test ('+MM+') on '+(MODEL.comp[id]?MODEL.comp[id].n:id)+' → '+txt);renderFlow();} }
+function verifyFault(){ if(!FL){flashMsg('No active fault.');return;} const f=MODEL.faults[FL.key]; const S=SOLVED; let ok=false, why='';
+ switch(FL.key){
+  case 'LMES': ok=S.srcOn.EMERGEN&&S.bus.ACESS.live; why='EMER GEN must be connected and AC ESS live.'; break;
+  case 'EMERGEN': ok=!STATE.faults.EMERGEN&&S.bus.ACESS.live; why='EMER GEN must be replaced (on ground) so AC ESS is recovered.'; break;
+  case 'WRONGSW': ok=S.statInv&&S.bus.ACEMER.live; why='BAT ESS must be pressed in so the STAT INV supplies AC EMER.'; break;
+  case 'DRIVE3': ok=!STATE.sw.drive3&&(!STATE.faults.DRIVE3||!STATE.sw.drive3); why='DRIVE 3 must be released (mechanical disconnect).'; break;
+  default: ok=!STATE.faults[FL.key]&&(!f.iso||STATE.sw[f.iso]!==0)&&!S.warn.some(w=>/FAULT/.test(w)); why='Fault must be rectified (LRU replaced) and the switch restored; no FAULT legends.'; }
+ FL.steps.Verify=1; if(ok){FL.done=true;logF('VERIFIED – system normal.');renderFlow();debrief();}else{logF('Verify failed: '+why);flashMsg('Not yet: '+why);renderFlow();}
+}
+function debrief(){ const f=MODEL.faults[FL.key]; const el=$('fDebriefBody'); const wrong=(FL.hypo&&FL.hypo!==FL.key)||(FL.lru&&FL.lru!==f.lru);
+ const mis=f.mis&&(wrong||FL.tests>f.min+2)?'<div class="warn">Your path suggests misconception '+f.mis+': '+MODEL.misconceptions[f.mis]+'</div>':'';
+ const lruC=f.lru&&MODEL.comp[f.lru];
+ el.innerHTML='<div><strong>Fault:</strong> '+f.n+'</div><div><strong>Documented indications:</strong> '+glossify(f.ind)+'</div><div><strong>Correct isolation path:</strong><ol class="tight">'+f.path.map(p=>'<li>'+glossify(p)+'</li>').join('')+'</ol></div>'+
+  '<div><strong>Your path:</strong> hypothesis '+(FL.hypo?MODEL.faults[FL.hypo].n:'—')+'; tests '+FL.tests+' (minimum '+f.min+'); LRU '+(FL.lru||'—')+'</div>'+
+  (lruC&&(lruC.q||lruC.f)?'<div class="assumed">Notes: '+(lruC.q||lruC.f)+'</div>':'')+mis; $('fDebrief').hidden=false; if(typeof learnTick==='function')learnTick(); }
+function seededRandom(seed){let s=0;for(const ch of String(seed))s=(s*31+ch.charCodeAt(0))>>>0;return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};}
+function initFault(){
+ const list=$('fList');for(const k in MODEL.faults)h('option',{value:k,text:MODEL.faults[k].n},list);
+ $('fInstr').addEventListener('click',()=>{const on=$('fInstrPanel').hidden;$('fInstrPanel').hidden=!on;$('fInstr').classList.toggle('on',on);$('fInstr').setAttribute('aria-pressed',on?'true':'false');});
+ $('fInject').addEventListener('click',()=>injectFault(list.value));
+ $('fRandom').addEventListener('click',()=>{const ks=Object.keys(MODEL.faults);injectFault(ks[Math.floor(Math.random()*ks.length)]);});
+ $('fExam').addEventListener('click',()=>{const r=seededRandom($('fSeed').value);const ks=Object.keys(MODEL.faults);UI.hideAns=1;$('fHide').classList.add('on');injectFault(ks[Math.floor(r()*ks.length)]);$('fInstrPanel').hidden=true;$('fInstr').classList.remove('on');logF('EXAM mode (seed '+$('fSeed').value+'): answers hidden.');});
+ $('fClear').addEventListener('click',()=>{STATE.faults={};FL=null;$('fStatus').textContent='No active fault.';$('fDebrief').hidden=true;renderFlow();recompute();});
+ $('fHide').addEventListener('click',()=>{UI.hideAns=!UI.hideAns;$('fHide').classList.toggle('on',!!UI.hideAns);$('fHide').setAttribute('aria-pressed',UI.hideAns?'true':'false');if(FL)$('fStatus').textContent=UI.hideAns?'Active fault: (hidden)':'Active fault: '+MODEL.faults[FL.key].n;});
+ document.querySelectorAll('[data-mm]').forEach(b=>b.addEventListener('click',()=>{MM=b.dataset.mm;document.querySelectorAll('[data-mm]').forEach(x=>x.classList.toggle('on',x===b));$('mmDisp').textContent='---';}));
+ $('fObserve').addEventListener('click',()=>{if(!FL){flashMsg('No active fault.');return;}FL.steps.Observe=1;logF('Observed: '+(SOLVED.warn.join('; ')||'no warnings')+' · legends: '+PB.filter(([id])=>{const l=SOLVED.lights[SWMAP[id]||id]||{};return l.fault||l.off||l.avail;}).map(([id,n])=>n).join(', '));renderFlow();});
+ const hy=$('fHypo');for(const k in MODEL.faults)h('option',{value:k,text:MODEL.faults[k].n.replace(/^F\d+ /,'')},hy);hy.addEventListener('change',()=>{if(!FL||!hy.value)return;FL.hypo=hy.value;FL.steps.Hypothesise=1;logF('Hypothesis: '+MODEL.faults[hy.value].n);renderFlow();});
+ const iso=$('fIsoSel');PB.forEach(([id,n])=>h('option',{value:id,text:'Release '+n},iso));['BCRU1','BCRU2','BCRUESS','TR2','STATINV'].forEach(id=>h('option',{value:'cb:'+id,text:'Pull C/B '+MODEL.comp[id].n.replace(/ \(.*/,'')},iso));
+ iso.addEventListener('change',()=>{if(!iso.value)return;if(iso.value.startsWith('cb:')){const id=iso.value.slice(3);STATE.faults[id]=1;logF('Pulled C/B '+id);}else{STATE.sw[iso.value]=0;logF('Released '+iso.value.toUpperCase());}if(FL){FL.steps.Isolate=1;FL.iso=iso.value;}iso.value='';recompute();});
+ const lru=$('fLru');['VFG1','VFG2','VFG3','VFG4','APUA','APUB','GGPCU','BCRU1','BCRU2','BCRUESS','TR2','APUTR','BAT1','BAT2','BATESS','GLC1','GLC2','GLC3','GLC4','EMERGEN','STATINV'].forEach(id=>h('option',{value:id,text:'Replace '+MODEL.comp[id].n.replace(/ \(.*/,'')},lru));h('option',{value:'EXT2',text:'Reconnect GPU 2'},lru);
+ lru.addEventListener('change',()=>{if(!lru.value)return;const id=lru.value;logF('Replaced LRU: '+id);if(FL){FL.steps.Rectify=1;FL.lru=id;}
+  if(STATE.faults[id]){delete STATE.faults[id];logF(id+' fault cleared – restore the switch and Verify.');}
+  if(id==='EMERGEN'&&FL&&FL.key==='EMERGEN')delete STATE.faults.EMERGEN;
+  if(FL&&id!==MODEL.faults[FL.key].lru)logF('That LRU was not the failed unit (indications unchanged).');
+  lru.value='';recompute();});
+ $('fVerify').addEventListener('click',verifyFault);
+ renderFlow(); renderCB();
+}
+function renderCB(){const el=$('cbPanel');if(!el)return;el.innerHTML='';['BCRU1','BCRU2','BCRUESS','TR2','STATINV','APUTR'].forEach(id=>{const b=h('button',{class:'small tog'+(STATE.faults[id]?'':' on'),text:MODEL.comp[id].n.replace(/ \(.*/,'')+(STATE.faults[id]?' – POPPED':' – IN'),'aria-pressed':STATE.faults[id]?'false':'true'},el);b.addEventListener('click',()=>{if(STATE.faults[id])delete STATE.faults[id];else STATE.faults[id]=1;logF('C/B '+id+' '+(STATE.faults[id]?'pulled':'reset'));recompute();});});}
+
+/* =====================================================================================
+   LEARN — lesson rail with completion detection, predict-observe-explain, quiz, results
+   ===================================================================================== */
+const LESSON=[
+ {t:'Normal flight: four VFGs',lo:'LO2',text:'Each engine drives one 150 kVA VFG (115 VAC, 370–770 Hz). GGPCU n closes GLC n and each VFG feeds its own AC BUS. AC BUS 1 also feeds the AC ESS BUS.',action:'Explore tab: select scenario S1, then click AC ESS BUS to trace it back to VFG 1.',ask:'Why is a variable frequency acceptable on this aircraft?',check:()=>UI.traceId==='ACESS'&&SOLVED.bus.ACESS.src==='VFG1'},
+ {t:'Predict: losing GEN 1',lo:'LO3',text:'If VFG 1 is lost the transfer circuit re-supplies AC BUS 1 from a neighbour, so AC BUS 1 stays available and keeps feeding the AC ESS BUS. Only when AC BUS 1 itself is not available does AC BUS 4 provide the backup supply. With three VFGs every busbar and every load stays powered.',action:'Predict first, then release GEN 1 on the ELEC panel and trace AC ESS BUS. Then release BUS TIE and trace it again.',predict:{q:'After releasing GEN 1 (BUS TIE still AUTO), which source feeds the AC ESS BUS?',opts:['VFG 2 via BTC 1-2 and AC BUS 1','VFG 4 via AC BUS 4','STAT INV','Nothing – AC ESS lost'],ans:0},ask:'Would the galleys still be powered? Why? What changes when BUS TIE is OFF?',check:()=>!STATE.sw.gen1&&UI.traceId==='ACESS'&&SOLVED.bus.ACESS.live&&(SOLVED.bus.ACESS.src==='VFG2'||SOLVED.bus.ACESS.src==='VFG4')},
+ {t:'Ground: external power',lo:'LO4',text:'Up to four GPUs (90 kVA, 400 Hz) plug in behind the nose gear. An EXT P/BSW shows green AVAIL when the GPU is ready and blue ON once GGPCU n closes EPC n.',action:'Select scenario S3, then press EXT 3 in and watch AVAIL change to ON.',ask:'How many 90 kVA GPUs are needed to run the galleys?',check:()=>STATE.sw.ext3&&SOLVED.srcOn.EXT3&&SOLVED.lights.ext3.on},
+ {t:'APU generation',lo:'LO2',text:'Two APU GENs (120 kVA, constant 400 Hz) are managed by GGPCU 5 and 6. APU GEN A feeds side 1 (AC BUS 1 & 2), APU GEN B feeds side 2; the SIC keeps the sides segregated.',action:'Select scenario S4 and trace DC BUS 2 back to its source.',ask:'Why does the transfer circuit segregate the two sides when both APU GENs are connected?',check:()=>UI.traceId==='DCBUS2'&&SOLVED.bus.DCBUS2.src==='BCRU2'&&SOLVED.bus.ACBUS3.src==='APUB'},
+ {t:'DRIVE versus GEN',lo:'LO4',text:'The DRIVE P/BSW disconnects the generator mechanically (for a drive fault) and cannot be re-engaged in flight. The GEN P/BSW disconnects it electrically and can be reset after a fault.',action:'In scenario S1 release DRIVE 2, then try to press it back in. Observe the FAULT/OFF legends and AC BUS 2.',ask:'Which switch would you use for an overheating generator drive?',check:()=>!STATE.sw.drive2&&STATE.env.flight&&SOLVED.bus.ACBUS2.live},
+ {t:'Batteries only',lo:'LO6',text:'With no AC source, BAT 1 and BAT ESS in parallel feed only the DC ESS BUS, and the STAT INV (2.5 kVA, single phase) feeds the AC EMER BUS. DC BUS 1 and 2 are not supplied.',action:'Select scenario S9 and trace the AC EMER BUS.',predict:{q:'Which busbars are live on batteries only?',opts:['DC BUS 1, DC BUS 2, DC ESS','DC ESS and AC EMER only','AC ESS and DC ESS','All DC busbars'],ans:1},ask:'What happens to the STAT INV values on the ECAM on the ground?',check:()=>UI.traceId==='ACEMER'&&SOLVED.statInv},
+ {t:'Fault Lab: BCRU 2 failure',lo:'LO5',text:'BCRU 2 rectifies AC BUS 3 to a regulated 28 VDC for DC BUS 2. If it fails, TR 2 takes over with an unregulated 28 VDC and connects BAT 2.',action:'Fault Lab tab: turn on Instructor, inject F5, follow Observe → Hypothesise → Test → Isolate → Rectify → Verify.',ask:'What does TR 2 NOT do that BCRU 2 does?',check:()=>FL&&FL.key==='BCRU2'&&FL.done},
+ {t:'Build: DC ESS supply path',lo:'LO2',text:'Consolidate: assemble the path AC source → contactor → AC BUS → AC ESS BUS → BCRU → DC ESS BUS with BAT ESS in parallel and a load.',action:'Build tab: place the components, wire them, close the contactors, then Check my circuit against "DC ESS BUS supply path".',ask:'Where in the aircraft is the DC ESS BUS physically located?',check:()=>BUILDER&&BUILDER.lastCheck&&BUILDER.lastCheck.key==='t1'&&BUILDER.lastCheck.ok===BUILDER.lastCheck.total}
+];
+const QUIZ=[
+ {lo:'LO1',q:'Rated output of one VFG?',o:['120 kVA, 400 Hz','150 kVA, 370–770 Hz','90 kVA, 400 Hz','70 kVA, 370–800 Hz'],a:1,x:'Each VFG is rated 150 kVA, 3-phase, 115 VAC, 370–770 Hz.'},
+ {lo:'LO1',q:'What distinguishes the APU GEN output from a VFG?',o:['It is 28 VDC','It is single phase','Constant 400 Hz at 120 kVA','It is 180 kVA'],a:2,x:'APU GENs are driven at constant speed: 120 kVA, 400 Hz. VFGs vary with engine speed.'},
+ {lo:'LO2',q:'If AC BUS 1 is lost, which busbar backs up the AC ESS BUS?',o:['AC BUS 2','AC BUS 3','AC BUS 4','AC EMER BUS'],a:2,x:'AC BUS 4 provides the backup supply to the AC ESS BUS.'},
+ {lo:'LO3',q:'Only one 90 kVA GPU is connected. What is powered?',o:['The whole aircraft','All Main busbars, galleys shed','Only the two Main busbars on its side','Only the GS busbars'],a:2,x:'A single source supplies only its side (two Main busbars).'},
+ {lo:'LO4',q:'Which P/BSW gives a mechanical disconnection of a VFG?',o:['GEN','DRIVE','BUS TIE','APU GEN'],a:1,x:'DRIVE = mechanical disconnect (drive fault); GEN = electrical connection/disconnection.'},
+ {lo:'LO6',q:'Batteries only, BAT 1 and BAT ESS pressed in – which busbars are supplied?',o:['DC BUS 1 and DC BUS 2','DC ESS BUS and AC EMER BUS','AC ESS BUS only','All DC busbars'],a:1,x:'BAT 1 + BAT ESS supply DC ESS; the STAT INV supplies the AC EMER BUS. DC BUS 1/2 are not supplied.'},
+ {lo:'LO6',q:'The STAT INV output is …',o:['3-phase 115 VAC to AC ESS','single-phase 115 VAC 400 Hz, 2.5 kVA, to AC EMER BUS','28 VDC to DC ESS','3-phase 400 Hz to AC BUS 1'],a:1,x:'2.5 kVA single-phase 115 VAC 400 Hz feeding the AC EMER BUS only.'},
+ {lo:'LO5',q:'BCRU 2 is lost. Which unit takes over DC BUS 2 and what is different?',o:['BCRU 1 – identical output','TR 2 – unregulated 28 VDC, no battery-charge regulation','BAT 2 alone – 24 V','APU TR – 300 A'],a:1,x:'TR 2 takes over with an unregulated 28 VDC at 300 A and connects/protects BAT 2.'}
+];
+let LEARN={cur:0,done:[],pred:{},quiz:{},graded:false};
+function renderRail(){const r=$('rail');r.innerHTML='<h3 style="margin:4px 0">Lesson</h3>';LESSON.forEach((s,i)=>{const d=h('div',{class:'step'+(LEARN.cur===i?' cur':'')+(LEARN.done.includes(i)?' done':''),tabindex:0,role:'button'},r);h('span',{class:'n',text:LEARN.done.includes(i)?'✓':i+1},d);h('span',{html:'<strong>'+s.t+'</strong><br><span class="muted small">'+s.lo+'</span>'},d);d.addEventListener('click',()=>{LEARN.cur=i;renderLearn();});d.addEventListener('keydown',e=>{if(e.key==='Enter'){LEARN.cur=i;renderLearn();}});});
+ const q=h('div',{class:'step'+(LEARN.cur===LESSON.length?' cur':''),tabindex:0,role:'button'},r);h('span',{class:'n',text:'Q'},q);h('span',{html:'<strong>Final quiz</strong><br><span class="muted small">8 questions · LO1–LO6</span>'},q);q.addEventListener('click',()=>{LEARN.cur=LESSON.length;renderLearn();});
+ h('div',{class:'hint',style:'margin-top:10px',text:'Progress: '+LEARN.done.length+'/'+LESSON.length+' steps'},r);}
+function renderLearn(){renderRail();const b=$('learnBody');if(LEARN.cur>=LESSON.length){renderQuiz();return;}const s=LESSON[LEARN.cur];const i=LEARN.cur;
+ let html='<h2 style="margin:0 0 6px">Step '+(i+1)+': '+s.t+' <span class="muted small">('+s.lo+')</span></h2><p>'+glossify(s.text)+'</p><div class="card"><strong>Do this:</strong> '+glossify(s.action)+' <button class="small" id="lGo">Go to tab</button></div>';
+ if(s.predict){const p=LEARN.pred[i];html+='<div class="q" id="lPred"><strong>Predict before you click:</strong> '+s.predict.q+s.predict.opts.map((o,k)=>'<label><input type="radio" name="pred'+i+'" value="'+k+'" '+(p===k?'checked':'')+'> '+o+'</label>').join('')+(p!==undefined?'<div class="'+(p===s.predict.ans?'muted':'warn')+'">'+(p===s.predict.ans?'Prediction recorded – now observe.':'Recorded. Observe the sim, then explain the difference.')+'</div>':'')+'</div>';}
+ html+='<div class="card"><strong>Completion:</strong> <span id="lDone">'+(LEARN.done.includes(i)?'✅ done':'⏳ not yet detected')+'</span></div><div class="hint">Ask the class: '+s.ask+'</div><div style="margin-top:8px"><button class="small" id="lPrev">◀ Previous</button> <button class="small primary" id="lNext">Next ▶</button></div>';
+ b.innerHTML=html;$('lGo').addEventListener('click',()=>{const tab=/Fault Lab/.test(s.action)?'fault':/Build tab/.test(s.action)?'build':'explore';showTab(tab);if(tab==='explore'&&/S\d+/.test(s.action)&&!s.predict){}});
+ $('lPrev').addEventListener('click',()=>{LEARN.cur=Math.max(0,i-1);renderLearn();});$('lNext').addEventListener('click',()=>{LEARN.cur=i+1;renderLearn();});
+ b.querySelectorAll('input[name=pred'+i+']').forEach(r=>r.addEventListener('change',()=>{LEARN.pred[i]=+r.value;renderLearn();}));}
+function learnTick(){let changed=false;LESSON.forEach((s,i)=>{if(!LEARN.done.includes(i)){let ok=false;try{ok=!!s.check();}catch(e){}if(ok){LEARN.done.push(i);changed=true;}}});if(changed){renderRail();const d=$('lDone');if(d&&LEARN.done.includes(LEARN.cur))d.textContent='✅ done';flashMsg('Lesson step completed ✓');}}
+function renderQuiz(){const b=$('learnBody');let html='<h2 style="margin:0 0 6px">Final quiz</h2><label>Student name <input type="text" id="qName" value="'+(LEARN.name||'')+'"></label>';
+ QUIZ.forEach((q,i)=>{const g=LEARN.graded;const a=LEARN.quiz[i];html+='<div class="q '+(g?(a===q.a?'ok':'bad'):'')+'"><strong>Q'+(i+1)+' <span class="muted small">('+q.lo+')</span></strong> '+q.q+q.o.map((o,k)=>'<label><input type="radio" name="q'+i+'" value="'+k+'" '+(a===k?'checked':'')+' '+(g?'disabled':'')+'> '+o+'</label>').join('')+(g?'<div class="small '+(a===q.a?'muted':'warn')+'">'+(a===q.a?'Correct. ':'Incorrect. ')+q.x+'</div>':'')+'</div>';});
+ html+='<button class="primary" id="qGrade">'+(LEARN.graded?'Re-take':'Grade quiz')+'</button> <span id="qScore"></span><div class="card" style="margin-top:8px"><h3>Results block (copy into Brightspace)</h3><textarea id="qRes" class="results" rows="9" style="width:100%" readonly></textarea><button class="small" id="qCopy">Copy</button></div>';
+ b.innerHTML=html;b.querySelectorAll('input[type=radio]').forEach(r=>r.addEventListener('change',()=>{LEARN.quiz[+r.name.slice(1)]=+r.value;}));$('qName').addEventListener('input',e=>LEARN.name=e.target.value);
+ $('qGrade').addEventListener('click',()=>{if(LEARN.graded){LEARN.graded=false;LEARN.quiz={};renderQuiz();return;}LEARN.graded=true;renderQuiz();});
+ $('qCopy').addEventListener('click',()=>{$('qRes').select();try{navigator.clipboard.writeText($('qRes').value);}catch(e){}flashMsg('Results copied.');});
+ if(LEARN.graded){let sc=0;const per={};QUIZ.forEach((q,i)=>{per[q.lo]=per[q.lo]||[0,0];per[q.lo][1]++;if(LEARN.quiz[i]===q.a){sc++;per[q.lo][0]++;}});$('qScore').textContent='Score: '+sc+'/'+QUIZ.length;
+  $('qRes').value='AeroSim ATA 24 A380 – AC/DC Generation\nStudent: '+(LEARN.name||'(name)')+'\nDate: '+new Date().toISOString().slice(0,10)+'\nQuiz score: '+sc+'/'+QUIZ.length+'\n'+Object.keys(per).map(k=>k+': '+per[k][0]+'/'+per[k][1]).join('\n')+'\nLesson steps completed: '+LEARN.done.length+'/'+LESSON.length+(FL&&FL.done?'\nFault Lab: '+MODEL.faults[FL.key].n+' verified, tests '+FL.tests:'');}}
+
+/* =====================================================================================
+   STORE — URL hash, Save/Load, reset, tabs, init
+   ===================================================================================== */
+let BUILDER=null; let hashBusy=false;
+function fullState(){return {v:1,tab:UI.tab,hc:UI.hc,proj:UI.proj,sw:STATE.sw,env:STATE.env,faults:STATE.faults,scen:STATE.scen,bat:STATE.bat,build:BUILDER&&BUILDER.comps.length?BUILDER.toJSON():null,learn:{cur:LEARN.cur,done:LEARN.done,pred:LEARN.pred,quiz:LEARN.quiz,graded:LEARN.graded,name:LEARN.name},fl:FL?FL.key:null,trace:UI.traceId};}
+function applyFull(j){if(!j||j.v!==1)throw new Error('not an AeroSim state');STATE.sw={...DEFAULT_SW,...(j.sw||{})};STATE.env={...JSON.parse(JSON.stringify(DEFAULT_ENV)),...(j.env||{})};STATE.faults=j.faults||{};STATE.scen=j.scen||'FREE';STATE.bat=j.bat||{BAT1:1,BAT2:1,BATESS:1,APUBAT:1};
+ if(j.build&&BUILDER)BUILDER.fromJSON(j.build,true);if(j.learn)LEARN={cur:0,done:[],pred:{},quiz:{},graded:false,...j.learn};UI.traceId=j.trace||null;setHC(!!j.hc);setProj(!!j.proj);$('scen').value=STATE.scen in MODEL.scenarios?STATE.scen:'FREE';recompute();renderLearn();showTab(j.tab||'explore');}
+function saveHash(force){if(hashBusy)return;clearTimeout(saveHash.t);saveHash.t=setTimeout(()=>{try{const s=fullState();if(!force)delete s.build;const enc=encodeURIComponent(JSON.stringify(s));if(enc.length<6000||force)history.replaceState(null,'','#'+enc);}catch(e){}},force?0:300);}
+function loadHash(){if(location.hash.length<3)return false;try{hashBusy=true;applyFull(JSON.parse(decodeURIComponent(location.hash.slice(1))));hashBusy=false;return true;}catch(e){hashBusy=false;console.warn('hash ignored',e);return false;}}
+function setHC(on){UI.hc=on?1:0;document.body.classList.toggle('hc',!!on);$('btnHC').classList.toggle('on',!!on);$('btnHC').setAttribute('aria-pressed',on?'true':'false');}
+function setProj(on){UI.proj=on?1:0;document.body.classList.toggle('proj',!!on);$('btnProj').classList.toggle('on',!!on);$('btnProj').setAttribute('aria-pressed',on?'true':'false');}
+function showTab(name){UI.tab=name;document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===name?'true':'false'));document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.id==='tab-'+name));if(name==='build'&&BUILDER)BUILDER.render();if(name==='learn')renderLearn();if(name==='fault')renderCB();saveHash();}
+function resetAll(){STATE=newState();UI.traceId=null;UI.selId=null;UI.buildup=-1;FL=null;LEARN={cur:0,done:[],pred:{},quiz:{},graded:false};if(BUILDER){BUILDER.comps=[];BUILDER.wires=[];BUILDER.undo=[];BUILDER.redo=[];BUILDER.probeA=null;BUILDER.probeB=null;BUILDER.lastCheck=null;BUILDER.render();}
+ $('scen').value='S1';applyScenario('S1');SYN.setHidden(null);SYN.setTrace(null);if(SYN2)SYN2.setTrace(null);SYN.fit();$('buildupCtl').hidden=true;$('btnBuildUp').classList.remove('on');$('inspector').innerHTML='<h3>Inspector</h3><div class="muted">Click any component, bus or contactor in the schematic.</div>';$('traceCard').innerHTML='<h3>Signal trace</h3><div class="muted">Click a bus or load to trace its supply path back to the source.</div>';
+ $('fStatus').textContent='No active fault.';$('fDebrief').hidden=true;$('fLog').innerHTML='';renderFlow();renderLearn();setHC(false);setProj(false);history.replaceState(null,'',location.pathname);showTab('explore');}
+
+function init(){
+ try{
+  const onClick=id=>{renderInspector(id);if(SOLVED.bus[id])doTrace(id);if(UI.tab==='fault')mmRead(id);};
+  SYN=new Synoptic($('synWrap'),{onClick}); SYN2=new Synoptic($('fWrap'),{onClick});
+  const sel=$('scen');for(const k in MODEL.scenarios)h('option',{value:k,text:MODEL.scenarios[k].n},sel);sel.addEventListener('change',()=>applyScenario(sel.value));
+  $('btnFit').addEventListener('click',()=>{SYN.fit();SYN2.fit();});$('btnZoomIn').addEventListener('click',()=>SYN.zoom(1.25));$('btnZoomOut').addEventListener('click',()=>SYN.zoom(0.8));
+  $('btnBuildUp').addEventListener('click',()=>setBuildup(UI.buildup<0?0:-1));$('buStart').addEventListener('click',()=>setBuildup(0));$('buPrev').addEventListener('click',()=>setBuildup(Math.max(0,UI.buildup-1)));$('buNext').addEventListener('click',()=>setBuildup(Math.min(MODEL.buildup.length-1,UI.buildup+1)));
+  $('btnHC').addEventListener('click',()=>{setHC(!UI.hc);saveHash();});$('btnProj').addEventListener('click',()=>{setProj(!UI.proj);saveHash();});
+  $('btnReset').addEventListener('click',resetAll);
+  $('btnSave').addEventListener('click',()=>{$('saveTxt').value=JSON.stringify(fullState());$('saveDlg').style.display='block';$('saveTxt').focus();});
+  $('saveClose').addEventListener('click',()=>$('saveDlg').style.display='none');$('saveCopy').addEventListener('click',()=>{$('saveTxt').select();try{navigator.clipboard.writeText($('saveTxt').value);}catch(e){}});
+  $('saveLoad').addEventListener('click',()=>{try{applyFull(JSON.parse($('saveTxt').value));$('saveDlg').style.display='none';}catch(e){flashMsg('Load failed: '+e.message);}});
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+  BUILDER=new Builder($('bWrap')); initFault();
+  if(!loadHash()){applyScenario('S1');renderLearn();}
+  // animation / battery loop (assumed discharge rate: ~4 min from full to FAULT at 1×)
+  let last=performance.now();
+  function loop(now){const dt=Math.min(0.1,(now-last)/1000);last=now;try{let ch=false;if(SOLVED){for(const id in STATE.bat){const s=SOLVED.batState[id];if(s==='DIS'){STATE.bat[id]=Math.max(0,STATE.bat[id]-dt*0.004);ch=true;if(STATE.bat[id]<=0.05&&!STATE.faults[id]){STATE.faults[id]=1;logF(MODEL.comp[id].n+' depleted → FAULT');recompute();}}else if(s==='CHG'&&STATE.bat[id]<1){STATE.bat[id]=Math.min(1,STATE.bat[id]+dt*0.01);ch=true;}}
+   if(ch){for(const id in STATE.bat){[SYN,SYN2].forEach(s=>{const g=s.nodes[id];if(g&&g._chg){g._chg.setAttribute('width',Math.max(0,42*STATE.bat[id]));}});}}}
+   if(BUILDER&&UI.tab==='build')BUILDER.tick(dt);}catch(e){showErr('Loop error: '+e.message);}requestAnimationFrame(loop);}
+  requestAnimationFrame(loop);
+ }catch(err){showErr('Initialisation error: '+err.message);console.error(err);}
+}
+window.addEventListener('error',e=>showErr('Error: '+e.message));
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
