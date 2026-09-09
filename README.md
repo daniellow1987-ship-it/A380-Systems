@@ -16,6 +16,14 @@ Interactive, browser-based simulations of aircraft systems and electronics for a
 | ATA | Topic | Aircraft | Level | File |
 |---|---|---|---|---|
 | 24 | Electrical Power System — Introduction & AC/DC Generation | A380 (RR Trent 900) | SAR-66 B2, Level 2 | [`aerosim_ata24_electrical_power.html`](aerosim_ata24_electrical_power.html) |
+| 31 | Control & Display System — EFIS, ECAM, DU reconfiguration | A380 (RR Trent 900) | SAR-66 B2, Level 2 | [`aerosim_ata31_control_display_system.html`](aerosim_ata31_control_display_system.html) |
+| 31 | Flight Warning System — alert levels, flight phases, inhibition | A380 (RR Trent 900) | SAR-66 B2, Level 2 | [`aerosim_ata31_flight_warning_system.html`](aerosim_ata31_flight_warning_system.html) |
+
+| 34 | ADIRS &amp; Standby Navigation | A380 (RR Trent 900) | SAR-66 B2, Level 2 | [`aerosim_ata34_adirs_standby_nav.html`](aerosim_ata34_adirs_standby_nav.html) |
+| 34 | Radio Navigation Aids — MMR, VOR/Marker, DME, ADF, radio altimeter, OANS | A380 (RR Trent 900) | SAR-66 B2, Level 2 | [`aerosim_ata34_radio_nav_aids.html`](aerosim_ata34_radio_nav_aids.html) |
+| 34 | Aircraft Environment Surveillance System | A380 (RR Trent 900) | SAR-66 B2, Level 2 | [`aerosim_ata34_aess_surveillance.html`](aerosim_ata34_aess_surveillance.html) |
+
+Both ATA 31 and ATA 34 are split across several pages because each chapter covers far more than the master prompt's one-page limit of roughly 14 sources/buses/conversion units or three distinct sub-systems. ATA 34 follows the manual's own three-part division — the ADIRS and standby group, the radio navigation aids, and the surveillance system. Still to be built: the ATA 31 Flight Data Recording System, Electrical Clock, Tail Strike Indication and Interface for Video.
 
 ## Adding a new simulation
 
@@ -24,7 +32,14 @@ Interactive, browser-based simulations of aircraft systems and electronics for a
 3. Review PART A (system model) and PART B (design brief) before accepting PART C (the HTML).
 4. Save the HTML as `ataNN-topic.html` in the repo root, add a card to `index.html` and a row to the table above, commit and push. GitHub Pages redeploys automatically.
 
-The `ata24-part-*.md` files hold the PART A/B and PART D outputs from each generation run so the model, assumptions and self-test evidence are traceable.
+The `ata*-part-*.md` files hold the PART A/B and PART D outputs from each generation run so the model, assumptions and self-test evidence are traceable:
+
+- `ata24-part-a-b-system-model.md`, `ata24-part-d-selftest-instructor-sheet.md`
+- `ata31-cds-part-a-b-system-model.md`, `ata31-cds-part-d-selftest-instructor-sheet.md`
+- `ata31-fws-part-a-b-system-model.md`, `ata31-fws-part-d-selftest-instructor-sheet.md`
+- `ata34-adirs-part-a-b-system-model.md`, `ata34-radionav-part-a-b-system-model.md`, `ata34-aess-part-a-b-system-model.md`, and one combined `ata34-part-d-selftest-instructor-sheet.md`
+
+Each PART A lists every component, connection, control, rule, state and number extracted from the notes, plus a **GAPS** table naming everything the notes do not state and the conservative assumption used in its place. Every one of those assumptions is tagged "(assumed)" where it appears in the simulation. Each PART D carries the headless-browser self-test log and a one-page instructor run of show with the answer key and extension questions.
 
 ## Embedding in an LMS (Brightspace)
 

@@ -1,0 +1,1626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AeroSim – A380 ATA 34 ADIRS &amp; Standby Navigation</title>
+<!--
+  AeroSim Generator output — single-file, self-contained (no CDN, no network, no login).
+  Architecture:  MODEL (JSON block, editable)  →  ENGINE (channel/source-allocation + power solver)
+                 →  VIEW (SVG architecture + cockpit, rAF)  →  UI  →  STORE (JSON + URL hash + undo)
+  Every number shown as "specified" comes from the course notes (A380 TTM LEVEL I Apr 2007;
+  LEVEL 2&3 Nov 2011 / 01 AUG 2013). Anything the notes do not state is tagged (assumed).
+-->
+<style>
+:root{--bg:#0f1420;--panel:#171e2e;--panel2:#1f2840;--ink:#e8ecf4;--muted:#9aa5bd;--line:#2c3650;
+ --adr:#ffb020;--ir:#4aa8ff;--isis:#3ddc84;--a429:#ff4fd8;--disc:#ffd24a;--adcn:#4aa8ff;
+ --dead:#5a6478;--fault:#ff4040;--avail:#31d158;--focus:#7cc4ff;--amber:#ffb020;
+ --btn:#2a3550;--btnh:#37456b;--fs:15px}
+body.hc{--bg:#000;--panel:#000;--panel2:#111;--ink:#fff;--muted:#ddd;--line:#fff;--dead:#888;--btn:#222;--btnh:#444;--adr:#ffd24a;--ir:#7ac8ff;--isis:#5cff9a;--a429:#ff9aec}
+body.proj{--fs:18px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:var(--fs)/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;display:flex;flex-direction:column;min-height:100vh}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:1.05em;margin:0;font-weight:600}
+header .meta{color:var(--muted);font-size:.9em}
+button,select,input[type=text],input[type=range],textarea{font:inherit;color:var(--ink)}
+button{background:var(--btn);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer;min-height:34px}
+button:hover{background:var(--btnh)}
+button:focus-visible,[tabindex]:focus-visible,select:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+button.primary{background:#2f6fd6;border-color:#2f6fd6}
+button.small{padding:2px 8px;min-height:28px;font-size:.9em}
+button.tog.on{background:#1d5c37;border-color:#2c8f55}
+button[disabled]{opacity:.4;cursor:not-allowed}
+select,input[type=text],textarea{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+nav.tabs{display:flex;gap:4px;padding:6px 14px 0;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+nav.tabs button{border-radius:8px 8px 0 0;border-bottom:none;background:var(--panel2)}
+nav.tabs button[aria-selected=true]{background:var(--bg);font-weight:600;border-color:var(--focus)}
+main{flex:1;display:flex;flex-direction:column;min-height:0}
+.tab{display:none;flex:1;min-height:0}
+.tab.active{display:flex}
+.split{flex:1;display:flex;min-height:0}
+.split .left{flex:1;display:flex;flex-direction:column;min-width:0}
+.split .right{width:352px;flex:none;border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:10px}
+@media(max-width:900px){.split{flex-direction:column}.split .right{width:auto;border-left:none;border-top:1px solid var(--line);max-height:44vh}}
+.toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.canvas{flex:1;min-height:0;position:relative;overflow:hidden;background:#0b0f18}
+svg{width:100%;height:100%;display:block;touch-action:none}
+.legend{position:absolute;left:8px;bottom:8px;background:rgba(15,20,32,.92);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:.8em;line-height:1.6;max-width:275px}
+.legend b{display:block;margin-bottom:3px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:.85em}
+.sw{display:inline-block;width:22px;height:0;border-top:3px solid;vertical-align:middle;margin-right:6px}
+h2{font-size:1em;margin:0 0 6px}
+h3{font-size:.95em;margin:12px 0 4px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.muted{color:var(--muted)}.small{font-size:.86em}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:.9em}
+.kv dt{color:var(--muted)}.kv dd{margin:0}
+.pill{display:inline-block;font-size:.75em;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin:2px 3px 2px 0}
+.pill.ok{border-color:#2c8f55;color:var(--avail)}
+.pill.bad{border-color:#8f2c2c;color:var(--fault)}
+.pill.asm{border-color:#8a6d1f;color:var(--amber)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.pathlist{list-style:none;padding:0;margin:6px 0;font-size:.9em}
+.pathlist li{padding:3px 8px;border-left:3px solid var(--adcn);margin-bottom:3px;background:var(--panel2)}
+.pathlist li.a4{border-left-color:var(--a429)}
+.pathlist li.di{border-left-color:var(--disc)}
+table{border-collapse:collapse;width:100%;font-size:.86em}
+th,td{border:1px solid var(--line);padding:3px 6px;text-align:left}
+th{background:var(--panel2);color:var(--muted);font-weight:600}
+.log{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82em;background:#0b0f18;border:1px solid var(--line);border-radius:6px;padding:6px;height:130px;overflow:auto;white-space:pre-wrap}
+.step{display:flex;gap:8px;align-items:flex-start;padding:7px 8px;border:1px solid var(--line);border-radius:8px;margin-bottom:5px;cursor:pointer;background:var(--panel2)}
+.step.cur{border-color:var(--focus);background:#1d2942}
+.step.done{opacity:.65}
+.step .n{flex:none;width:22px;height:22px;border-radius:50%;background:var(--btn);display:grid;place-items:center;font-size:.8em}
+.step.done .n{background:#1d5c37}
+.rail{width:270px;flex:none;border-right:1px solid var(--line);padding:10px;overflow:auto;background:var(--panel)}
+@media(max-width:900px){.rail{width:auto;border-right:none;border-bottom:1px solid var(--line);max-height:34vh}}
+.learnwrap{flex:1;display:flex;min-height:0}
+.learnbody{flex:1;overflow:auto;padding:14px 18px;max-width:900px}
+.q{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;margin:10px 0}
+.q label{display:block;padding:3px 0;cursor:pointer}
+.ok{color:var(--avail)}.bad{color:var(--fault)}.warn{color:var(--amber)}
+.flash{animation:fl .9s steps(2,end) infinite}
+@keyframes fl{50%{opacity:.42}}
+.dash{stroke-dasharray:5 5}
+.flow{stroke-dasharray:6 10;animation:dash 1.1s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-16}}
+body.noanim .flow,body.noanim .flash{animation:none}
+.chip{display:inline-block;padding:2px 8px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);font-size:.82em;margin:2px 3px 2px 0}
+.notice{border-left:3px solid var(--amber);padding:5px 9px;background:#221c0d;border-radius:0 6px 6px 0;font-size:.88em;margin:6px 0}
+.err{border-left:3px solid var(--fault);padding:5px 9px;background:#2a1010;border-radius:0 6px 6px 0;font-size:.88em;margin:6px 0}
+.ok-note{border-left:3px solid var(--avail);padding:5px 9px;background:#0f2418;border-radius:0 6px 6px 0;font-size:.88em;margin:6px 0}
+/* ICP 1221VM */
+.icp{background:#3a4150;border:1px solid #565f73;border-radius:8px;padding:8px}
+.icpchan{display:grid;grid-template-columns:64px 1fr 1fr;gap:5px;align-items:center;margin-bottom:5px}
+.icp .lbl{font-size:.74em;color:#cfd8ea;font-weight:600;letter-spacing:.03em}
+.pbsw{background:#4a5364;border:1px solid #667089;border-radius:4px;font-size:.68em;padding:3px 2px;min-height:38px;line-height:1.25;text-align:center;cursor:pointer;color:#cfd8ea}
+.pbsw .f{display:block;font-weight:700;color:#3a4150}
+.pbsw .o{display:block;font-weight:700;color:#3a4150}
+.pbsw.fault .f{color:#ffb020;background:#4a3a12}
+.pbsw.fault.flash .f{animation:fl .9s steps(2,end) infinite}
+.pbsw.off .o{color:#fff;background:#5a6478}
+.sel3{display:flex;gap:2px}
+.sel3 button{flex:1;font-size:.66em;padding:3px 1px;min-height:26px;background:#4a5364;border:1px solid #667089;border-radius:3px;color:#cfd8ea}
+.sel3 button.on{background:#1d5c37;border-color:#48d68a;color:#fff;font-weight:700}
+.rot{display:flex;gap:3px;margin-bottom:6px}
+.rot button{flex:1;font-size:.72em;padding:5px 2px;min-height:32px;background:#4a5364;border:1px solid #667089;border-radius:4px;color:#cfd8ea}
+.rot button.on{background:#2f6fd6;border-color:#7cc4ff;color:#fff;font-weight:700}
+.scr{background:#04070d;border:1px solid #2c3650;border-radius:6px;padding:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8em;line-height:1.5;min-height:74px}
+.scr .red{color:#ff4040}.scr .amb{color:#ffb020}.scr .grn{color:#3ddc84}.scr .cyn{color:#4aa8ff}
+.scr .mag{color:#ff4fd8}.scr .wht{color:#e8ecf4}.scr .gry{color:#6d7c99}
+footer{padding:5px 14px;background:var(--panel);border-top:1px solid var(--line);color:var(--muted);font-size:.8em}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>AeroSim — ATA 34 ADIRS &amp; Standby Navigation</h1>
+  <span class="meta">Aircraft Electrical &amp; Digital Systems · A380 (RR Trent 900) · CAAS SAR-66 Cat B2, Level 2 · v1.0 · 2026-09</span>
+  <span style="flex:1"></span>
+  <button class="small" id="btnHC" aria-pressed="false">High contrast</button>
+  <button class="small" id="btnProj" aria-pressed="false">Projector</button>
+  <button class="small" id="btnReset">Reset everything</button>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Simulation modes">
+  <button role="tab" id="t-explore" aria-selected="true" aria-controls="p-explore">1 · Explore</button>
+  <button role="tab" id="t-build" aria-selected="false" aria-controls="p-build">2 · Build</button>
+  <button role="tab" id="t-fault" aria-selected="false" aria-controls="p-fault">3 · Fault Lab</button>
+  <button role="tab" id="t-learn" aria-selected="false" aria-controls="p-learn">4 · Learn</button>
+</nav>
+
+<main>
+
+<!-- ============================ EXPLORE ============================ -->
+<section class="tab active" id="p-explore" role="tabpanel" aria-labelledby="t-explore">
+  <div class="split">
+    <div class="left">
+      <div class="toolbar">
+        <label>View
+          <select id="selView">
+            <option value="arch">Architecture — probes, channels, users</option>
+            <option value="power">Power supply — which channel survives what</option>
+          </select>
+        </label>
+        <label>Scenario <select id="selScen"></select></label>
+        <button class="small" id="btnFit">Fit</button>
+        <button class="small" id="btnZin">Zoom +</button>
+        <button class="small" id="btnZout">Zoom −</button>
+        <button class="small tog" id="btnBuildup">Build-up mode</button>
+        <button class="small" id="btnStepNext" disabled>Next component ▸</button>
+        <span class="muted small" id="buildupTxt"></span>
+      </div>
+      <div class="canvas" id="cv">
+        <svg id="svg" viewBox="0 0 1180 700" role="img" aria-label="A380 ADIRS and Standby Navigation schematic"><g id="vp"></g></svg>
+        <div class="legend" id="legend"></div>
+      </div>
+    </div>
+    <div class="right" id="inspector"></div>
+  </div>
+</section>
+
+<!-- ============================ BUILD ============================ -->
+<section class="tab" id="p-build" role="tabpanel" aria-labelledby="t-build">
+  <div class="split">
+    <div class="left">
+      <div class="toolbar">
+        <button class="small" id="bRun">▶ Run</button>
+        <button class="small" id="bPause">⏸ Pause</button>
+        <button class="small" id="bStep">⏭ Step</button>
+        <button class="small" id="bClear">Clear</button>
+        <button class="small" id="bUndo">↶ Undo</button>
+        <button class="small" id="bRedo">↷ Redo</button>
+        <label class="small">Speed <input type="range" id="bSpeed" min="1" max="10" value="5" style="width:90px"></label>
+      </div>
+      <div class="canvas" id="bcv">
+        <svg id="bsvg" viewBox="0 0 1180 700" role="img" aria-label="ADIRS architecture constructor canvas"><g id="bvp"></g></svg>
+      </div>
+    </div>
+    <div class="right" id="buildPanel"></div>
+  </div>
+</section>
+
+<!-- ============================ FAULT LAB ============================ -->
+<section class="tab" id="p-fault" role="tabpanel" aria-labelledby="t-fault">
+  <div class="split">
+    <div class="left">
+      <div class="toolbar">
+        <button class="small tog" id="fInstr" aria-pressed="false">Instructor panel</button>
+        <button class="small" id="fRandom">Random fault</button>
+        <label class="small">Seed <input type="text" id="fSeed" style="width:80px" value=""></label>
+        <button class="small tog" id="fExam" aria-pressed="false">Exam mode</button>
+        <button class="small" id="fRestart">New attempt</button>
+        <span style="flex:1"></span>
+        <span id="fSteps" class="small"></span>
+      </div>
+      <div class="canvas" id="fcv">
+        <svg id="fsvg" viewBox="0 0 1180 700" role="img" aria-label="Fault lab ADIRS schematic"><g id="fvp"></g></svg>
+        <div class="legend" id="flegend"></div>
+      </div>
+    </div>
+    <div class="right" id="faultPanel"></div>
+  </div>
+</section>
+
+<!-- ============================ LEARN ============================ -->
+<section class="tab" id="p-learn" role="tabpanel" aria-labelledby="t-learn">
+  <div class="learnwrap">
+    <div class="rail" id="rail"></div>
+    <div class="learnbody" id="learnBody"></div>
+  </div>
+</section>
+
+</main>
+
+<footer>Temasek Polytechnic · Aerospace Electronics · training use only. Paraphrased from the A380 TTM; values not in the notes are tagged (assumed). No network calls, no login, no tracking.</footer>
+
+<script>
+"use strict";
+/* =====================================================================================
+   MODEL — traces to the course notes. Instructors may edit values here without touching logic.
+   ===================================================================================== */
+const MODEL={
+  meta:{topic:"ATA 34 – Air Data / Inertial Reference System & Standby Navigation",
+        ac:"Airbus A380 (RR Trent 900)",level:"CAAS SAR-66 Cat B2, Level 2",
+        src:"A380 TTM LEVEL I (Apr 19 2007) pp.2–11; LEVEL 2&3 (Nov 21 2011) pp.2–39"},
+
+  /* 0.1 COMPONENTS ------------------------------------------------------------------ */
+  comp:{
+    ADIRU1:{n:"ADIRU 1 — Air Data / Inertial Reference Unit 1",t:"unit",loc:"Main avionics bay",
+      ac:"AC EMER BUS",dc:"DC ESS BUS",bk:"HOT BUS 1 (10 sec)",
+      note:"Each ADIRU has two parts, the Air Data Reference (ADR) part and the Inertial Reference (IR) part. The IR part contains three accelerometers, one for each axis, and three gyros, one for each rotation axis. A BITE module is hosted in each part for the OMS."},
+    ADIRU2:{n:"ADIRU 2",t:"unit",loc:"Main avionics bay",
+      ac:"AC BUS 4",dc:"DC BUS 2",bk:"NOT POWERED",
+      note:"Feeds the First Officer's PFD and ND in the normal configuration. It is the only channel with no 28 VDC back-up, so it is lost on a loss of main AC generation."},
+    ADIRU3:{n:"ADIRU 3",t:"unit",loc:"Main avionics bay",
+      ac:"AC BUS 1 / AC EMER BUS",dc:"DC ESS BUS",bk:"HOT BUS ESS (10 sec)",
+      note:"Mainly in standby. It does not take over automatically — the crew must select CAPT ON 3 or F/O ON 3 on the switching panel 1311VU."},
+    MFP:{n:"MultiFunction Probe (MFP) ×3",t:"probe",loc:"FWD fuselage — one on the LH side, two on the RH side",
+      note:"One per ADIRU. Gives angle of attack, total air temperature and total pressure. 115 VAC for the digital converter and the anti-icing function; output in ARINC 429."},
+    ISP:{n:"Integrated Static Probe (ISP) ×6",t:"probe",loc:"FWD fuselage — three LH, three RH",
+      note:"Two per ADIRU, labelled ISP n-1 (LH) and ISP n-2 (RH). Gives local static pressure. 28 VDC for the digital converter and 115 VAC for the anti-icing function."},
+    SSA:{n:"Side Slip Angle probe (SSA) ×3",t:"probe",loc:"Upper part of the nose sides, just below the windshields",
+      note:"One per ADIRU. The probe has a wind vane to measure the local side slip angle. 115 VAC."},
+    OAT:{n:"Outside Air Temperature probe (OAT) ×2",t:"probe",loc:"Nose Landing Gear",
+      note:"Heat-resisting probes energised directly by the ADIRUs, transmitting an analog signal. The LH probe feeds ADIRU 1; the RH probe feeds ADIRUs 2 and 3."},
+    ICP:{n:"ADIRS control panel — ICP02A, panel 1221VM",t:"panel",loc:"Overhead panel",
+      note:"Common to the three ADIRUs and made of three independent channels, one per ADIRU. Each channel has an OFF/NAV/ATT selector, an IR pushbutton switch and an ADR pushbutton switch. A PROBE/WINDOW HEAT pushbutton is shared."},
+    SW:{n:"ADIRS SWITCHING panel — 1311VU",t:"panel",loc:"Front (main instrument) panel",
+      note:"Two rotary selectors whose standard position is 12 o'clock NORM. ATT HDG acts on the IR part only; AIR DATA acts on the ADR part only. Used after a failure of the IR or air data part of ADIRU 1 or 2, or on a discrepancy between the Captain's and First Officer's displays."},
+    ISIS1:{n:"ISIS 1 — Integrated Standby Instrument System 1",t:"isis",loc:"Centre of the main instrument panel",
+      note:"Standby flight display in the normal configuration. Each ISIS can do all the functions of either the standby flight display or the standby navigation display, and the units are interchangeable. Supply 28 VDC BUS 1, changing to the DC essential bus in an emergency electrical configuration."},
+    ISIS2:{n:"ISIS 2",t:"isis",loc:"Centre of the main instrument panel",
+      note:"Standby navigation display in the normal configuration. If ISIS 1 fails, ISIS 2 is automatically reconfigured to the standby flight display mode through the discrete links between the two units; the navigation display can be recovered with the MODE pushbutton. Supply 28 VDC BUS 2."},
+    SPROBE:{n:"Standby pitot and static probes",t:"probe",loc:"Standby pitot on the LH FWD fuselage; two standby statics on the LH and RH nose front fairing",
+      note:"Pneumatically connected to both ISIS. The standby pitot is supplied with 115 VAC from the AC ESS BUS; the standby statics from 115 VAC BUS 2. These give the ISIS its own total and static pressure, independent of the ADIRS."},
+    COMPASS:{n:"Standby magnetic compass",t:"sensor",loc:"Top of the windshield centre post",
+      note:"Gives the aircraft magnetic heading directly to the crew. A compensation card is fitted next to it."},
+    ADCN:{n:"Avionics Data Communication Network (ADCN / AFDX)",t:"net",
+      note:"Primary transmission path for the ADR and IR parameters to the aircraft systems and the CDS. ARINC 429 is the back-up."},
+    A429:{n:"ARINC 429 buses",t:"net",
+      note:"Probe to ADIRU, ADIRU to ISIS, ISIS to the MMR, OMS, FCU, PRIMs, IOM and CDAM, and the back-up path for the ADR and IR data."},
+    CDS:{n:"Control and Display System — PFDs and NDs",t:"disp",
+      note:"The Captain's PFD and ND normally take ADIRU 1, the First Officer's ADIRU 2. Only IR parameters appear on the ND — ground speed and heading information."},
+    MMR:{n:"Multi Mode Receiver (MMR 1 / MMR 2)",t:"src",
+      note:"Supplies GPS data to the IR part of each ADIRU and receives GPIRS data back. Each ISIS is interfaced with MMR 1 for landing system and GPS data."},
+    OMS:{n:"Onboard Maintenance System (OMS)",t:"src",
+      note:"The ADR BITE and IR BITE modules communicate with the OMS. ADR interactive tests: output test, system test, equipment test. IR interactive tests: system test, interface test. The ISIS reaches the OMS through the SCI."}
+  },
+
+  /* 0.4 L4 — the ADIRUs switching truth table */
+  switching:{
+    NORM:{capt:1,fo:2,sby:3},
+    CAPT3:{capt:3,fo:2,sby:null},
+    FO3:{capt:1,fo:3,sby:null}
+  },
+  swLabels:{CAPT3:"CAPT ON 3",NORM:"NORM",FO3:"F/O ON 3"},
+
+  /* 0.6 flags */
+  adrFlags:["SPD","ALT","V/S"],
+  irFlags:["ATT","HDG"],
+
+  /* 0.5 scenarios */
+  scen:[
+    {id:"S0",n:"All three selectors OFF",set:{sel:{1:"OFF",2:"OFF",3:"OFF"}}},
+    {id:"S2",n:"Alignment in progress",set:{aligning:true}},
+    {id:"S3",n:"Normal three-channel, aligned",set:{}},
+    {id:"S4a",n:"ADR 1 failed — switch not yet made",set:{adrFail:{1:true}}},
+    {id:"S4b",n:"ADR 1 failed, AIR DATA CAPT ON 3",set:{adrFail:{1:true},airData:"CAPT3",adrOff:{1:true}}},
+    {id:"S4c",n:"IR 1 failed, ATT HDG CAPT ON 3",set:{irFail:{1:true},attHdg:"CAPT3",irOff:{1:true}}},
+    {id:"S5",n:"ADIRU 2 failed, F/O ON 3 (both selectors)",set:{adrFail:{2:true},irFail:{2:true},attHdg:"FO3",airData:"FO3"}},
+    {id:"S6",n:"Partial ADIRU 1 failure — ATT mode selected",set:{sel:{1:"ATT"},attFail:{1:true}}},
+    {id:"S7",n:"Loss of main AC generation",set:{elecEmer:true}},
+    {id:"S9",n:"All three ADIRUs lost — ISIS is the back-up",set:{adrFail:{1:true,2:true,3:true},irFail:{1:true,2:true,3:true}}},
+    {id:"S10",n:"ISIS 1 failed — ISIS 2 reconfigures",set:{isis1:false}},
+    {id:"S11",n:"ADIRU 3 failed — ISIS switches to ADIRU 1",set:{adrFail:{3:true},irFail:{3:true}}},
+    {id:"FREE",n:"Free play — nothing preset",set:{}}
+  ],
+
+  /* 0.7 NUMBERS — the whitelist */
+  numbers:[
+    ["3","ADIRUs (channels), each with an ADR part and an IR part"],
+    ["3","MultiFunction Probes — one LH, two RH, one per ADIRU"],
+    ["6","Integrated Static Probes — three LH, three RH, two per ADIRU"],
+    ["3","Side Slip Angle probes — one per ADIRU"],
+    ["2","Outside Air Temperature probes on the Nose Landing Gear"],
+    ["3 / 3","accelerometers, one per axis, and gyros, one per rotation axis"],
+    ["2","ISIS units"],
+    ["1 / 2","standby pitot probe / standby static probes"],
+    ["1","standby magnetic compass"],
+    ["1221VM","ADIRS control panel (ICP02A)"],
+    ["1311VU","ADIRS SWITCHING panel"],
+    ["12 o'clock","standard NORM position of the switching selectors"],
+    ["5 to 17 minutes","duration of the IR alignment — depends on the aircraft position"],
+    ["10 seconds","after ALIGN IRS the ALIGN indication replaces INVALID; also the delay before the SPD, ALT and V/S flags clear on power-up"],
+    ["AVAIL IN 7 MIN","indication appearing after the manual align command"],
+    ["30 seconds","delay before the ATT warning flag clears on power-up"],
+    ["GS > 30 kts","automatic probe anti-icing threshold, from the IR ground speed"],
+    ["CAS > 50 kts","ISIS-generated anti-icing activation condition"],
+    ["115 VAC","normal ADIRU supply, and probe converter and anti-icing supply"],
+    ["28 VDC","ADIRU back-up generation and ISP digital-converter supply"],
+    ["10 sec","the qualifier the notes give against the 28 VDC BACK-UP column"],
+    ["ADIRU 1","AC EMER BUS · DC ESS BUS · HOT BUS 1"],
+    ["ADIRU 2","AC BUS 4 · DC BUS 2 · no 28 VDC back-up"],
+    ["ADIRU 3","AC BUS 1 / AC EMER BUS · DC ESS BUS · HOT BUS ESS"],
+    ["5","pushbutton switches on the ISIS front face, plus a rotary knob and a light sensor"]
+  ],
+
+  /* 0.8 GAPS */
+  gaps:[
+    ["No ADIRU voting or comparison-monitoring logic is described","discrepancy detection is modelled as crew-observed only — there is no automatic best-of-three selection"],
+    ["The alignment progress law between 5 and 17 minutes is not stated","a linear countdown with a 10-minute default, with 5–17 min shown as the specified envelope"],
+    ["The 10 sec against the 28 VDC BACK-UP column is not explained","interpreted as the hold-up duration of the hot-bus back-up"],
+    ["ATT mode entry conditions are qualitative only","ATT is a manual selection in the simulation; it is never entered automatically"],
+    ["No ECAM message text is quoted anywhere in these notes","messages are shown as paraphrases, marked as such"],
+    ["Setting the two switching selectors to different non-normal positions is not described","the selection is allowed, but a caution says ADIRU 3 cannot feed both sides"],
+    ["Whether the ADR/IR pushbutton OFF also removes power is not stated","modelled as a bus and output inhibit only; the rotary selector remains the power control"],
+    ["ADIRU accuracy and drift rate are not specified","the MFD figures are shown only as screen examples, never as specifications"],
+    ["The consequence of selecting CAPT ON 3 with ADIRU 3 already dead is not stated","no data reaches the selected side and the flags stay on"],
+    ["No ISIS internal battery or independent supply time is given","no ISIS battery is modelled"]
+  ],
+
+  /* 0.10 MISCONCEPTIONS */
+  misc:[
+    "ADIRU 3 is a spare that automatically takes over when 1 or 2 fails.",
+    "The ATT HDG and AIR DATA selectors are one switch.",
+    "Pushing the ADR or IR pushbutton to OFF fixes the failure, or removes power from the ADIRU.",
+    "ATT mode is a degraded NAV mode that still gives position.",
+    "ISIS reads the ADIRS, so if the ADIRS is lost the ISIS is lost.",
+    "All three ADIRUs are on the same supply and all survive an electrical emergency."
+  ],
+
+  gloss:{
+    ADIRS:"Air Data / Inertial Reference System",ADIRU:"Air Data / Inertial Reference Unit",
+    ADR:"Air Data Reference part",IR:"Inertial Reference part",
+    MFP:"MultiFunction Probe",ISP:"Integrated Static Probe",SSA:"Side Slip Angle probe",
+    OAT:"Outside Air Temperature probe",ICP:"Integrated Control Panel",
+    ISIS:"Integrated Standby Instrument System",SNS:"Standby Navigation System",
+    ADCN:"Avionics Data Communication Network",AFDX:"Avionics Full Duplex Switched Ethernet",
+    CDS:"Control and Display System",PFD:"Primary Flight Display",ND:"Navigation Display",
+    MFD:"MultiFunction Display",MMR:"Multi Mode Receiver",GPIRS:"GPS / Inertial Reference System position",
+    OMS:"Onboard Maintenance System",BITE:"Built-In Test Equipment",SCI:"Secure Communication Interface",
+    CDAM:"Centralized Data Acquisition Module",LGERS:"Landing Gear Extension and Retraction System",
+    PRIM:"PRIMary flight control computer",FCGU:"Flight Guidance Computer Unit",
+    FCU:"Flight Control Unit",CAS:"Computed Air Speed",GS:"Ground Speed",
+    TAT:"Total Air Temperature",AOA:"Angle Of Attack",Pt:"Total pressure",Ps:"Static pressure",
+    NLG:"Nose Landing Gear",VMO:"Maximum Operating Speed",MMO:"Maximum Operating Mach number"
+  }
+};
+
+/* =====================================================================================
+   STATE
+   ===================================================================================== */
+function freshState(){
+  return {
+    sel:{1:"NAV",2:"NAV",3:"NAV"},
+    adrFail:{1:false,2:false,3:false}, irFail:{1:false,2:false,3:false},
+    adrOff:{1:false,2:false,3:false}, irOff:{1:false,2:false,3:false},
+    attFail:{1:false,2:false,3:false},          /* failure with attitude function still possible */
+    attHdg:"NORM", airData:"NORM",
+    elecEmer:false, aligning:false, alignMin:10,
+    isis1:true, isis2:true, isis2Mode:"nav",     /* nav | flight (after auto reconfiguration) */
+    probeHeat:"AUTO", engRunning:false, gs:0, cas:0,
+    scen:"S3", sel_:"ADIRU1", trace:null
+  };
+}
+let STATE=freshState();
+let ANIM=true, BUILDUP=false, BUILDUPI=0;
+const $=id=>document.getElementById(id);
+const SVGNS="http://www.w3.org/2000/svg";
+
+/* =====================================================================================
+   ENGINE
+   Evaluation order each tick:
+     1. power — which ADIRUs can be supplied at all
+     2. per-channel health of the ADR and IR parts (selector, failure, output inhibit)
+     3. source allocation through the 1311VU truth table, ATT HDG on IR, AIR DATA on ADR
+     4. resulting PFD / ND / ISIS flags
+     5. probe anti-icing and ISIS configuration
+   ===================================================================================== */
+function powered(n){
+  if(STATE.sel[n]==="OFF") return false;
+  /* On a loss of main AC generation ADIRU 1 and 3 stay on the AC EMER BUS.
+     ADIRU 2 sits on AC BUS 4 and has no 28 VDC back-up, so it is lost. */
+  if(STATE.elecEmer && n===2) return false;
+  return true;
+}
+/* An ADR or IR part is usable when it is powered, not failed, and its output buses are not inhibited */
+function adrOK(n){ return powered(n) && !STATE.adrFail[n] && !STATE.adrOff[n] && STATE.sel[n]!=="ATT"; }
+function irOK(n){
+  if(!powered(n) || STATE.irFail[n] || STATE.irOff[n]) return false;
+  return true;   /* ATT mode still gives heading and attitude */
+}
+function irNav(n){ return irOK(n) && STATE.sel[n]==="NAV" && !STATE.aligning; }
+
+function solve(){
+  const S={};
+  S.adrSrc = MODEL.switching[STATE.airData];
+  S.irSrc  = MODEL.switching[STATE.attHdg];
+
+  /* rule G8 — ADIRU 3 cannot feed both sides at once */
+  S.conflict = (STATE.attHdg!=="NORM" && STATE.airData!=="NORM" &&
+                STATE.attHdg!==STATE.airData);
+
+  S.captADR = S.adrSrc.capt; S.foADR = S.adrSrc.fo;
+  S.captIR  = S.irSrc.capt;  S.foIR  = S.irSrc.fo;
+  S.standby = (STATE.attHdg==="NORM" && STATE.airData==="NORM") ? 3 : null;
+
+  /* flags */
+  S.capt={adr:!adrOK(S.captADR),ir:!irOK(S.captIR),att:STATE.sel[S.captIR]==="ATT",nav:irNav(S.captIR)};
+  S.fo  ={adr:!adrOK(S.foADR),  ir:!irOK(S.foIR),  att:STATE.sel[S.foIR]==="ATT",  nav:irNav(S.foIR)};
+
+  /* ISIS — basically ADIRU 3; on ADIRU 3 failure it switches to ADIRU 1 */
+  S.isisSrc = (adrOK(3)||irOK(3)) ? 3 : ((adrOK(1)||irOK(1)) ? 1 : null);
+  S.isisAlive = STATE.isis1 || STATE.isis2;
+  S.isisFlight = STATE.isis1 ? "ISIS 1" : (STATE.isis2 ? "ISIS 2" : null);
+  S.isisNav = STATE.isis1 ? (STATE.isis2 ? "ISIS 2" : null)
+                          : (STATE.isis2 && STATE.isis2Mode==="nav" ? "ISIS 2" : null);
+  /* ISIS computes its own air data and attitude from the standby probes, so it survives a total ADIRS loss */
+  S.adirsLost = !adrOK(1)&&!adrOK(2)&&!adrOK(3)&&!irOK(1)&&!irOK(2)&&!irOK(3);
+
+  /* probe anti-icing: (engine running OR GS > 30 kts) OR (manual pushbutton on the ground) */
+  S.antiIce = (STATE.engRunning || STATE.gs>30) || (STATE.probeHeat==="ON");
+  S.antiIceWhy = STATE.engRunning ? "at least one engine running"
+               : STATE.gs>30 ? "IR ground speed above 30 kts"
+               : STATE.probeHeat==="ON" ? "PROBE/WINDOW HEAT pushbutton selected ON"
+               : "no activation condition met";
+  S.isisAntiIce = STATE.cas>50;
+
+  /* pushbutton legends */
+  S.pb={};
+  [1,2,3].forEach(n=>{
+    S.pb[n]={
+      adrFault:STATE.adrFail[n]&&powered(n), adrOffLit:STATE.adrOff[n],
+      irFault:(STATE.irFail[n]||STATE.attFail[n])&&powered(n), irOffLit:STATE.irOff[n],
+      irFlash:STATE.attFail[n]&&!STATE.irOff[n]&&STATE.sel[n]!=="ATT"
+    };
+  });
+  S.abnormalSwitch = STATE.attHdg!=="NORM"||STATE.airData!=="NORM";
+  return S;
+}
+
+/* Signal trace */
+function tracePath(kind){
+  switch(kind){
+    case "adr": return {t:"Air data — probe to display",
+      chain:["MFP n (AOA, TAT, Pt) · ISP n-1 and n-2 (Ps) · SSA n · OAT",
+             "integrated digital converter → ARINC 429",
+             "ADR part of ADIRU n",
+             STATE.elecEmer?"ARINC 429 back-up":"ADCN (AFDX)",
+             "CAPT or F/O PFD, per the AIR DATA selector"],
+      cls:"", notes:["The OAT probe has no converter — it sends an analog signal and is energised directly by the ADIRU.",
+                     "Only the ADR part supplies speed, altitude and vertical speed."]};
+    case "ir": return {t:"Inertial reference — sensors to display",
+      chain:["Three accelerometers and three gyros inside the IR part",
+             "GPS data from MMR 1 and MMR 2 in ARINC 429",
+             "IR part of ADIRU n",
+             STATE.elecEmer?"ARINC 429 back-up":"ADCN (AFDX)",
+             "CAPT or F/O PFD and ND, per the ATT HDG selector"],
+      cls:"", notes:["Only IR parameters appear on the ND — the ground speed and the heading information."]};
+    case "isis": return {t:"Standby navigation — independent chain",
+      chain:["Standby pitot probe (Pt) and two standby static probes (Ps)",
+             "pneumatic link",
+             "ISIS 1 and ISIS 2 — own pressure sensors and own gyros and accelerometers",
+             "ARINC 429 supplement from ADIRU "+(solve().isisSrc||"—")+" and MMR 1",
+             "standby flight display and standby navigation display"],
+      cls:"a4", notes:["The ISIS chain is pneumatic and internal, so it survives a total ADIRS loss.",
+                       "If two ADIRS fail, the ISIS also sends air data and inertial data to the FCGUs of the three PRIM systems."]};
+    case "switch": return {t:"Switching panel routing",
+      chain:["Rotary selector on 1311VU","discrete via IOM-A","ADIRU 3 reconfiguration line","CDS display routing"],
+      cls:"di", notes:["ATT HDG acts on the IR part only; AIR DATA acts on the ADR part only.",
+                       "Any position other than NORM triggers a message on the ECAM EWD and PFD memo."]};
+    case "bite": return {t:"Maintenance",
+      chain:["ADR BITE and IR BITE modules","ADCN","OMS — output, system, equipment, interface tests"],
+      cls:"", notes:["The ISIS reaches the OMS through the SCI, in ARINC 429 plus a discrete link."]};
+  }
+  return null;
+}
+
+/* =====================================================================================
+   VIEW
+   ===================================================================================== */
+function el(tag,attrs,parent){
+  const n=document.createElementNS(SVGNS,tag);
+  for(const k in attrs){ if(k==="text") n.textContent=attrs[k]; else if(attrs[k]!=null) n.setAttribute(k,attrs[k]); }
+  if(parent) parent.appendChild(n); return n;
+}
+function h(tag,attrs,parent){
+  const n=document.createElement(tag);
+  for(const k in attrs){
+    if(k==="text") n.textContent=attrs[k];
+    else if(k==="html") n.innerHTML=attrs[k];
+    else if(k==="class") n.className=attrs[k];
+    else if(attrs[k]!=null) n.setAttribute(k,attrs[k]);
+  }
+  if(parent) parent.appendChild(n); return n;
+}
+
+const CHY={1:120,2:300,3:480};
+const BUILDUP_SEQ=[
+  ["P1","Channel one starts at the probes: one MultiFunction Probe for angle of attack, total air temperature and total pressure."],
+  ["P1b","Two Integrated Static Probes give the local static pressure, and a Side Slip Angle probe carries a wind vane."],
+  ["P1c","An Outside Air Temperature probe on the nose landing gear sends an analog signal, energised by the ADIRU itself."],
+  ["A1","All of that arrives at the Air Data Reference part of ADIRU 1."],
+  ["A1b","Alongside it, the Inertial Reference part — three accelerometers and three gyros, one per axis."],
+  ["A2","Channel two repeats the whole set into ADIRU 2."],
+  ["A3","And channel three into ADIRU 3, which stays mainly in standby."],
+  ["NET","Their outputs travel over the ADCN in AFDX, with ARINC 429 as the back-up."],
+  ["SW","The switching panel 1311VU decides which channel feeds which side — ATT HDG for the inertial part, AIR DATA for the air data part."],
+  ["DISP","Normally ADIRU 1 feeds the Captain's PFD and ND, and ADIRU 2 the First Officer's."],
+  ["ISIS","Separately, two Integrated Standby Instrument Systems run off their own standby pitot and static probes."],
+  ["CMP","And a standby magnetic compass gives the magnetic heading with no electrical supply at all."]
+];
+
+function renderArch(gid){
+  const g=$(gid); g.innerHTML="";
+  const S=solve();
+  const shown=BUILDUP?new Set(BUILDUP_SEQ.slice(0,BUILDUPI+1).map(s=>s[0])):null;
+  const vis=k=>!BUILDUP||shown.has(k);
+
+  el("text",{x:105,y:78,"text-anchor":"middle",fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"PROBES"},g);
+  el("text",{x:390,y:78,"text-anchor":"middle",fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"ADIRU CHANNELS"},g);
+  el("text",{x:660,y:78,"text-anchor":"middle",fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"NETWORK"},g);
+  el("text",{x:960,y:78,"text-anchor":"middle",fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"USERS"},g);
+
+  /* the three channels */
+  [1,2,3].forEach(n=>{
+    const y=CHY[n];
+    const key = n===1?"A1":(n===2?"A2":"A3");
+    if(!vis(key)&&!(n===1&&(vis("A1b")))) return;
+    const pw=powered(n), aOK=adrOK(n), iOK=irOK(n);
+
+    /* probe block */
+    if(vis(n===1?"P1":key)){
+      const pg=el("g",{transform:`translate(20,${y-32})`,tabindex:"0",role:"button","aria-label":"Probes of channel "+n,style:"cursor:pointer"},g);
+      el("rect",{x:0,y:0,width:170,height:106,rx:8,fill:"#1b2337",stroke:S.antiIce?"#ffb020":"#3a4666","stroke-width":1.6},pg);
+      el("text",{x:85,y:18,"text-anchor":"middle",fill:"#cfd8ea","font-size":"12","font-weight":"600",text:"CHANNEL "+n+" PROBES"},pg);
+      const rows=[["MFP "+n,"AOA · TAT · Pt","P1"],["ISP "+n+"-1 / "+n+"-2","Ps","P1b"],["SSA "+n,"side slip","P1b"],["OAT "+(n===1?"1 (LH)":"2 (RH)"),"analog","P1c"]];
+      rows.forEach((r,i)=>{
+        if(BUILDUP&&n===1&&!shown.has(r[2])) return;
+        el("text",{x:8,y:35+i*18,fill:"#e8ecf4","font-size":"10.5",text:r[0]},pg);
+        el("text",{x:162,y:35+i*18,"text-anchor":"end",fill:"#8fa3c4","font-size":"9.5",text:r[1]},pg);
+      });
+      if(S.antiIce) el("text",{x:85,y:102,"text-anchor":"middle",fill:"#ffb020","font-size":"9",text:"ANTI-ICING ACTIVE"},pg);
+      pg.addEventListener("click",()=>{STATE.sel_= n===1?"MFP":"ISP";renderInspector();});
+      pg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.sel_="MFP";renderInspector();}});
+      /* probe → ADIRU link */
+      el("path",{d:`M 190 ${y+21} L 260 ${y+21}`,stroke:pw?"var(--a429)":"var(--dead)","stroke-width":2.2,
+                 "stroke-dasharray":pw?null:"4 4"},g);
+      if(pw&&ANIM) el("path",{d:`M 190 ${y+21} L 260 ${y+21}`,stroke:"var(--a429)","stroke-width":2.2,class:"flow"},g);
+      el("text",{x:225,y:y+14,"text-anchor":"middle",fill:"#8fa3c4","font-size":"8.5",text:"A429"},g);
+    }
+
+    /* the ADIRU */
+    const ag=el("g",{transform:`translate(260,${y-32})`,tabindex:"0",role:"button","aria-label":"ADIRU "+n,style:"cursor:pointer"},g);
+    el("rect",{x:0,y:0,width:260,height:106,rx:8,fill:pw?"#1b2337":"#2a1010",
+      stroke:pw?"#3a4666":"var(--fault)","stroke-width":pw?1.8:2.4},ag);
+    el("text",{x:130,y:19,"text-anchor":"middle",fill:pw?"#e8ecf4":"#ff8080","font-size":"13","font-weight":"600",
+      text:"ADIRU "+n+(pw?"":" — NOT SUPPLIED")},ag);
+    el("text",{x:130,y:33,"text-anchor":"middle",fill:"#8fa3c4","font-size":"9.5",
+      text:STATE.sel[n]==="OFF"?"selector OFF":("selector "+STATE.sel[n]+(n===3?" · standby channel":""))},ag);
+    /* ADR sub-block */
+    const ac = !pw?"#5a6478":(aOK?"var(--adr)":"var(--fault)");
+    el("rect",{x:12,y:42,width:112,height:52,rx:6,fill:"#141b28",stroke:ac,"stroke-width":1.8},ag);
+    el("text",{x:68,y:60,"text-anchor":"middle",fill:ac,"font-size":"12","font-weight":"700",text:"ADR "+n},ag);
+    el("text",{x:68,y:74,"text-anchor":"middle",fill:"#8fa3c4","font-size":"9",
+      text:!pw?"—":(STATE.adrFail[n]?"FAILED":(STATE.adrOff[n]?"BUS OFF":(STATE.sel[n]==="ATT"?"no air data in ATT":"OK")))},ag);
+    if(vis("A1b")||n!==1){
+      const ic = !pw?"#5a6478":(iOK?"var(--ir)":"var(--fault)");
+      el("rect",{x:136,y:42,width:112,height:52,rx:6,fill:"#141b28",stroke:ic,"stroke-width":1.8},ag);
+      el("text",{x:192,y:60,"text-anchor":"middle",fill:ic,"font-size":"12","font-weight":"700",text:"IR "+n},ag);
+      el("text",{x:192,y:74,"text-anchor":"middle",fill:"#8fa3c4","font-size":"9",
+        text:!pw?"—":(STATE.irFail[n]?"FAILED":(STATE.irOff[n]?"BUS OFF":(STATE.sel[n]==="ATT"?"ATT — hdg + att only":(STATE.aligning?"ALIGNING":"NAV"))))},ag);
+    }
+    ag.addEventListener("click",()=>{STATE.sel_="ADIRU"+n;renderInspector();});
+    ag.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.sel_="ADIRU"+n;renderInspector();}});
+
+    /* ADIRU → network */
+    if(vis("NET")){
+      const live=pw&&(aOK||iOK);
+      const col=STATE.elecEmer?"var(--a429)":"var(--adcn)";
+      el("path",{d:`M 520 ${y+21} L 600 ${y+21}`,stroke:live?col:"var(--dead)","stroke-width":2.2,"stroke-dasharray":live?null:"4 4"},g);
+      if(live&&ANIM) el("path",{d:`M 520 ${y+21} L 600 ${y+21}`,stroke:col,"stroke-width":2.2,class:"flow"},g);
+    }
+  });
+
+  /* network block */
+  if(vis("NET")){
+    const bk=STATE.elecEmer;
+    el("rect",{x:600,y:250,width:120,height:120,rx:8,fill:"#1b2337",stroke:bk?"var(--a429)":"var(--adcn)","stroke-width":1.8},g);
+    el("text",{x:660,y:300,"text-anchor":"middle",fill:"#e8ecf4","font-size":"13","font-weight":"600",text:"ADCN"},g);
+    el("text",{x:660,y:316,"text-anchor":"middle",fill:"#8fa3c4","font-size":"9.5",text:"AFDX"},g);
+    el("text",{x:660,y:334,"text-anchor":"middle",fill:bk?"var(--a429)":"#8fa3c4","font-size":"9",text:bk?"A429 back-up":"+ A429 back-up"},g);
+  }
+
+  /* switching panel */
+  if(vis("SW")){
+    const sg=el("g",{transform:"translate(600,430)",tabindex:"0",role:"button","aria-label":"Switching panel 1311VU",style:"cursor:pointer"},g);
+    el("rect",{x:0,y:0,width:120,height:96,rx:8,fill:"#1b2337",stroke:S.abnormalSwitch?"var(--amber)":"#3a4666","stroke-width":S.abnormalSwitch?2.4:1.6},sg);
+    el("text",{x:60,y:18,"text-anchor":"middle",fill:"#e8ecf4","font-size":"11","font-weight":"600",text:"1311VU"},sg);
+    el("text",{x:60,y:38,"text-anchor":"middle",fill:"var(--ir)","font-size":"9.5",text:"ATT HDG"},sg);
+    el("text",{x:60,y:51,"text-anchor":"middle",fill:"#e8ecf4","font-size":"11","font-weight":"700",text:MODEL.swLabels[STATE.attHdg]},sg);
+    el("text",{x:60,y:69,"text-anchor":"middle",fill:"var(--adr)","font-size":"9.5",text:"AIR DATA"},sg);
+    el("text",{x:60,y:82,"text-anchor":"middle",fill:"#e8ecf4","font-size":"11","font-weight":"700",text:MODEL.swLabels[STATE.airData]},sg);
+    sg.addEventListener("click",()=>{STATE.sel_="SW";renderInspector();});
+    sg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.sel_="SW";renderInspector();}});
+    if(S.abnormalSwitch)
+      el("text",{x:660,y:544,"text-anchor":"middle",fill:"var(--amber)","font-size":"10","font-weight":"700",text:"ECAM memo"},g);
+  }
+
+  /* displays */
+  if(vis("DISP")){
+    [["CAPT PFD / ND",100,S.capt,S.captADR,S.captIR],["F/O PFD / ND",250,S.fo,S.foADR,S.foIR]].forEach(([lab,y,f,a,i])=>{
+      const dg=el("g",{transform:`translate(800,${y})`,tabindex:"0",role:"button","aria-label":lab,style:"cursor:pointer"},g);
+      const bad=f.adr||f.ir;
+      el("rect",{x:0,y:0,width:230,height:116,rx:8,fill:"#0a0e16",stroke:bad?"var(--fault)":"#3a4666","stroke-width":bad?2.4:1.6},dg);
+      el("text",{x:115,y:19,"text-anchor":"middle",fill:"#cfd8ea","font-size":"12","font-weight":"600",text:lab},dg);
+      el("text",{x:115,y:35,"text-anchor":"middle",fill:"#8fa3c4","font-size":"9.5",
+        text:"ADR "+a+"  ·  IR "+i},dg);
+      let fy=54;
+      MODEL.adrFlags.forEach((fl,k)=>{
+        el("text",{x:24+k*68,y:fy,"text-anchor":"middle",fill:f.adr?"var(--fault)":"#2c3650","font-size":"12","font-weight":"700",
+                   class:f.adr?"flash":null,text:fl},dg);
+      });
+      fy=78;
+      MODEL.irFlags.forEach((fl,k)=>{
+        const on = f.ir || (fl==="HDG" && (f.att || STATE.aligning));
+        el("text",{x:40+k*80,y:fy,"text-anchor":"middle",fill:on?"var(--fault)":"#2c3650","font-size":"12","font-weight":"700",
+                   class:on?"flash":null,text:fl},dg);
+      });
+      el("text",{x:115,y:100,"text-anchor":"middle",fill:"#6d7c99","font-size":"9",
+        text:f.att?"ATT mode — heading must be entered on the MFD":(STATE.aligning?"alignment in progress":(bad?"source not available":"normal"))},dg);
+      dg.addEventListener("click",()=>{STATE.sel_="CDS";renderInspector();});
+      dg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.sel_="CDS";renderInspector();}});
+    });
+  }
+
+  /* ISIS */
+  if(vis("ISIS")){
+    const ig=el("g",{transform:"translate(800,400)",tabindex:"0",role:"button","aria-label":"Integrated Standby Instrument System",style:"cursor:pointer"},g);
+    el("rect",{x:0,y:0,width:230,height:130,rx:8,fill:"#0a0e16",stroke:S.isisAlive?"var(--isis)":"var(--fault)","stroke-width":1.8},ig);
+    el("text",{x:115,y:19,"text-anchor":"middle",fill:"var(--isis)","font-size":"12","font-weight":"600",text:"STANDBY NAVIGATION — ISIS"},ig);
+    el("text",{x:12,y:40,fill:"#e8ecf4","font-size":"10.5",text:"ISIS 1  "+(STATE.isis1?"standby flight display":"FAILED")},ig);
+    el("text",{x:12,y:57,fill:"#e8ecf4","font-size":"10.5",
+      text:"ISIS 2  "+(!STATE.isis2?"FAILED":(STATE.isis2Mode==="flight"?"reconfigured to flight":"standby nav display"))},ig);
+    el("text",{x:12,y:78,fill:"#8fa3c4","font-size":"9.5",text:"own pitot + 2 static probes (pneumatic)"},ig);
+    el("text",{x:12,y:93,fill:"#8fa3c4","font-size":"9.5",text:"supplement from ADIRU "+(S.isisSrc||"— none")+" and MMR 1"},ig);
+    if(S.adirsLost) el("text",{x:12,y:114,fill:"var(--isis)","font-size":"10","font-weight":"700",text:"ADIRS lost — ISIS still alive"},ig);
+    ig.addEventListener("click",()=>{STATE.sel_="ISIS1";renderInspector();});
+    ig.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.sel_="ISIS1";renderInspector();}});
+    /* standby probe link */
+    el("rect",{x:420,y:560,width:130,height:70,rx:8,fill:"#1b2337",stroke:"var(--isis)","stroke-width":1.6},g);
+    el("text",{x:485,y:585,"text-anchor":"middle",fill:"#e8ecf4","font-size":"11","font-weight":"600",text:"STANDBY"},g);
+    el("text",{x:485,y:600,"text-anchor":"middle",fill:"#e8ecf4","font-size":"11","font-weight":"600",text:"PROBES"},g);
+    el("text",{x:485,y:617,"text-anchor":"middle",fill:"#8fa3c4","font-size":"9",text:"1 pitot · 2 static"},g);
+    /* routed below the switching block so the two paths never cross */
+    el("path",{d:"M 550 595 L 760 595 L 760 470 L 800 470",stroke:"var(--isis)","stroke-width":2.2,fill:"none"},g);
+    el("text",{x:655,y:588,"text-anchor":"middle",fill:"#8fa3c4","font-size":"8.5",text:"pneumatic"},g);
+  }
+  if(vis("CMP")){
+    el("rect",{x:800,y:560,width:230,height:56,rx:8,fill:"#1b2337",stroke:"#3a4666","stroke-width":1.6},g);
+    el("text",{x:915,y:584,"text-anchor":"middle",fill:"#e8ecf4","font-size":"11","font-weight":"600",text:"STANDBY MAGNETIC COMPASS"},g);
+    el("text",{x:915,y:601,"text-anchor":"middle",fill:"#8fa3c4","font-size":"9",text:"no electrical supply · compensation card"},g);
+  }
+  if(S.conflict)
+    el("text",{x:590,y:672,"text-anchor":"middle",fill:"var(--amber)","font-size":"11","font-weight":"700",
+      text:"(assumed) ADIRU 3 cannot feed both sides at once — the notes do not describe this selection"},g);
+}
+
+function renderPower(gid){
+  const g=$(gid); g.innerHTML="";
+  const emer=STATE.elecEmer;
+  el("text",{x:590,y:44,"text-anchor":"middle",fill:"#cfd8ea","font-size":"16","font-weight":"600",
+    text:"ADIRU power supply — why one channel dies and two survive"},g);
+  el("text",{x:590,y:66,"text-anchor":"middle",fill:"#8fa3c4","font-size":"12",
+    text:"Each ADIRU transfers automatically from primary to back-up generation whenever the main 115 VAC exceeds its normal limits."},g);
+
+  const rows=[
+    {n:1,ac:"AC EMER BUS",dc:"DC ESS BUS",bk:"HOT BUS 1 (10 sec)",alive:!emer||true},
+    {n:2,ac:"AC BUS 4",dc:"DC BUS 2",bk:"NOT POWERED",alive:!emer},
+    {n:3,ac:"AC BUS 1 / AC EMER BUS",dc:"DC ESS BUS",bk:"HOT BUS ESS (10 sec)",alive:true}
+  ];
+  rows.forEach((r,i)=>{
+    const y=120+i*130, alive=r.alive&&STATE.sel[r.n]!=="OFF";
+    const gg=el("g",{transform:`translate(90,${y})`,tabindex:"0",role:"button","aria-label":"ADIRU "+r.n+" power",style:"cursor:pointer"},g);
+    el("rect",{x:0,y:0,width:1000,height:104,rx:9,fill:alive?"#1b2337":"#2a1010",
+      stroke:alive?"#3a4666":"var(--fault)","stroke-width":alive?1.6:2.6},gg);
+    el("text",{x:20,y:34,fill:alive?"#e8ecf4":"#ff8080","font-size":"17","font-weight":"700",text:"ADIRU "+r.n},gg);
+    el("text",{x:20,y:56,fill:"#8fa3c4","font-size":"10.5",text:alive?"supplied":"NOT SUPPLIED"},gg);
+    [["115 VAC primary",r.ac,220],["28 VDC primary",r.dc,500],["28 VDC back-up",r.bk,760]].forEach(([lab,val,x])=>{
+      const dead = emer && ((lab.indexOf("115")===0&&r.n===2)||(lab.indexOf("28 VDC back")===0&&r.n===2));
+      el("text",{x,y:34,fill:"#6d7c99","font-size":"10","letter-spacing":"1",text:lab.toUpperCase()},gg);
+      el("text",{x,y:58,fill:dead?"var(--fault)":"#e8ecf4","font-size":"14","font-weight":"600",text:val},gg);
+    });
+    if(emer&&r.n===2)
+      el("text",{x:220,y:84,fill:"var(--fault)","font-size":"11","font-weight":"700",
+        text:"AC BUS 4 lost and there is no 28 VDC back-up — channel 2 is gone"},gg);
+    if(emer&&r.n!==2)
+      el("text",{x:220,y:84,fill:"var(--avail)","font-size":"11",
+        text:"on the AC EMER BUS, with the hot bus behind it"},gg);
+    gg.addEventListener("click",()=>{STATE.sel_="ADIRU"+r.n;renderInspector();});
+    gg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.sel_="ADIRU"+r.n;renderInspector();}});
+  });
+  el("text",{x:90,y:534,fill:"#e8ecf4","font-size":"13","font-weight":"600",
+    text:emer?"Loss of main AC generation — selected":"Normal electrical configuration"},g);
+  el("text",{x:90,y:558,fill:"#8fa3c4","font-size":"12",
+    text:"ISIS 1 is on 28 VDC BUS 1 and ISIS 2 on 28 VDC BUS 2; in an emergency electrical configuration their supply changes to the DC essential bus."},g);
+  el("text",{x:90,y:580,fill:"#8fa3c4","font-size":"12",
+    text:"The standby pitot probe takes 115 VAC from the AC ESS BUS and the standby static probes from 115 VAC BUS 2."},g);
+  el("text",{x:90,y:610,fill:"#8fa3c4","font-size":"12",
+    text:"At each power-up the ADIRU runs an internal test, checks that it receives both 28 VDC and 115 VAC, and switches internally to the"},g);
+  el("text",{x:90,y:630,fill:"#8fa3c4","font-size":"12",
+    text:"back-up supply to test the electrical generation."},g);
+}
+
+let VIEWBOX={x:0,y:0,w:1180,h:700};
+function applyVB(id){ $(id).setAttribute("viewBox",`${VIEWBOX.x} ${VIEWBOX.y} ${VIEWBOX.w} ${VIEWBOX.h}`); }
+function drawLegend(id){
+  const L=$(id); if(!L) return;
+  L.innerHTML='<b>Signal paths</b>'+
+    '<div><span class="sw" style="border-color:var(--a429)"></span>ARINC 429 — probes and back-up</div>'+
+    '<div><span class="sw" style="border-color:var(--adcn)"></span>ADCN / AFDX — primary</div>'+
+    '<div><span class="sw" style="border-color:var(--adr)"></span>ADR part — air data</div>'+
+    '<div><span class="sw" style="border-color:var(--ir)"></span>IR part — inertial</div>'+
+    '<div><span class="sw" style="border-color:var(--isis)"></span>ISIS — independent standby chain</div>'+
+    '<div><span class="sw" style="border-color:var(--dead);border-top-style:dashed"></span>path not carrying data</div>';
+}
+function draw(){
+  const v=$("selView").value;
+  if(v==="power") renderPower("vp"); else renderArch("vp");
+  $("legend").style.display = v==="power" ? "none" : "block";
+  drawLegend("legend");
+  applyVB("svg");
+}
+
+/* =====================================================================================
+   UI — the ICP 1221VM, the switching panel, the inspector
+   ===================================================================================== */
+function buildICP(parent){
+  const S=solve();
+  const box=h("div",{class:"icp"},parent);
+  [1,2,3].forEach(n=>{
+    const row=h("div",{class:"icpchan"},box);
+    const lw=h("div",{},row);
+    h("div",{class:"lbl",text:"ADIRU "+n},lw);
+    const s3=h("div",{class:"sel3"},lw);
+    ["OFF","NAV","ATT"].forEach(p=>{
+      const b=h("button",{class:STATE.sel[n]===p?"on":"",text:p},s3);
+      b.addEventListener("click",()=>{
+        STATE.sel[n]=p;
+        /* Selecting ATT extinguishes the flashing FAULT legend on an attitude-capable failure */
+        if(p==="ATT"&&STATE.attFail[n]) toast("FAULT legend extinguished. In ATT the ADIRU gives heading and attitude only, and the heading has to be entered through the MFD.");
+        refresh();
+      });
+    });
+    /* IR pushbutton */
+    const ir=h("button",{class:"pbsw"+(S.pb[n].irFault?" fault":"")+(S.pb[n].irOffLit?" off":"")+(S.pb[n].irFlash?" flash":"")},row);
+    ir.innerHTML="<span style='font-size:.9em'>IR "+n+"</span><span class='f'>FAULT</span><span class='o'>OFF</span>";
+    ir.title="Momentary action. Normally ON with no light. Selected OFF (white legend) after a failure of the IR part — it inhibits the output buses, it does not remove power.";
+    ir.addEventListener("click",()=>{STATE.irOff[n]=!STATE.irOff[n];
+      toast(STATE.irOff[n]?"IR "+n+" output buses disabled. The IR sends a discrete IR OFF signal, which lights the OFF legend. The ADIRU is still powered by the rotary selector.":"IR "+n+" output buses re-enabled.");
+      refresh();});
+    /* ADR pushbutton */
+    const ad=h("button",{class:"pbsw"+(S.pb[n].adrFault?" fault":"")+(S.pb[n].adrOffLit?" off":"")},row);
+    ad.innerHTML="<span style='font-size:.9em'>ADR "+n+"</span><span class='f'>FAULT</span><span class='o'>OFF</span>";
+    ad.title="Same philosophy as the IR pushbutton, but for the ADR part. It controls the ADR data transmission on and off.";
+    ad.addEventListener("click",()=>{STATE.adrOff[n]=!STATE.adrOff[n];
+      toast(STATE.adrOff[n]?"ADR "+n+" output buses disabled — the OFF legend comes on.":"ADR "+n+" output buses re-enabled.");
+      refresh();});
+  });
+  const ph=h("div",{style:"display:flex;gap:6px;align-items:center;margin-top:6px"},box);
+  h("span",{class:"lbl",text:"PROBE / WINDOW HEAT"},ph);
+  ["AUTO","ON"].forEach(p=>{
+    const b=h("button",{class:"pbsw"+(STATE.probeHeat===p?" off":""),style:"min-height:28px;flex:1",text:p},ph);
+    b.addEventListener("click",()=>{STATE.probeHeat=p;refresh();});
+  });
+  h("div",{class:"small",style:"margin-top:5px;color:#cfd8ea",
+    text:"Anti-icing: "+(S.antiIce?"ACTIVE":"not active")+" — "+S.antiIceWhy},box);
+  return box;
+}
+function buildSwitching(parent){
+  const b=h("div",{class:"icp"},parent);
+  [["attHdg","ATT HDG","acts on the IR part only"],["airData","AIR DATA","acts on the ADR part only"]].forEach(([k,lab,sub])=>{
+    h("div",{class:"lbl",text:lab+" — "+sub},b);
+    const r=h("div",{class:"rot"},b);
+    ["CAPT3","NORM","FO3"].forEach(p=>{
+      const btn=h("button",{class:STATE[k]===p?"on":"",text:MODEL.swLabels[p]},r);
+      btn.addEventListener("click",()=>{STATE[k]=p;refresh();});
+    });
+  });
+  return b;
+}
+
+function renderInspector(){
+  const p=$("inspector"); p.innerHTML="";
+  const S=solve();
+
+  /* system state */
+  const st=h("div",{class:"card"},p);
+  h("h2",{text:"System state"},st);
+  const dl=h("dl",{class:"kv"},st);
+  h("dt",{text:"CAPT side"},dl); h("dd",{text:"ADR "+S.captADR+" · IR "+S.captIR+(S.capt.adr||S.capt.ir?"  — flagged":"")},dl);
+  h("dt",{text:"F/O side"},dl);  h("dd",{text:"ADR "+S.foADR+" · IR "+S.foIR+(S.fo.adr||S.fo.ir?"  — flagged":"")},dl);
+  h("dt",{text:"Standby"},dl);   h("dd",{text:S.standby?("ADIRU "+S.standby):"none — ADIRU 3 is in use"},dl);
+  h("dt",{text:"ISIS source"},dl); h("dd",{text:S.isisSrc?("ADIRU "+S.isisSrc):"none available"},dl);
+  h("dt",{text:"Electrical"},dl); h("dd",{html:STATE.elecEmer?'<span class="pill bad">main AC generation lost</span>':'<span class="pill ok">normal</span>'},dl);
+  if(S.abnormalSwitch)
+    h("div",{class:"notice small",text:"A switching selector is not in NORM. Any switching situation other than the normal position triggers a message on the ECAM, in the EWD and PFD memo part."},st);
+  if(S.conflict)
+    h("div",{class:"err small",text:"(assumed) The two selectors are in different non-normal positions. ADIRU 3 cannot feed both sides at once, and the notes do not describe this case."},st);
+  if(STATE.aligning)
+    h("div",{class:"notice small",text:"Alignment in progress. Air information is displayed on the PFDs immediately, but the navigation information on the NDs and the IR data on the PFDs are available only after the complete alignment. Duration 5 to 17 minutes, depending on the aircraft position."},st);
+  if(S.adirsLost)
+    h("div",{class:"ok-note small",text:"All three ADIRUs are unavailable, and the ISIS is still alive — it computes its own air data from the standby pitot and static probes and its own attitude from its internal sensors."},st);
+
+  /* ICP */
+  const c1=h("div",{class:"card"},p);
+  h("h2",{text:"ADIRS control panel — ICP02A, 1221VM"},c1);
+  buildICP(c1);
+
+  /* switching */
+  const c2=h("div",{class:"card"},p);
+  h("h2",{text:"SWITCHING panel — 1311VU"},c2);
+  buildSwitching(c2);
+  const t=h("table",{},c2);
+  t.innerHTML="<tr><th>Selector</th><th>CAPT</th><th>F/O</th><th>STANDBY</th></tr>"+
+    Object.keys(MODEL.switching).map(k=>{
+      const r=MODEL.switching[k], cur=(STATE.attHdg===k||STATE.airData===k);
+      return `<tr${cur?' style="background:#1d2942"':''}><td>${MODEL.swLabels[k]}</td><td>ADIRU ${r.capt}</td><td>ADIRU ${r.fo}</td><td>${r.sby?("ADIRU "+r.sby):"—"}</td></tr>`;
+    }).join("");
+
+  /* displays */
+  const c3=h("div",{class:"card"},p);
+  h("h2",{text:"Warning flags"},c3);
+  [["CAPT PFD / ND",S.capt],["F/O PFD / ND",S.fo]].forEach(([lab,f])=>{
+    let html="<strong>"+lab+"</strong><br>";
+    MODEL.adrFlags.forEach(x=>html+='<span class="pill '+(f.adr?"bad":"ok")+'">'+x+"</span>");
+    MODEL.irFlags.forEach(x=>{
+      const on=f.ir||(x==="HDG"&&(f.att||STATE.aligning));
+      html+='<span class="pill '+(on?"bad":"ok")+'">'+x+"</span>";
+    });
+    h("div",{class:"small",html,style:"margin-bottom:6px"},c3);
+  });
+  h("div",{class:"small muted",text:"SPD, ALT and V/S come from the ADR part; ATT and HDG from the IR part. Only IR parameters appear on the ND — the ground speed and the heading information."},c3);
+
+  /* ISIS */
+  const c4=h("div",{class:"card"},p);
+  h("h2",{text:"Standby Navigation System"},c4);
+  h("div",{class:"scr",html:isisHTML()},c4);
+  const g4=h("div",{class:"grid2"},c4);
+  const b1=h("button",{class:"small tog"+(STATE.isis1?" on":""),text:"ISIS 1 healthy"},g4);
+  b1.addEventListener("click",()=>{
+    STATE.isis1=!STATE.isis1;
+    if(!STATE.isis1&&STATE.isis2){ STATE.isis2Mode="flight";
+      toast("ISIS 1 failed. ISIS 2 is automatically reconfigured to the standby flight display mode through the discrete links between the two units."); }
+    refresh();
+  });
+  const b2=h("button",{class:"small tog"+(STATE.isis2?" on":""),text:"ISIS 2 healthy"},g4);
+  b2.addEventListener("click",()=>{STATE.isis2=!STATE.isis2;refresh();});
+  const b3=h("button",{class:"small",text:"MODE pushbutton"},c4);
+  b3.style.marginTop="5px";
+  b3.addEventListener("click",()=>{
+    if(STATE.isis2&&STATE.isis2Mode==="flight"&&!STATE.isis1){
+      STATE.isis2Mode="nav"; toast("Standby navigation display recovered on ISIS 2 with the MODE pushbutton."); refresh();
+    } else toast("The MODE pushbutton switches off a display or performs a manual reconfiguration of the two ISIS. Nothing to recover in this configuration.");
+  });
+
+  /* signal trace */
+  const c5=h("div",{class:"card"},p);
+  h("h2",{text:"Signal trace"},c5);
+  const g5=h("div",{class:"grid3"},c5);
+  [["adr","Air data"],["ir","Inertial"],["isis","ISIS"],["switch","Switching"],["bite","BITE"]].forEach(([k,l])=>{
+    const b=h("button",{class:"small"+(STATE.trace===k?" tog on":""),text:l},g5);
+    b.addEventListener("click",()=>{STATE.trace=STATE.trace===k?null:k;refresh();});
+  });
+  if(STATE.trace){
+    const tr=tracePath(STATE.trace);
+    h("h3",{text:tr.t},c5);
+    const ul=h("ul",{class:"pathlist"},c5);
+    tr.chain.forEach(s=>h("li",{class:tr.cls,text:s},ul));
+    tr.notes.forEach(n=>h("div",{class:"small muted",text:"· "+n},c5));
+  }
+
+  /* component inspector */
+  const comp=MODEL.comp[STATE.sel_];
+  if(comp){
+    const c6=h("div",{class:"card"},p);
+    h("h2",{text:comp.n},c6);
+    if(comp.loc) h("div",{class:"small muted",text:"Location: "+comp.loc},c6);
+    if(comp.ac){
+      const d=h("dl",{class:"kv"},c6);
+      h("dt",{text:"115 VAC"},d); h("dd",{text:comp.ac},d);
+      h("dt",{text:"28 VDC primary"},d); h("dd",{text:comp.dc},d);
+      h("dt",{text:"28 VDC back-up"},d); h("dd",{text:comp.bk},d);
+    }
+    h("p",{class:"small",text:comp.note},c6);
+  }
+
+  /* conditions */
+  const c7=h("div",{class:"card"},p);
+  h("h2",{text:"Aircraft conditions"},c7);
+  const g7=h("div",{class:"grid3"},c7);
+  [["elecEmer","Main AC lost"],["aligning","Aligning"],["engRunning","Engine running"]].forEach(([k,l])=>{
+    const b=h("button",{class:"small tog"+(STATE[k]?" on":""),text:l},g7);
+    b.addEventListener("click",()=>{STATE[k]=!STATE[k];refresh();});
+  });
+  const g7b=h("div",{class:"grid2"},c7);
+  const bg=h("button",{class:"small",text:"GS "+STATE.gs+" kt"},g7b);
+  bg.addEventListener("click",()=>{STATE.gs=STATE.gs>30?0:60;refresh();});
+  const bc=h("button",{class:"small",text:"CAS "+STATE.cas+" kt"},g7b);
+  bc.addEventListener("click",()=>{STATE.cas=STATE.cas>50?0:120;refresh();});
+  h("div",{class:"small muted",text:"Probe anti-icing activates when at least one engine is running or the IR ground speed is above 30 kts, or manually with the pushbutton on the ground. The ISIS adds its own condition, CAS above 50 kts."},c7);
+
+  /* glossary */
+  const c8=h("div",{class:"card"},p);
+  h("h2",{text:"Glossary"},c8);
+  const gw=h("div",{},c8);
+  Object.keys(MODEL.gloss).forEach(k=>{ const s=h("span",{class:"chip",text:k},gw); s.title=MODEL.gloss[k]; });
+}
+function isisHTML(){
+  const S=solve();
+  let s="";
+  if(!S.isisAlive) return '<div class="red">Both ISIS units failed</div>';
+  s+='<div class="grn">'+(S.isisFlight||"—")+' — STANDBY FLIGHT DISPLAY</div>';
+  s+='<div class="gry">attitude · airspeed · altitude · baro · LS · heading · position</div>';
+  s+='<div class="cyn" style="margin-top:5px">'+(S.isisNav||"— none —")+' — STANDBY NAV DISPLAY</div>';
+  s+='<div class="gry">rose · heading · ground speed · position · active waypoint</div>';
+  s+='<div class="wht" style="margin-top:5px">source: '+(S.isisSrc?("ADIRU "+S.isisSrc):"no ADIRU — internal sensors only")+' · MMR 1</div>';
+  if(S.isisAntiIce) s+='<div class="amb">ISIS probe anti-icing — CAS above 50 kts</div>';
+  return s;
+}
+
+let toastT=null;
+function toast(msg){
+  let t=$("toast");
+  if(!t){ t=h("div",{id:"toast"},document.body);
+    t.style.cssText="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1f2840;border:1px solid #3a4666;padding:9px 16px;border-radius:9px;z-index:99;max-width:74ch;box-shadow:0 6px 22px rgba(0,0,0,.5)"; }
+  t.textContent=msg; t.style.display="block";
+  clearTimeout(toastT); toastT=setTimeout(()=>{t.style.display="none";},5200);
+}
+function applyScenario(id){
+  const s=MODEL.scen.find(x=>x.id===id); if(!s) return;
+  STATE=freshState(); STATE.scen=id;
+  const set=s.set;
+  ["sel","adrFail","irFail","adrOff","irOff","attFail"].forEach(k=>{ if(set[k]) Object.assign(STATE[k],set[k]); });
+  ["attHdg","airData","elecEmer","aligning","isis1","isis2"].forEach(k=>{ if(k in set) STATE[k]=set[k]; });
+  if(set.isis1===false) STATE.isis2Mode="flight";
+  refresh();
+}
+function refresh(){ draw(); renderInspector(); writeHash(); if($("p-fault").classList.contains("active")) renderFault(); }
+
+/* STORE */
+function writeHash(){
+  try{
+    const s=JSON.stringify({s:STATE.sel,af:STATE.adrFail,irf:STATE.irFail,ao:STATE.adrOff,io:STATE.irOff,
+      at:STATE.attFail,ah:STATE.attHdg,ad:STATE.airData,ee:STATE.elecEmer,al:STATE.aligning,
+      i1:STATE.isis1,i2:STATE.isis2,im:STATE.isis2Mode,ph:STATE.probeHeat,gs:STATE.gs,cas:STATE.cas,sc:STATE.scen});
+    history.replaceState(null,"","#"+encodeURIComponent(s));
+  }catch(e){}
+}
+function readHash(){
+  try{
+    if(!location.hash||location.hash.length<3) return false;
+    const o=JSON.parse(decodeURIComponent(location.hash.slice(1)));
+    if(!o||!o.s) return false;
+    Object.assign(STATE.sel,o.s); Object.assign(STATE.adrFail,o.af||{}); Object.assign(STATE.irFail,o.irf||{});
+    Object.assign(STATE.adrOff,o.ao||{}); Object.assign(STATE.irOff,o.io||{}); Object.assign(STATE.attFail,o.at||{});
+    STATE.attHdg=o.ah||"NORM"; STATE.airData=o.ad||"NORM"; STATE.elecEmer=!!o.ee; STATE.aligning=!!o.al;
+    STATE.isis1=o.i1!==false; STATE.isis2=o.i2!==false; STATE.isis2Mode=o.im||"nav";
+    STATE.probeHeat=o.ph||"AUTO"; STATE.gs=o.gs||0; STATE.cas=o.cas||0; STATE.scen=o.sc||"S3";
+    return true;
+  }catch(e){ return false; }
+}
+
+/* =====================================================================================
+   BUILD MODE
+   ===================================================================================== */
+const PALETTE=[
+  {id:"MFP",l:"MFP",c:"#ffb020"},{id:"ISP",l:"ISP",c:"#ffb020"},{id:"SSA",l:"SSA probe",c:"#ffb020"},
+  {id:"OAT",l:"OAT probe",c:"#ffb020"},{id:"ADR",l:"ADR part",c:"#ffb020"},{id:"IR",l:"IR part",c:"#4aa8ff"},
+  {id:"ADCN",l:"ADCN (AFDX)",c:"#4aa8ff"},{id:"A429",l:"ARINC 429",c:"#ff4fd8"},
+  {id:"PFD",l:"PFD / ND",c:"#4aa8ff"},{id:"ISIS",l:"ISIS",c:"#3ddc84"},
+  {id:"SPROBE",l:"Standby probes",c:"#3ddc84"},{id:"MMR",l:"MMR",c:"#8fa3c4"},
+  {id:"OMS",l:"OMS",c:"#8fa3c4"},{id:"SW",l:"1311VU switching",c:"#ffd24a"}
+];
+const TARGETS=[
+  {id:"t1",n:"One complete ADIRS channel — air data side",need:[["MFP","ADR"],["ISP","ADR"],["SSA","ADR"],["OAT","ADR"]],
+   hint:"Four sensor types feed the ADR part: the MultiFunction Probe, two Integrated Static Probes, the Side Slip Angle probe and the Outside Air Temperature probe."},
+  {id:"t2",n:"Normal data path to the displays",need:[["ADR","ADCN"],["IR","ADCN"],["ADCN","PFD"]],
+   hint:"The ADR and IR parts transmit over the ADCN in AFDX to the aircraft systems and the CDS."},
+  {id:"t3",n:"ARINC 429 back-up data path",need:[["ADR","A429"],["IR","A429"],["A429","PFD"]],
+   hint:"ARINC 429 is the back-up transmission path for the ADR and IR parameters."},
+  {id:"t4",n:"The independent standby chain",need:[["SPROBE","ISIS"]],
+   hint:"The standby pitot and static probes are connected pneumatically to both ISIS. Nothing else is needed for the ISIS to work."},
+  {id:"t5",n:"ISIS supplement from the ADIRS and the MMR",need:[["IR","ISIS"],["MMR","ISIS"]],
+   hint:"The ISIS basically displays data from ADIRU 3, and each ISIS is interfaced with MMR 1."},
+  {id:"t6",n:"GPS to the inertial reference",need:[["MMR","IR"]],
+   hint:"The MMRs supply GPS data to the IR part, which initialises on the GPS position at the end of the alignment period."},
+  {id:"t7",n:"The maintenance path",need:[["ADR","OMS"],["IR","OMS"]],
+   hint:"A BITE module is hosted in the ADR part and another in the IR part, both communicating with the OMS."},
+  {id:"t8",n:"Switching-panel routing",need:[["SW","ADR"],["SW","IR"]],
+   hint:"The switching panel acts on both parts, but through two independent selectors — ATT HDG on the IR part and AIR DATA on the ADR part."}
+];
+const STARTERS=[
+  {n:"One full channel",nodes:[["MFP",60,60],["ISP",60,150],["SSA",60,240],["OAT",60,330],["ADR",360,150],["IR",360,300],["ADCN",640,220],["PFD",900,220]],
+   wires:[[0,4],[1,4],[2,4],[3,4],[4,6],[5,6],[6,7]]},
+  {n:"Standby chain only",nodes:[["SPROBE",120,200],["ISIS",480,200],["MMR",120,380],["PFD",840,200]],
+   wires:[[0,1],[2,1]]},
+  {n:"Normal and back-up together",nodes:[["ADR",100,140],["IR",100,300],["ADCN",420,140],["A429",420,320],["PFD",760,220]],
+   wires:[[0,2],[1,2],[0,3],[1,3],[2,4],[3,4]]}
+];
+let BUILD={nodes:[],wires:[],sel:null,wireFrom:null,running:false,target:null,undo:[],redo:[]};
+function pushUndo(){ BUILD.undo.push(JSON.stringify({n:BUILD.nodes,w:BUILD.wires})); if(BUILD.undo.length>40)BUILD.undo.shift(); BUILD.redo.length=0; }
+function doUndo(){ if(!BUILD.undo.length)return; BUILD.redo.push(JSON.stringify({n:BUILD.nodes,w:BUILD.wires}));
+  const s=JSON.parse(BUILD.undo.pop()); BUILD.nodes=s.n; BUILD.wires=s.w; drawBuild(); }
+function doRedo(){ if(!BUILD.redo.length)return; BUILD.undo.push(JSON.stringify({n:BUILD.nodes,w:BUILD.wires}));
+  const s=JSON.parse(BUILD.redo.pop()); BUILD.nodes=s.n; BUILD.wires=s.w; drawBuild(); }
+function addNode(t,x,y){ pushUndo(); BUILD.nodes.push({t,x:x||120+Math.random()*500,y:y||120+Math.random()*400}); drawBuild(); }
+function drawBuild(){
+  const g=$("bvp"); g.innerHTML="";
+  el("rect",{x:0,y:0,width:1180,height:700,fill:"#0b0f18"},g);
+  for(let x=0;x<1180;x+=40) el("line",{x1:x,y1:0,x2:x,y2:700,stroke:"#141b28","stroke-width":1},g);
+  for(let y=0;y<700;y+=40) el("line",{x1:0,y1:y,x2:1180,y2:y,stroke:"#141b28","stroke-width":1},g);
+  BUILD.wires.forEach((w,i)=>{
+    const a=BUILD.nodes[w[0]],b=BUILD.nodes[w[1]]; if(!a||!b) return;
+    const x1=a.x+130,y1=a.y+22,x2=b.x,y2=b.y+22,mx=(x1+x2)/2;
+    const d=`M ${x1} ${y1} L ${mx} ${y1} L ${mx} ${y2} L ${x2} ${y2}`;
+    el("path",{d,fill:"none",stroke:"#4aa8ff","stroke-width":2.4},g);
+    if(BUILD.running&&ANIM) el("path",{d,fill:"none",stroke:"#7cc4ff","stroke-width":2.4,class:"flow"},g);
+    el("circle",{cx:mx,cy:(y1+y2)/2,r:5,fill:"#0b0f18",stroke:"#4aa8ff","stroke-width":1.6,style:"cursor:pointer"},g)
+      .addEventListener("click",()=>{pushUndo();BUILD.wires.splice(i,1);drawBuild();});
+  });
+  BUILD.nodes.forEach((n,i)=>{
+    const p=PALETTE.find(x=>x.id===n.t)||{l:n.t,c:"#8fa3c4"};
+    const gg=el("g",{transform:`translate(${n.x},${n.y})`,tabindex:"0",role:"button","aria-label":p.l,style:"cursor:grab"},g);
+    el("rect",{x:0,y:0,width:130,height:44,rx:7,fill:"#1b2337",
+      stroke:BUILD.sel===i?"#7cc4ff":(BUILD.wireFrom===i?"#ffb020":p.c),"stroke-width":(BUILD.sel===i||BUILD.wireFrom===i)?3:1.8},gg);
+    el("text",{x:65,y:27,"text-anchor":"middle",fill:"#e8ecf4","font-size":"12","font-weight":"600",text:p.l},gg);
+    el("circle",{cx:130,cy:22,r:5,fill:p.c,style:"cursor:crosshair"},gg)
+      .addEventListener("click",e=>{e.stopPropagation();BUILD.wireFrom=i;drawBuild();});
+    el("circle",{cx:0,cy:22,r:5,fill:"#3a4666",style:"cursor:crosshair"},gg)
+      .addEventListener("click",e=>{e.stopPropagation();
+        if(BUILD.wireFrom!=null&&BUILD.wireFrom!==i){pushUndo();BUILD.wires.push([BUILD.wireFrom,i]);BUILD.wireFrom=null;}
+        drawBuild();});
+    gg.addEventListener("click",()=>{BUILD.sel=i;drawBuild();});
+    gg.addEventListener("keydown",e=>{
+      const s=e.shiftKey?20:8;
+      if(e.key==="ArrowLeft"){n.x-=s;drawBuild();e.preventDefault();}
+      if(e.key==="ArrowRight"){n.x+=s;drawBuild();e.preventDefault();}
+      if(e.key==="ArrowUp"){n.y-=s;drawBuild();e.preventDefault();}
+      if(e.key==="ArrowDown"){n.y+=s;drawBuild();e.preventDefault();}
+      if(e.key==="Delete"||e.key==="Backspace"){delNode(i);e.preventDefault();}
+    });
+    let drag=null;
+    gg.addEventListener("pointerdown",e=>{drag={sx:e.clientX,sy:e.clientY,ox:n.x,oy:n.y};gg.setPointerCapture(e.pointerId);pushUndo();});
+    gg.addEventListener("pointermove",e=>{
+      if(!drag)return; const r=$("bsvg").getBoundingClientRect(),k=1180/r.width;
+      n.x=Math.round((drag.ox+(e.clientX-drag.sx)*k)/8)*8;
+      n.y=Math.round((drag.oy+(e.clientY-drag.sy)*k)/8)*8; drawBuild();
+    });
+    gg.addEventListener("pointerup",()=>{drag=null;});
+  });
+}
+function delNode(i){
+  pushUndo(); BUILD.nodes.splice(i,1);
+  BUILD.wires=BUILD.wires.filter(w=>w[0]!==i&&w[1]!==i).map(w=>[w[0]>i?w[0]-1:w[0],w[1]>i?w[1]-1:w[1]]);
+  BUILD.sel=null; BUILD.wireFrom=null; drawBuild();
+}
+function checkBuild(t){
+  const have=BUILD.wires.map(w=>[BUILD.nodes[w[0]]&&BUILD.nodes[w[0]].t,BUILD.nodes[w[1]]&&BUILD.nodes[w[1]].t]);
+  const missing=t.need.filter(nd=>!have.some(hv=>hv[0]===nd[0]&&hv[1]===nd[1]));
+  const extra=have.filter(hv=>!t.need.some(nd=>nd[0]===hv[0]&&nd[1]===hv[1]));
+  return {ok:missing.length===0,missing,extra};
+}
+function reachSources(idx){
+  const seen=new Set([idx]),stack=[idx],src=[];
+  while(stack.length){ const c=stack.pop();
+    BUILD.wires.forEach(w=>{ if(w[1]===c&&!seen.has(w[0])){seen.add(w[0]);stack.push(w[0]);} }); }
+  seen.forEach(i=>{ if(i!==idx){ const t=BUILD.nodes[i].t;
+    if(["MFP","ISP","SSA","OAT","SPROBE","MMR","ADR","IR"].indexOf(t)>-1&&src.indexOf(t)===-1) src.push(t); }});
+  return src;
+}
+function renderBuildPanel(){
+  const p=$("buildPanel"); p.innerHTML="";
+  const c1=h("div",{class:"card"},p);
+  h("h2",{text:"Palette"},c1);
+  h("p",{class:"small muted",text:"Click to place. Click a right-hand dot then a left-hand dot to wire. Click a wire's midpoint to delete it. Arrow keys nudge the selected block; Delete removes it."},c1);
+  const g=h("div",{class:"grid2"},c1);
+  PALETTE.forEach(x=>{const b=h("button",{class:"small",text:x.l},g);b.style.borderColor=x.c;b.addEventListener("click",()=>addNode(x.id));});
+
+  const c2=h("div",{class:"card"},p);
+  h("h2",{text:"Starter architectures"},c2);
+  STARTERS.forEach(s=>{
+    const b=h("button",{class:"small",text:s.n},c2); b.style.margin="2px 4px 2px 0";
+    b.addEventListener("click",()=>{ pushUndo();
+      BUILD.nodes=s.nodes.map(n=>({t:n[0],x:n[1],y:n[2]}));
+      BUILD.wires=s.wires.filter(w=>w[0]!==w[1]&&w[0]<BUILD.nodes.length&&w[1]<BUILD.nodes.length);
+      drawBuild(); });
+  });
+
+  const c3=h("div",{class:"card"},p);
+  h("h2",{text:"Check my build"},c3);
+  const sel=h("select",{},c3);
+  h("option",{value:"",text:"— choose a target —"},sel);
+  TARGETS.forEach(t=>h("option",{value:t.id,text:t.n},sel));
+  sel.value=BUILD.target||"";
+  sel.addEventListener("change",()=>{BUILD.target=sel.value;renderBuildPanel();});
+  const res=h("div",{},c3);
+  if(BUILD.target){
+    const t=TARGETS.find(x=>x.id===BUILD.target);
+    h("p",{class:"small muted",text:t.hint},c3);
+    const b=h("button",{class:"small primary",text:"Check"},c3);
+    b.addEventListener("click",()=>{
+      const r=checkBuild(t); res.innerHTML="";
+      if(r.ok) h("div",{class:"ok-note small",text:"Correct — every required link is present."},res);
+      else{
+        h("div",{class:"err small",text:"Missing: "+r.missing.map(m=>m[0]+" → "+m[1]).join(", ")},res);
+        if(r.extra.length) h("div",{class:"notice small",text:"Links not required by this target: "+r.extra.map(m=>m[0]+" → "+m[1]).join(", ")},res);
+      }
+    });
+  }
+  const c4=h("div",{class:"card"},p);
+  h("h2",{text:"Instruments"},c4);
+  h("p",{class:"small muted",text:"System archetype: a path continuity tester and a source readout, not a voltmeter or an oscilloscope."},c4);
+  const bt=h("button",{class:"small",text:"Path continuity test"},c4);
+  const out=h("div",{class:"small"},c4);
+  bt.addEventListener("click",()=>{
+    const sinks=BUILD.nodes.map((n,i)=>[n,i]).filter(([n])=>["PFD","ISIS","OMS"].indexOf(n.t)>-1);
+    if(!sinks.length){ out.innerHTML='<div class="err small">Place a PFD/ND, ISIS or OMS block first.</div>'; return; }
+    out.innerHTML=sinks.map(([n,i])=>{
+      const s=reachSources(i);
+      return `<div class="${s.length?"ok-note":"err"} small">${n.t} #${i+1}: ${s.length?"fed by "+s.join(", "):"floating — nothing reaches it"}</div>`;
+    }).join("");
+  });
+
+  const c5=h("div",{class:"card"},p);
+  h("h2",{text:"Export / import"},c5);
+  const ta=h("textarea",{rows:"5",style:"width:100%"},c5);
+  ta.value=JSON.stringify({n:BUILD.nodes,w:BUILD.wires});
+  const r=h("div",{class:"grid2"},c5);
+  h("button",{class:"small",text:"Copy JSON"},r).addEventListener("click",()=>{ta.select();try{document.execCommand("copy");toast("Copied.");}catch(e){toast("Select the text and copy manually.");}});
+  h("button",{class:"small",text:"Load JSON"},r).addEventListener("click",()=>{
+    try{const o=JSON.parse(ta.value);pushUndo();BUILD.nodes=o.n||[];BUILD.wires=o.w||[];drawBuild();toast("Loaded.");}
+    catch(e){toast("That is not valid JSON.");}
+  });
+}
+
+/* =====================================================================================
+   FAULT LAB
+   ===================================================================================== */
+const FAULTS=[
+  {id:"f1",n:"ADR 1 part failure",apply:s=>{s.adrFail[1]=true;},
+   ind:"The ADR 1 pushbutton FAULT legend comes on. SPD, ALT and V/S warning flags appear on the Captain's PFD, ND and on the ISIS. An ECAM message and a check list appear on the EWD.",
+   iso:"ADR1",fix:"Select AIR DATA to CAPT ON 3 first, so the ADR part of ADIRU 3 feeds the Captain, and only then depress the ADR 1 pushbutton to disable its output buses and light the OFF legend.",
+   misc:"Order matters. The pushbutton does not fix anything — it only inhibits the output buses."},
+  {id:"f2",n:"IR 1 part failure",apply:s=>{s.irFail[1]=true;},
+   ind:"The IR 1 pushbutton FAULT legend comes on. ATT and HDG warning flags appear on the Captain's PFD, ND and on the ISIS. An ECAM message and check list appear on the EWD.",
+   iso:"IR1",fix:"Select ATT HDG to CAPT ON 3, then depress the IR 1 pushbutton. Note that this does nothing for the air data flags — AIR DATA is a separate selector.",
+   misc:"Separates the two selectors: ATT HDG acts on the IR part only."},
+  {id:"f3",n:"ADIRU 1 failure with attitude function kept",apply:s=>{s.attFail[1]=true;},
+   ind:"On the IR 1 pushbutton the FAULT legend is flashing and the OFF legend is extinguished. An ECAM message and check list appear on the EWD.",
+   iso:"ATT1",fix:"Turn the ADIRU 1 selector to the ATT position. That extinguishes the FAULT legend; the ADIRU then gives heading and attitude data only, and the heading has to be entered through the MFD.",
+   misc:"A flashing FAULT with the OFF legend out is a specific signature, not a generic failure."},
+  {id:"f4",n:"Loss of main AC generation",apply:s=>{s.elecEmer=true;},
+   ind:"ADIRU 1 and ADIRU 3 stay alive on the AC EMER BUS. ADIRU 2 is on AC BUS 4 and has no 28 VDC back-up, so the First Officer's side loses its source and shows all five flags.",
+   iso:"POWER",fix:"Select F/O ON 3 on both selectors so ADIRU 3 feeds the First Officer's side. Note that no standby channel then remains.",
+   misc:"Breaks the belief that all three channels share one supply."},
+  {id:"f5",n:"ISIS 1 failure",apply:s=>{s.isis1=false;s.isis2Mode="flight";},
+   ind:"ISIS 2 is automatically reconfigured to the standby flight display mode through the discrete links between the two units. The standby navigation display is gone.",
+   iso:"ISIS1",fix:"Replace ISIS 1. The two units are interchangeable. Meanwhile the standby navigation display can be recovered on ISIS 2 with the MODE pushbutton.",
+   misc:"Shows that each ISIS can do all the functions of either display."},
+  {id:"f6",n:"ADIRU 3 failure",apply:s=>{s.adrFail[3]=true;s.irFail[3]=true;},
+   ind:"No cockpit display changes on either side, because ADIRU 3 was in standby. The ISIS quietly switches its source from ADIRU 3 to ADIRU 1.",
+   iso:"ADIRU3",fix:"Replace ADIRU 3. Until it is replaced there is no standby channel available for a switching selection.",
+   misc:"A failure with almost no cockpit effect is the hardest kind to notice — and it removes the reversion the crew would need next."},
+  {id:"f7",n:"All three ADIRUs lost",apply:s=>{[1,2,3].forEach(n=>{s.adrFail[n]=true;s.irFail[n]=true;});},
+   ind:"Every ADIRS flag is shown on both PFDs and NDs. The ISIS is still alive: it computes air data from the standby pitot and static probes and attitude from its own internal sensors.",
+   iso:"ADIRS",fix:"Fly on the ISIS and the standby magnetic compass. With two ADIRS failed the ISIS also sends air data and inertial data to the FCGUs of the three PRIM systems.",
+   misc:"Breaks the belief that the ISIS depends on the ADIRS."},
+  {id:"f8",n:"Probe anti-icing drops out while taxiing",apply:s=>{s.engRunning=false;s.gs=20;s.probeHeat="AUTO";},
+   ind:"The probe anti-icing was running and has stopped. No engine is running and the ground speed has fallen to 20 kts, below the 30 kts automatic threshold, so in AUTO nothing activates it.",
+   iso:"HEAT",fix:"No defect. On the ground with no engine running, activate the probe heating manually with the PROBE/WINDOW HEAT pushbutton, or restore an activation condition.",
+   misc:"An inactive protection is not always a fault — check the stated activation conditions before reporting one."},
+  {id:"f9",n:"Switching selectors in different non-normal positions",apply:s=>{s.attHdg="CAPT3";s.airData="FO3";},
+   ind:"The Captain takes IR 3 while the First Officer takes ADR 3. ADIRU 3 cannot feed both sides at once, and the notes do not describe this selection.",
+   iso:"SWITCH",fix:"Return both selectors to NORM, then make one coherent selection for the side that actually failed.",
+   misc:"Marks the edge of the source material — the simulation says so rather than inventing behaviour."},
+  {id:"f10",n:"Alignment not complete",apply:s=>{s.aligning=true;},
+   ind:"Air information is displayed on the PFDs immediately, but the HDG flags stay on the NDs and the IR data on the PFDs is not available. Alignment takes from 5 to 17 minutes depending on the aircraft position.",
+   iso:"ALIGN",fix:"No defect. Wait for the alignment, or check the MFD POSITION/IRS page for the ALIGN and AVAIL IN indications.",
+   misc:"Distinguishes an incomplete alignment from a failure."},
+  {id:"f11",n:"ADR 1 pushbutton pressed before switching",apply:s=>{s.adrFail[1]=true;s.adrOff[1]=true;},
+   ind:"The ADR 1 output buses are inhibited and the OFF legend is on, but the Captain's SPD, ALT and V/S flags are still shown — nothing was put in ADR 1's place.",
+   iso:"ORDER",fix:"Select AIR DATA to CAPT ON 3. The correct order is to switch first and then press the pushbutton.",
+   misc:"The most common procedural error in this topic."}
+];
+let FL=null;
+function newAttempt(id){
+  const f=FAULTS.find(x=>x.id===id)||FAULTS[0];
+  STATE=freshState(); f.apply(STATE);
+  FL={fault:f,tests:0,log:[],steps:{Observe:false,Hypothesise:false,Test:false,Isolate:false,Rectify:false,Verify:false},
+      guess:null,done:false,seed:$("fSeed").value||String(Date.now()).slice(-6)};
+  refresh(); renderFault();
+}
+function logF(s){ if(!FL)return; FL.log.unshift(new Date().toLocaleTimeString()+"  "+s); }
+function renderFlow(){
+  const e=$("fSteps"); if(!e)return; e.innerHTML="";
+  ["Observe","Hypothesise","Test","Isolate","Rectify","Verify"].forEach(s=>{
+    const sp=h("span",{class:"chip",text:s},e);
+    if(FL&&FL.steps[s]){sp.style.borderColor="#2c8f55";sp.style.color="var(--avail)";}
+  });
+}
+function runTest(n){
+  const S=solve();
+  switch(n){
+    case "PFD flag check": return "CAPT: "+(S.capt.adr?"SPD ALT V/S ":"")+(S.capt.ir?"ATT HDG":"")+(!S.capt.adr&&!S.capt.ir?"clear":"")+
+      " | F/O: "+(S.fo.adr?"SPD ALT V/S ":"")+(S.fo.ir?"ATT HDG":"")+(!S.fo.adr&&!S.fo.ir?"clear":"");
+    case "ICP legend check": return [1,2,3].map(n2=>"ADIRU "+n2+": "+
+      (S.pb[n2].adrFault?"ADR FAULT ":"")+(S.pb[n2].adrOffLit?"ADR OFF ":"")+
+      (S.pb[n2].irFault?(S.pb[n2].irFlash?"IR FAULT flashing ":"IR FAULT "):"")+(S.pb[n2].irOffLit?"IR OFF":"")||"ADIRU "+n2+": no legend").join(" | ");
+    case "Switching panel check": return "ATT HDG "+MODEL.swLabels[STATE.attHdg]+" · AIR DATA "+MODEL.swLabels[STATE.airData]+
+      (S.abnormalSwitch?" — ECAM memo triggered":" — both in the standard 12 o'clock position");
+    case "Power supply check": return STATE.elecEmer
+      ? "main AC generation lost: ADIRU 1 and 3 on the AC EMER BUS, ADIRU 2 on AC BUS 4 with no 28 VDC back-up — lost"
+      : "normal: ADIRU 1 AC EMER BUS, ADIRU 2 AC BUS 4, ADIRU 3 AC BUS 1 / AC EMER BUS";
+    case "ISIS check": return (STATE.isis1?"ISIS 1 flight display":"ISIS 1 FAILED")+" · "+
+      (STATE.isis2?("ISIS 2 "+(STATE.isis2Mode==="flight"?"reconfigured to flight display":"nav display")):"ISIS 2 FAILED")+
+      " · source ADIRU "+(S.isisSrc||"none");
+    case "MFD POSITION/IRS": return [1,2,3].map(n2=>"IRS "+n2+": "+
+      (!powered(n2)?"—":(STATE.sel[n2]==="ATT"?"ATT — ENTER HEADING":(STATE.aligning?"ALIGN — AVAIL IN 7 MIN":"NAV")))).join(" | ");
+    case "OMS BITE readout": {
+      const m=[];
+      [1,2,3].forEach(n2=>{ if(STATE.adrFail[n2])m.push("ADR "+n2+" fault"); if(STATE.irFail[n2]||STATE.attFail[n2])m.push("IR "+n2+" fault"); });
+      if(!STATE.isis1)m.push("ISIS 1 fault");
+      return m.length?m.join("; ")+" (ADR tests: output, system, equipment · IR tests: system, interface)":"no ADIRS fault message";
+    }
+    case "Anti-icing check": return solve().antiIce?("active — "+solve().antiIceWhy):("not active — "+solve().antiIceWhy);
+  }
+  return "—";
+}
+function renderFault(){
+  const p=$("faultPanel"); p.innerHTML="";
+  const exam=$("fExam").getAttribute("aria-pressed")==="true";
+  renderFlow();
+  if($("fInstr").getAttribute("aria-pressed")==="true"){
+    const ci=h("div",{class:"card"},p);
+    h("h2",{text:"Instructor — inject a fault"},ci);
+    FAULTS.forEach(f=>{
+      const b=h("button",{class:"small",text:f.n},ci); b.style.cssText+="display:block;width:100%;text-align:left;margin-bottom:3px";
+      b.addEventListener("click",()=>{$("fSeed").value=f.id;newAttempt(f.id);});
+    });
+    h("p",{class:"small muted",text:"Exam mode hides the fault name and the hints, and shows the seed so a run can be reproduced."},ci);
+  }
+  if(!FL){ h("div",{class:"card",html:"<h2>Fault Lab</h2><p class='small muted'>Open the instructor panel to inject a fault, or press Random fault.</p>"},p); drawFaultView(); return; }
+
+  const c=h("div",{class:"card"},p);
+  h("h2",{text:exam?"Unknown case — seed "+FL.seed:FL.fault.n},c);
+  h("div",{class:"small muted",text:"Tests used: "+FL.tests},c);
+  h("h3",{text:"1 · Observe"},c);
+  const bo=h("button",{class:"small",text:"Record the indications"},c);
+  bo.addEventListener("click",()=>{FL.steps.Observe=true;logF("Observed indications.");renderFault();});
+  if(FL.steps.Observe&&!exam) h("div",{class:"ok-note small",text:FL.fault.ind},c);
+
+  h("h3",{text:"2 · Test"},c);
+  const tg=h("div",{class:"grid2"},c);
+  ["PFD flag check","ICP legend check","Switching panel check","Power supply check","ISIS check","MFD POSITION/IRS","OMS BITE readout","Anti-icing check"].forEach(n=>{
+    const b=h("button",{class:"small",text:n},tg);
+    b.addEventListener("click",()=>{FL.tests++;FL.steps.Test=true;logF("Test: "+n+" → "+runTest(n));renderFault();});
+  });
+
+  h("h3",{text:"3 · Isolate"},c);
+  const sel=h("select",{},c);
+  h("option",{value:"",text:"— name the cause —"},sel);
+  ["ADR1","IR1","ATT1","ADIRU3","ADIRS","POWER","ISIS1","HEAT","SWITCH","ALIGN","ORDER"].forEach(x=>h("option",{value:x,text:x},sel));
+  const bi=h("button",{class:"small primary",text:"Submit isolation"},c);
+  bi.addEventListener("click",()=>{
+    if(!sel.value){toast("Choose a cause first.");return;}
+    FL.guess=sel.value; FL.steps.Hypothesise=true; FL.steps.Isolate=true;
+    logF("Isolated to "+sel.value+" — "+(sel.value===FL.fault.iso?"correct":"incorrect"));
+    renderFault();
+  });
+  if(FL.guess) h("div",{class:FL.guess===FL.fault.iso?"ok-note small":"err small",
+    text:FL.guess===FL.fault.iso?"Correct.":"Not the cause. Compare which flags are shown against which part they come from."},c);
+
+  h("h3",{text:"4 · Rectify and verify"},c);
+  const br=h("button",{class:"small",text:"Rectify"},c);
+  br.addEventListener("click",()=>{
+    if(FL.guess!==FL.fault.iso){toast("Isolate correctly before rectifying.");return;}
+    STATE=freshState(); FL.steps.Rectify=true; logF("Rectified: "+FL.fault.fix); refresh(); renderFault();
+  });
+  const bv=h("button",{class:"small",text:"Verify"},c); bv.style.marginLeft="6px";
+  bv.addEventListener("click",()=>{
+    if(!FL.steps.Rectify){toast("Rectify first.");return;}
+    const S=solve();
+    const ok=!S.capt.adr&&!S.capt.ir&&!S.fo.adr&&!S.fo.ir&&!S.abnormalSwitch&&STATE.isis1&&STATE.isis2&&!STATE.elecEmer;
+    FL.steps.Verify=ok; FL.done=ok; logF("Verification "+(ok?"passed — normal three-channel configuration restored.":"failed."));
+    renderFault();
+  });
+
+  if(FL.done){
+    const d=h("div",{class:"card"},p);
+    h("h2",{text:"Debrief"},d);
+    const eff=Math.max(0,Math.round(100*(1/Math.max(1,FL.tests))));
+    h("div",{class:"kv",html:`<dt>Case</dt><dd>${FL.fault.n}</dd><dt>Correct cause</dt><dd>${FL.fault.iso}</dd>
+      <dt>Tests used</dt><dd>${FL.tests} (minimum 1)</dd><dt>Efficiency</dt><dd>${eff}%</dd><dt>Seed</dt><dd>${FL.seed}</dd>`},d);
+    h("h3",{text:"Indications"},d); h("p",{class:"small",text:FL.fault.ind},d);
+    h("h3",{text:"Correct action"},d); h("p",{class:"small",text:FL.fault.fix},d);
+    h("h3",{text:"What this case teaches"},d); h("p",{class:"small",text:FL.fault.misc},d);
+  }
+
+  const lg=h("div",{class:"card"},p);
+  h("h2",{text:"Action log"},lg);
+  h("div",{class:"log",text:FL.log.join("\n")},lg);
+  drawFaultView();
+}
+function drawFaultView(){ renderArch("fvp"); drawLegend("flegend"); $("fsvg").setAttribute("viewBox","0 0 1180 700"); }
+
+/* =====================================================================================
+   LEARN
+   ===================================================================================== */
+const LESSON=[
+  {t:"Three channels, two parts each",lo:"LO1",
+   txt:"The ADIRS is based on three independent and redundant channels. Each channel is one Air Data / Inertial Reference Unit, and each unit has two parts: the Air Data Reference part and the Inertial Reference part. The IR part carries three accelerometers, one per axis, and three gyros, one per rotation axis.",
+   act:"Click each ADIRU in the Explore view and read what the two sub-blocks are.",
+   ask:"Why does the manual keep saying ADR part and IR part rather than just ADIRU?",
+   check:()=>true,hint:"Click an ADIRU block."},
+  {t:"Four kinds of probe",lo:"LO1",
+   txt:"Each channel has one MultiFunction Probe for angle of attack, total air temperature and total pressure; two Integrated Static Probes for local static pressure; one Side Slip Angle probe with a wind vane; and an Outside Air Temperature probe on the nose landing gear. There are three MFPs, six ISPs, three SSA probes and two OAT probes in all.",
+   act:"Turn on Build-up mode and step through the first four components.",
+   ask:"Six static probes for three channels — why two each?",
+   check:()=>true,hint:"Press Build-up mode and step forward."},
+  {t:"Normal source allocation",lo:"LO1",
+   txt:"With both switching selectors at NORM the Captain's PFD and ND take ADIRU 1, the First Officer's take ADIRU 2, and ADIRU 3 stays in standby.",
+   act:"Load the normal three-channel scenario and read the two display blocks.",
+   ask:"What exactly is ADIRU 3 doing while it is in standby?",
+   check:()=>STATE.attHdg==="NORM"&&STATE.airData==="NORM",hint:"Set both switching selectors to NORM."},
+  {t:"ADIRU 3 does not take over by itself",lo:"LO4",
+   txt:"There is no automatic reversion. If ADIRU 1 fails, the Captain's displays stay flagged until the crew moves a selector on the switching panel 1311VU.",
+   act:"Fail the ADR 1 part from the Fault Lab or by setting it in the inspector, and watch the Captain's flags stay on.",
+   ask:"Predict first: after ADR 1 fails, what appears on the Captain's PFD, and what happens on its own?",
+   check:()=>STATE.adrFail[1]||STATE.irFail[1],hint:"Inject the ADR 1 or IR 1 failure."},
+  {t:"Two selectors, two parts",lo:"LO3",
+   txt:"The ATT HDG selector acts on the Inertial Reference part only. The AIR DATA selector acts on the Air Data Reference part only. They are two independent rotaries, and their standard position is 12 o'clock NORM.",
+   act:"With ADR 1 failed, move only ATT HDG to CAPT ON 3 and see which flags clear and which do not.",
+   ask:"Which flags did that fix, and why not the others?",
+   check:()=>STATE.attHdg!=="NORM"||STATE.airData!=="NORM",hint:"Move one of the two switching selectors."},
+  {t:"The switching truth table",lo:"LO3",
+   txt:"NORM gives ADIRU 1 to the Captain, 2 to the First Officer and 3 in standby. CAPT ON 3 gives ADIRU 3 to the Captain and leaves no standby. F/O ON 3 gives ADIRU 3 to the First Officer and leaves no standby.",
+   act:"Step each selector through all three positions and watch the table highlight and the display sources change.",
+   ask:"After any non-normal selection, what has the aircraft lost that it had before?",
+   check:()=>STATE.attHdg==="CAPT3"||STATE.attHdg==="FO3"||STATE.airData==="CAPT3"||STATE.airData==="FO3",hint:"Select CAPT ON 3 or F/O ON 3."},
+  {t:"Switch first, then push",lo:"LO4",
+   txt:"The ADR and IR pushbuttons do not repair anything. They inhibit the failed part's output buses and light the white OFF legend. The published order is: make the switching selection first, then depress the pushbutton.",
+   act:"Press the ADR 1 pushbutton with ADR 1 failed but AIR DATA still at NORM, and read what the Captain's PFD does.",
+   ask:"What did pressing the pushbutton achieve for the crew?",
+   check:()=>STATE.adrOff[1]||STATE.irOff[1],hint:"Press an ADR or IR pushbutton on the control panel."},
+  {t:"The flashing FAULT legend",lo:"LO4",
+   txt:"An ADIRU failure that still allows the attitude function shows a flashing FAULT legend with the OFF legend extinguished. Turning that ADIRU's selector to ATT extinguishes the FAULT legend; the unit then gives heading and attitude only, and the heading has to be entered through the MFD.",
+   act:"Inject the attitude-capable ADIRU 1 failure and then select ATT on channel 1.",
+   ask:"Predict first: in ATT mode, does the ND still show a position?",
+   check:()=>STATE.sel[1]==="ATT"||STATE.sel[2]==="ATT"||STATE.sel[3]==="ATT",hint:"Select ATT on one of the three channels."},
+  {t:"Power — one channel is not like the others",lo:"LO5",
+   txt:"ADIRU 1 is on the AC EMER BUS with HOT BUS 1 behind it, and ADIRU 3 on AC BUS 1 or the AC EMER BUS with HOT BUS ESS. ADIRU 2 is on AC BUS 4 with no 28 VDC back-up at all. Each ADIRU transfers automatically to the 28 VDC back-up whenever the main 115 VAC exceeds its normal limits.",
+   act:"Open the Power supply view and switch the main AC generation off.",
+   ask:"Which channel dies, and which selector position recovers the side it was feeding?",
+   check:()=>STATE.elecEmer,hint:"Press Main AC lost under Aircraft conditions."},
+  {t:"Alignment",lo:"LO2",
+   txt:"With the selector at NAV the inertial reference initialises on the GPS position at the end of the alignment period, which takes from 5 to 17 minutes depending on the aircraft position. Air information appears on the PFDs immediately; the navigation information on the NDs and the IR data on the PFDs only after the complete alignment.",
+   act:"Load the alignment scenario and read which flags are on and which are not.",
+   ask:"Why can the crew see speed and altitude but not heading during alignment?",
+   check:()=>STATE.aligning,hint:"Choose the alignment scenario, or press Aligning."},
+  {t:"Probe anti-icing",lo:"LO3",
+   txt:"Anti-icing is activated automatically when at least one engine is running or when the IR ground speed is above 30 kts. On the ground with no engine running it is activated manually with the PROBE/WINDOW HEAT pushbutton. The ISIS adds its own condition, a computed air speed above 50 kts.",
+   act:"With no engine running and zero ground speed, press the PROBE/WINDOW HEAT pushbutton to ON.",
+   ask:"Why did the designers make the automatic condition an OR of two very different signals?",
+   check:()=>solve().antiIce,hint:"Set the heat pushbutton to ON, or start an engine, or raise the ground speed."},
+  {t:"The standby chain is genuinely independent",lo:"LO6",
+   txt:"The two ISIS have their own standby pitot probe and two standby static probes, connected pneumatically, and their own internal sensors. They only supplement that with ARINC 429 data from ADIRU 3 — or ADIRU 1 if ADIRU 3 has failed — and from MMR 1. Lose all three ADIRUs and the ISIS keeps working.",
+   act:"Load the scenario where all three ADIRUs are lost, then trace the ISIS path.",
+   ask:"What single instrument still works with no electrical supply at all?",
+   check:()=>solve().adirsLost||STATE.trace==="isis",hint:"Choose the all-ADIRUs-lost scenario, or press the ISIS trace button."},
+  {t:"ISIS reconfiguration",lo:"LO6",
+   txt:"ISIS 1 is the standby flight display and ISIS 2 the standby navigation display, but each unit can do all the functions of either, and the units are interchangeable. If ISIS 1 fails, ISIS 2 automatically reconfigures to the flight display through the discrete links between them; the navigation display can then be recovered with the MODE pushbutton.",
+   act:"Fail ISIS 1, then press the MODE pushbutton.",
+   ask:"Why is the flight display the one the system keeps automatically?",
+   check:()=>!STATE.isis1,hint:"Press the ISIS 1 healthy button to fail it."}
+];
+const QUIZ=[
+  {q:"How many ADIRUs are there, and what are the two parts of each?",lo:"LO1",
+   a:["Two, an air data part and a radio part","Three, each with an Air Data Reference part and an Inertial Reference part","Three, each with a GPS part and a gyro part","Two, each with three accelerometers"],c:1,
+   e:"The ADIRS is based on three independent and redundant channels; each ADIRU has an ADR part and an IR part."},
+  {q:"How many Integrated Static Probes are fitted, and how are they allocated?",lo:"LO1",
+   a:["Three, one per ADIRU","Six, two per ADIRU","Two, one per side","Six, all feeding ADIRU 1"],c:1,
+   e:"There are six ISPs — three on the left and three on the right — and each ADIRU is connected to two of them."},
+  {q:"With both switching selectors at NORM, which ADIRU feeds the First Officer's PFD?",lo:"LO1",
+   a:["ADIRU 1","ADIRU 2","ADIRU 3","Whichever is aligned first"],c:1,
+   e:"NORM gives ADIRU 1 to the Captain, ADIRU 2 to the First Officer and ADIRU 3 in standby."},
+  {q:"ADIRU 1 fails. What happens to the Captain's displays?",lo:"LO4",
+   a:["ADIRU 3 takes over automatically","The flags stay on until the crew selects CAPT ON 3","The displays switch to the First Officer's source","The ISIS takes over the Captain's PFD"],c:1,
+   e:"There is no automatic reversion. The switching panel 1311VU has to be used manually."},
+  {q:"The ATT HDG selector acts on which part of the ADIRU?",lo:"LO3",
+   a:["The Air Data Reference part","The Inertial Reference part","Both parts","Neither — it selects the ISIS"],c:1,
+   e:"ATT HDG acts on the IR part only. The AIR DATA selector is the one that acts on the ADR part."},
+  {q:"What does pressing the ADR 1 pushbutton to OFF actually do?",lo:"LO4",
+   a:["It removes power from ADIRU 1","It inhibits the ADR output buses and lights the OFF legend","It selects ADIRU 3 for the Captain","It resets the ADR part"],c:1,
+   e:"The pushbutton controls the ADR data transmission on and off. The ADIRU stays powered by the rotary selector, and the published order is to switch first, then press."},
+  {q:"A flashing FAULT legend with the OFF legend extinguished means what?",lo:"LO4",
+   a:["The ADIRU is not powered","An ADIRU failure with the attitude function still possible","The alignment is incomplete","The probe heating has failed"],c:1,
+   e:"To extinguish that flashing FAULT legend, turn the affected ADIRU's selector to the ATT position."},
+  {q:"In ATT mode, what does the ADIRU provide?",lo:"LO4",
+   a:["Full navigation including position","Heading and attitude only, with the heading entered through the MFD","Air data only","Nothing — ATT is an off position"],c:1,
+   e:"In ATT the ADIRU only gives heading and attitude data if the system loses its ability to navigate, and the heading has to be entered through the MFD."},
+  {q:"Main AC generation is lost. Which ADIRU is lost with it?",lo:"LO5",
+   a:["ADIRU 1","ADIRU 2","ADIRU 3","None — all three have a hot bus"],c:1,
+   e:"ADIRU 2 sits on AC BUS 4 and has no 28 VDC back-up. ADIRUs 1 and 3 are on the AC EMER BUS with HOT BUS 1 and HOT BUS ESS behind them."},
+  {q:"How long does the inertial alignment take?",lo:"LO2",
+   a:["Always 10 minutes","From 5 to 17 minutes, depending on the aircraft position","30 seconds","Until the GPS is acquired, typically 2 minutes"],c:1,
+   e:"The duration depends on the aircraft position and may vary from 5 to 17 minutes."},
+  {q:"Automatic probe anti-icing activates when…",lo:"LO3",
+   a:["The outside air temperature falls below zero","At least one engine is running, or the IR ground speed is above 30 kts","The aircraft is airborne","The crew presses the pushbutton"],c:1,
+   e:"That is the automatic condition. The pushbutton is the manual mode, used on the ground with no engine running."},
+  {q:"All three ADIRUs are lost. What is the state of the ISIS?",lo:"LO6",
+   a:["Also lost — the ISIS reads the ADIRS","Still working, on its own standby pitot and static probes and internal sensors","Working but with no attitude","Working only if ADIRU 3 is restored"],c:1,
+   e:"The ISIS computes its own air data from the standby probes and its own attitude internally; the ADIRU and MMR feeds only supplement it. On a two-ADIRS failure the ISIS also feeds the FCGUs of the three PRIM systems."}
+];
+let LEARN={cur:0,done:[],ans:{},name:""};
+function renderRail(){
+  const r=$("rail"); r.innerHTML="";
+  h("h2",{text:"Lesson"},r);
+  LESSON.forEach((s,i)=>{
+    const d=h("div",{class:"step"+(LEARN.cur===i?" cur":"")+(LEARN.done.indexOf(i)>-1?" done":""),tabindex:"0",role:"button"},r);
+    h("span",{class:"n",text:LEARN.done.indexOf(i)>-1?"✓":String(i+1)},d);
+    h("span",{html:"<strong>"+s.t+"</strong><br><span class='muted small'>"+s.lo+"</span>"},d);
+    d.addEventListener("click",()=>{LEARN.cur=i;renderLearn();});
+    d.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();LEARN.cur=i;renderLearn();}});
+  });
+  const d=h("div",{class:"step"+(LEARN.cur>=LESSON.length?" cur":""),tabindex:"0",role:"button"},r);
+  h("span",{class:"n",text:"Q"},d); h("span",{html:"<strong>Final quiz</strong><br><span class='muted small'>12 questions</span>"},d);
+  d.addEventListener("click",()=>{LEARN.cur=LESSON.length;renderLearn();});
+  d.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();LEARN.cur=LESSON.length;renderLearn();}});
+}
+function renderLearn(){
+  renderRail();
+  const b=$("learnBody"); b.innerHTML="";
+  if(LEARN.cur>=LESSON.length){ renderQuiz(); return; }
+  const s=LESSON[LEARN.cur];
+  h("h2",{text:"Step "+(LEARN.cur+1)+" of "+LESSON.length+" — "+s.t},b);
+  h("p",{text:s.txt},b);
+  h("div",{class:"card",html:"<strong>Do this</strong><br>"+s.act},b);
+  h("div",{class:"notice",html:"<strong>Predict first — ask the class:</strong> "+s.ask},b);
+  const row=h("div",{},b), res=h("div",{},b);
+  const bc=h("button",{class:"small primary",text:"Check this step"},row);
+  bc.addEventListener("click",()=>{
+    res.innerHTML="";
+    if(s.check()){ if(LEARN.done.indexOf(LEARN.cur)===-1) LEARN.done.push(LEARN.cur);
+      h("div",{class:"ok-note",text:"Completed."},res); renderRail(); }
+    else h("div",{class:"notice",text:s.hint},res);
+  });
+  const bn=h("button",{class:"small",text:"Next step ▸"},row); bn.style.marginLeft="6px";
+  bn.addEventListener("click",()=>{LEARN.cur=Math.min(LESSON.length,LEARN.cur+1);renderLearn();});
+  const bp=h("button",{class:"small",text:"◂ Previous"},row); bp.style.marginLeft="6px";
+  bp.addEventListener("click",()=>{LEARN.cur=Math.max(0,LEARN.cur-1);renderLearn();});
+}
+function renderQuiz(){
+  const b=$("learnBody"); b.innerHTML="";
+  h("h2",{text:"Final quiz"},b);
+  const nm=h("label",{html:"Student name "},b);
+  const ni=h("input",{type:"text",value:LEARN.name},nm);
+  ni.addEventListener("input",()=>{LEARN.name=ni.value;});
+  QUIZ.forEach((q,i)=>{
+    const d=h("div",{class:"q"},b);
+    h("div",{html:"<strong>"+(i+1)+".</strong> "+q.q+" <span class='pill'>"+q.lo+"</span>"},d);
+    q.a.forEach((a,j)=>{
+      const l=h("label",{},d);
+      const r=h("input",{type:"radio",name:"q"+i,value:String(j)},l);
+      if(LEARN.ans[i]===j) r.checked=true;
+      r.addEventListener("change",()=>{LEARN.ans[i]=j;});
+      h("span",{text:" "+a},l);
+    });
+    h("div",{id:"qe"+i,class:"small"},d);
+  });
+  const bs=h("button",{class:"primary",text:"Submit quiz"},b);
+  const out=h("div",{},b);
+  bs.addEventListener("click",()=>{
+    let score=0; const byLO={};
+    QUIZ.forEach((q,i)=>{
+      const e=$("qe"+i), ok=LEARN.ans[i]===q.c;
+      if(ok) score++;
+      byLO[q.lo]=byLO[q.lo]||[0,0]; byLO[q.lo][1]++; if(ok) byLO[q.lo][0]++;
+      e.innerHTML=(ok?"<span class='ok'>Correct.</span> ":"<span class='bad'>Not correct.</span> ")+q.e;
+    });
+    out.innerHTML="";
+    h("h3",{text:"Result"},out);
+    let txt="A380 ATA 34 — ADIRS & Standby Navigation\nStudent: "+(LEARN.name||"(name not entered)")+
+      "\nDate: "+new Date().toISOString().slice(0,10)+"\nScore: "+score+" / "+QUIZ.length+"  ("+Math.round(100*score/QUIZ.length)+"%)\n\nBy learning outcome:\n";
+    Object.keys(byLO).sort().forEach(k=>{ txt+="  "+k+": "+byLO[k][0]+" / "+byLO[k][1]+"\n"; });
+    const ta=h("textarea",{rows:"10",style:"width:100%;font-family:ui-monospace,monospace"},out);
+    ta.value=txt;
+    h("p",{class:"small muted",text:"Copy this block into Brightspace."},out);
+  });
+}
+
+/* =====================================================================================
+   WIRING
+   ===================================================================================== */
+function initTabs(){
+  const tabs=[["t-explore","p-explore"],["t-build","p-build"],["t-fault","p-fault"],["t-learn","p-learn"]];
+  tabs.forEach(([t,pnl])=>{
+    $(t).addEventListener("click",()=>{
+      tabs.forEach(([t2,p2])=>{ $(t2).setAttribute("aria-selected",t2===t?"true":"false"); $(p2).classList.toggle("active",p2===pnl); });
+      if(pnl==="p-build"){ drawBuild(); renderBuildPanel(); }
+      if(pnl==="p-fault") renderFault();
+      if(pnl==="p-learn") renderLearn();
+      if(pnl==="p-explore") draw();
+    });
+    $(t).addEventListener("keydown",e=>{
+      const i=tabs.findIndex(x=>x[0]===t);
+      if(e.key==="ArrowRight"){const n=tabs[(i+1)%tabs.length][0];$(n).focus();$(n).click();}
+      if(e.key==="ArrowLeft"){const n=tabs[(i+tabs.length-1)%tabs.length][0];$(n).focus();$(n).click();}
+    });
+  });
+}
+function initExplore(){
+  const s=$("selScen");
+  MODEL.scen.forEach(x=>h("option",{value:x.id,text:x.id+" · "+x.n},s));
+  s.value=STATE.scen;
+  s.addEventListener("change",()=>applyScenario(s.value));
+  $("selView").addEventListener("change",draw);
+  $("btnFit").addEventListener("click",()=>{VIEWBOX={x:0,y:0,w:1180,h:700};applyVB("svg");});
+  $("btnZin").addEventListener("click",()=>{VIEWBOX.w*=0.82;VIEWBOX.h*=0.82;VIEWBOX.x+=VIEWBOX.w*0.11;VIEWBOX.y+=VIEWBOX.h*0.11;applyVB("svg");});
+  $("btnZout").addEventListener("click",()=>{VIEWBOX.x-=VIEWBOX.w*0.11;VIEWBOX.y-=VIEWBOX.h*0.11;VIEWBOX.w/=0.82;VIEWBOX.h/=0.82;applyVB("svg");});
+  $("btnBuildup").addEventListener("click",()=>{
+    BUILDUP=!BUILDUP; BUILDUPI=0;
+    $("btnBuildup").classList.toggle("on",BUILDUP);
+    $("btnStepNext").disabled=!BUILDUP;
+    $("buildupTxt").textContent=BUILDUP?BUILDUP_SEQ[0][1]:"";
+    if(BUILDUP) $("selView").value="arch";
+    draw();
+  });
+  $("btnStepNext").addEventListener("click",()=>{
+    if(!BUILDUP)return;
+    BUILDUPI=Math.min(BUILDUP_SEQ.length-1,BUILDUPI+1);
+    $("buildupTxt").textContent=BUILDUP_SEQ[BUILDUPI][1];
+    draw();
+  });
+  const cv=$("svg"); let pan=null;
+  cv.addEventListener("pointerdown",e=>{ if(e.target===cv) pan={x:e.clientX,y:e.clientY,vx:VIEWBOX.x,vy:VIEWBOX.y}; });
+  cv.addEventListener("pointermove",e=>{ if(!pan)return; const r=cv.getBoundingClientRect();
+    VIEWBOX.x=pan.vx-(e.clientX-pan.x)*(VIEWBOX.w/r.width); VIEWBOX.y=pan.vy-(e.clientY-pan.y)*(VIEWBOX.h/r.height); applyVB("svg"); });
+  window.addEventListener("pointerup",()=>{pan=null;});
+}
+function initFault(){
+  $("fInstr").addEventListener("click",()=>{const b=$("fInstr"),on=b.getAttribute("aria-pressed")==="true";b.setAttribute("aria-pressed",String(!on));b.classList.toggle("on",!on);renderFault();});
+  $("fExam").addEventListener("click",()=>{const b=$("fExam"),on=b.getAttribute("aria-pressed")==="true";b.setAttribute("aria-pressed",String(!on));b.classList.toggle("on",!on);renderFault();});
+  $("fRandom").addEventListener("click",()=>{const f=FAULTS[Math.floor(Math.random()*FAULTS.length)];$("fSeed").value=f.id;newAttempt(f.id);});
+  $("fRestart").addEventListener("click",()=>{const s=$("fSeed").value;newAttempt(FAULTS.some(f=>f.id===s)?s:FAULTS[0].id);});
+}
+function initGlobal(){
+  $("btnHC").addEventListener("click",()=>{const on=document.body.classList.toggle("hc");$("btnHC").setAttribute("aria-pressed",String(on));draw();});
+  $("btnProj").addEventListener("click",()=>{const on=document.body.classList.toggle("proj");$("btnProj").setAttribute("aria-pressed",String(on));});
+  $("btnReset").addEventListener("click",()=>{
+    STATE=freshState(); FL=null; LEARN={cur:0,done:[],ans:{},name:""};
+    BUILD={nodes:[],wires:[],sel:null,wireFrom:null,running:false,target:null,undo:[],redo:[]};
+    $("selScen").value="S3"; refresh(); drawBuild(); renderBuildPanel(); renderFault(); renderLearn(); toast("Everything reset.");
+  });
+  $("bRun").addEventListener("click",()=>{BUILD.running=true;drawBuild();});
+  $("bPause").addEventListener("click",()=>{BUILD.running=false;drawBuild();});
+  $("bStep").addEventListener("click",()=>{BUILD.running=true;drawBuild();setTimeout(()=>{BUILD.running=false;drawBuild();},420);});
+  $("bClear").addEventListener("click",()=>{pushUndo();BUILD.nodes=[];BUILD.wires=[];drawBuild();});
+  $("bUndo").addEventListener("click",doUndo);
+  $("bRedo").addEventListener("click",doRedo);
+  $("bSpeed").addEventListener("input",()=>{document.body.classList.toggle("noanim",$("bSpeed").value==="1");});
+}
+
+/* Wrap the solver so a bad model edit surfaces a readable message, never a blank page */
+const _solve=solve;
+solve=function(){
+  try{ return _solve(); }
+  catch(err){
+    console.error(err);
+    return {adrSrc:MODEL.switching.NORM,irSrc:MODEL.switching.NORM,conflict:false,
+      captADR:1,foADR:2,captIR:1,foIR:2,standby:3,
+      capt:{adr:true,ir:true,att:false,nav:false},fo:{adr:true,ir:true,att:false,nav:false},
+      isisSrc:null,isisAlive:true,isisFlight:"ISIS 1",isisNav:"ISIS 2",adirsLost:true,
+      antiIce:false,antiIceWhy:"solver error: "+err.message,isisAntiIce:false,
+      pb:{1:{},2:{},3:{}},abnormalSwitch:false};
+  }
+};
+function boot(){
+  try{
+    initTabs(); initExplore(); initFault(); initGlobal();
+    readHash();
+    draw(); renderInspector(); drawBuild(); renderBuildPanel(); renderFault(); renderLearn();
+  }catch(err){
+    const d=document.createElement("div");
+    d.style.cssText="padding:16px;color:#ff8080;font-family:ui-monospace,monospace;white-space:pre-wrap";
+    d.textContent="AeroSim could not start:\n"+(err&&err.stack?err.stack:String(err));
+    document.body.insertBefore(d,document.body.firstChild);
+  }
+}
+boot();
+</script>
+</body>
+</html>

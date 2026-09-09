@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AeroSim – A380 ATA 34 Radio Navigation Aids</title>
+<!--
+  AeroSim Generator output — single-file, self-contained (no CDN, no network, no login).
+  Architecture:  MODEL (JSON block, editable) → ENGINE (tuning-priority + receiver/approach solver)
+                 → VIEW (SVG receivers, tuning chain, approach modes) → UI → STORE (JSON + URL hash + undo)
+  Every number shown as "specified" comes from the course notes (A380 TTM LEVEL I Apr 2007;
+  LEVEL 2&3 Nov 2011 / 01 AUG 2013). Anything the notes do not state is tagged (assumed).
+-->
+<style>
+:root{--bg:#0f1420;--panel:#171e2e;--panel2:#1f2840;--ink:#e8ecf4;--muted:#9aa5bd;--line:#2c3650;
+ --mmr:#ff4fd8;--vor:#4aa8ff;--dme:#3ddc84;--adf:#c084fc;--ra:#ffb020;--oans:#ffd24a;
+ --adcn:#4aa8ff;--a429:#ff4fd8;--rf:#8fa3c4;
+ --dead:#5a6478;--fault:#ff4040;--avail:#31d158;--focus:#7cc4ff;--amber:#ffb020;
+ --btn:#2a3550;--btnh:#37456b;--fs:15px}
+body.hc{--bg:#000;--panel:#000;--panel2:#111;--ink:#fff;--muted:#ddd;--line:#fff;--dead:#888;--btn:#222;--btnh:#444;--vor:#7ac8ff;--dme:#5cff9a;--mmr:#ff9aec}
+body.proj{--fs:18px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:var(--fs)/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;display:flex;flex-direction:column;min-height:100vh}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:1.05em;margin:0;font-weight:600}
+header .meta{color:var(--muted);font-size:.9em}
+button,select,input[type=text],input[type=range],textarea{font:inherit;color:var(--ink)}
+button{background:var(--btn);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer;min-height:34px}
+button:hover{background:var(--btnh)}
+button:focus-visible,[tabindex]:focus-visible,select:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+button.primary{background:#2f6fd6;border-color:#2f6fd6}
+button.small{padding:2px 8px;min-height:28px;font-size:.9em}
+button.tog.on{background:#1d5c37;border-color:#2c8f55}
+button[disabled]{opacity:.4;cursor:not-allowed}
+select,input[type=text],textarea{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+nav.tabs{display:flex;gap:4px;padding:6px 14px 0;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+nav.tabs button{border-radius:8px 8px 0 0;border-bottom:none;background:var(--panel2)}
+nav.tabs button[aria-selected=true]{background:var(--bg);font-weight:600;border-color:var(--focus)}
+main{flex:1;display:flex;flex-direction:column;min-height:0}
+.tab{display:none;flex:1;min-height:0}
+.tab.active{display:flex}
+.split{flex:1;display:flex;min-height:0}
+.split .left{flex:1;display:flex;flex-direction:column;min-width:0}
+.split .right{width:352px;flex:none;border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:10px}
+@media(max-width:900px){.split{flex-direction:column}.split .right{width:auto;border-left:none;border-top:1px solid var(--line);max-height:44vh}}
+.toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.canvas{flex:1;min-height:0;position:relative;overflow:hidden;background:#0b0f18}
+svg{width:100%;height:100%;display:block;touch-action:none}
+.legend{position:absolute;left:8px;bottom:8px;background:rgba(15,20,32,.92);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:.8em;line-height:1.6;max-width:275px}
+.legend b{display:block;margin-bottom:3px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:.85em}
+.sw{display:inline-block;width:22px;height:0;border-top:3px solid;vertical-align:middle;margin-right:6px}
+h2{font-size:1em;margin:0 0 6px}
+h3{font-size:.95em;margin:12px 0 4px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.muted{color:var(--muted)}.small{font-size:.86em}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:.9em}
+.kv dt{color:var(--muted)}.kv dd{margin:0}
+.pill{display:inline-block;font-size:.75em;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin:2px 3px 2px 0}
+.pill.ok{border-color:#2c8f55;color:var(--avail)}
+.pill.bad{border-color:#8f2c2c;color:var(--fault)}
+.pill.asm{border-color:#8a6d1f;color:var(--amber)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.pathlist{list-style:none;padding:0;margin:6px 0;font-size:.9em}
+.pathlist li{padding:3px 8px;border-left:3px solid var(--adcn);margin-bottom:3px;background:var(--panel2)}
+.pathlist li.a4{border-left-color:var(--a429)}
+.pathlist li.rf{border-left-color:var(--rf)}
+table{border-collapse:collapse;width:100%;font-size:.86em}
+th,td{border:1px solid var(--line);padding:3px 6px;text-align:left}
+th{background:var(--panel2);color:var(--muted);font-weight:600}
+.log{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82em;background:#0b0f18;border:1px solid var(--line);border-radius:6px;padding:6px;height:130px;overflow:auto;white-space:pre-wrap}
+.step{display:flex;gap:8px;align-items:flex-start;padding:7px 8px;border:1px solid var(--line);border-radius:8px;margin-bottom:5px;cursor:pointer;background:var(--panel2)}
+.step.cur{border-color:var(--focus);background:#1d2942}
+.step.done{opacity:.65}
+.step .n{flex:none;width:22px;height:22px;border-radius:50%;background:var(--btn);display:grid;place-items:center;font-size:.8em}
+.step.done .n{background:#1d5c37}
+.rail{width:270px;flex:none;border-right:1px solid var(--line);padding:10px;overflow:auto;background:var(--panel)}
+@media(max-width:900px){.rail{width:auto;border-right:none;border-bottom:1px solid var(--line);max-height:34vh}}
+.learnwrap{flex:1;display:flex;min-height:0}
+.learnbody{flex:1;overflow:auto;padding:14px 18px;max-width:900px}
+.q{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;margin:10px 0}
+.q label{display:block;padding:3px 0;cursor:pointer}
+.ok{color:var(--avail)}.bad{color:var(--fault)}.warn{color:var(--amber)}
+.flash{animation:fl .9s steps(2,end) infinite}
+@keyframes fl{50%{opacity:.42}}
+.dash{stroke-dasharray:5 5}
+.flow{stroke-dasharray:6 10;animation:dash 1.1s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-16}}
+body.noanim .flow,body.noanim .flash{animation:none}
+.chip{display:inline-block;padding:2px 8px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);font-size:.82em;margin:2px 3px 2px 0}
+.notice{border-left:3px solid var(--amber);padding:5px 9px;background:#221c0d;border-radius:0 6px 6px 0;font-size:.88em;margin:6px 0}
+.err{border-left:3px solid var(--fault);padding:5px 9px;background:#2a1010;border-radius:0 6px 6px 0;font-size:.88em;margin:6px 0}
+.ok-note{border-left:3px solid var(--avail);padding:5px 9px;background:#0f2418;border-radius:0 6px 6px 0;font-size:.88em;margin:6px 0}
+.scr{background:#04070d;border:1px solid #2c3650;border-radius:6px;padding:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8em;line-height:1.5;min-height:80px}
+.scr .red{color:#ff4040}.scr .amb{color:#ffb020}.scr .grn{color:#3ddc84}.scr .cyn{color:#4aa8ff}
+.scr .mag{color:#ff4fd8}.scr .wht{color:#e8ecf4}.scr .gry{color:#6d7c99}.scr .blu{color:#5b8cff}
+footer{padding:5px 14px;background:var(--panel);border-top:1px solid var(--line);color:var(--muted);font-size:.8em}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>AeroSim — ATA 34 Radio Navigation Aids</h1>
+  <span class="meta">Aircraft Electrical &amp; Digital Systems · A380 (RR Trent 900) · CAAS SAR-66 Cat B2, Level 2 · v1.0 · 2026-09</span>
+  <span style="flex:1"></span>
+  <button class="small" id="btnHC" aria-pressed="false">High contrast</button>
+  <button class="small" id="btnProj" aria-pressed="false">Projector</button>
+  <button class="small" id="btnReset">Reset everything</button>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Simulation modes">
+  <button role="tab" id="t-explore" aria-selected="true" aria-controls="p-explore">1 · Explore</button>
+  <button role="tab" id="t-build" aria-selected="false" aria-controls="p-build">2 · Build</button>
+  <button role="tab" id="t-fault" aria-selected="false" aria-controls="p-fault">3 · Fault Lab</button>
+  <button role="tab" id="t-learn" aria-selected="false" aria-controls="p-learn">4 · Learn</button>
+</nav>
+
+<main>
+
+<section class="tab active" id="p-explore" role="tabpanel" aria-labelledby="t-explore">
+  <div class="split">
+    <div class="left">
+      <div class="toolbar">
+        <label>View
+          <select id="selView">
+            <option value="rx">Receivers &amp; antennas</option>
+            <option value="tune">Tuning chain — auto, manual, back-up</option>
+            <option value="appr">MMR landing functions</option>
+          </select>
+        </label>
+        <label>Scenario <select id="selScen"></select></label>
+        <button class="small" id="btnFit">Fit</button>
+        <button class="small" id="btnZin">Zoom +</button>
+        <button class="small" id="btnZout">Zoom −</button>
+        <button class="small tog" id="btnBuildup">Build-up mode</button>
+        <button class="small" id="btnStepNext" disabled>Next component ▸</button>
+        <span class="muted small" id="buildupTxt"></span>
+      </div>
+      <div class="canvas" id="cv">
+        <svg id="svg" viewBox="0 0 1180 700" role="img" aria-label="A380 radio navigation aids schematic"><g id="vp"></g></svg>
+        <div class="legend" id="legend"></div>
+      </div>
+    </div>
+    <div class="right" id="inspector"></div>
+  </div>
+</section>
+
+<section class="tab" id="p-build" role="tabpanel" aria-labelledby="t-build">
+  <div class="split">
+    <div class="left">
+      <div class="toolbar">
+        <button class="small" id="bRun">▶ Run</button>
+        <button class="small" id="bPause">⏸ Pause</button>
+        <button class="small" id="bStep">⏭ Step</button>
+        <button class="small" id="bClear">Clear</button>
+        <button class="small" id="bUndo">↶ Undo</button>
+        <button class="small" id="bRedo">↷ Redo</button>
+        <label class="small">Speed <input type="range" id="bSpeed" min="1" max="10" value="5" style="width:90px"></label>
+      </div>
+      <div class="canvas" id="bcv">
+        <svg id="bsvg" viewBox="0 0 1180 700" role="img" aria-label="Radio navigation constructor canvas"><g id="bvp"></g></svg>
+      </div>
+    </div>
+    <div class="right" id="buildPanel"></div>
+  </div>
+</section>
+
+<section class="tab" id="p-fault" role="tabpanel" aria-labelledby="t-fault">
+  <div class="split">
+    <div class="left">
+      <div class="toolbar">
+        <button class="small tog" id="fInstr" aria-pressed="false">Instructor panel</button>
+        <button class="small" id="fRandom">Random fault</button>
+        <label class="small">Seed <input type="text" id="fSeed" style="width:80px" value=""></label>
+        <button class="small tog" id="fExam" aria-pressed="false">Exam mode</button>
+        <button class="small" id="fRestart">New attempt</button>
+        <span style="flex:1"></span>
+        <span id="fSteps" class="small"></span>
+      </div>
+      <div class="canvas" id="fcv">
+        <svg id="fsvg" viewBox="0 0 1180 700" role="img" aria-label="Fault lab radio navigation schematic"><g id="fvp"></g></svg>
+        <div class="legend" id="flegend"></div>
+      </div>
+    </div>
+    <div class="right" id="faultPanel"></div>
+  </div>
+</section>
+
+<section class="tab" id="p-learn" role="tabpanel" aria-labelledby="t-learn">
+  <div class="learnwrap">
+    <div class="rail" id="rail"></div>
+    <div class="learnbody" id="learnBody"></div>
+  </div>
+</section>
+
+</main>
+
+<footer>Temasek Polytechnic · Aerospace Electronics · training use only. Paraphrased from the A380 TTM; values not in the notes are tagged (assumed). No network calls, no login, no tracking.</footer>
+
+<script>
+"use strict";
+/* =====================================================================================
+   MODEL
+   ===================================================================================== */
+const MODEL={
+  meta:{topic:"ATA 34 – Radio Navigation Aids",ac:"Airbus A380 (RR Trent 900)",
+        level:"CAAS SAR-66 Cat B2, Level 2",
+        src:"A380 TTM LEVEL I (Apr 19 2007) pp.12–31; LEVEL 2&3 (Nov 21 2011) pp.40–103"},
+
+  /* 0.1 COMPONENTS — every quantity, frequency and bus quoted from the notes */
+  lru:{
+    MMR1:{n:"Multi-Mode Receiver 1",side:1,pwr:"115 VAC EMER bus",ess:true,
+      note:"The MMR hosts the ILS, FLS, GPS, GLS (optional) and MIX LOC/VNAV functions plus a BITE module connected to the CMS. Losing one MMR therefore loses that side's ILS and that side's GPS together.",
+      ant:["GPS antenna 1","common Localizer antenna","common G/S capture antenna","common G/S track antenna"]},
+    MMR2:{n:"Multi-Mode Receiver 2",side:2,pwr:"115 VAC AC BUS 2",ess:false,
+      note:"Second Multi-Mode Receiver. ILS 1 and ILS 2 inside the two MMRs must be tuned on the same frequency.",
+      ant:["GPS antenna 2","common Localizer antenna","common G/S capture antenna","common G/S track antenna"]},
+    VOR1:{n:"VOR receiver 1 (hosts the Marker function)",side:1,pwr:"115 VAC EMER BUS",ess:true,
+      note:"The Marker function is active only within the VOR1 receiver, and the single Marker antenna is connected to VOR1 only. A VOR1 failure therefore takes the Marker with it.",
+      ant:["dual VOR antenna (top of the vertical stabilizer)","Marker antenna (bottom of the fuselage)"],
+      freq:"108 to 117.95 MHz"},
+    VOR2:{n:"VOR receiver 2",side:2,pwr:"115 VAC NORMAL BUS 2",ess:false,
+      note:"Shares the one dual VOR antenna with VOR1. No Marker function.",
+      ant:["dual VOR antenna"],freq:"108 to 117.95 MHz"},
+    DME1:{n:"DME interrogator 1",side:1,pwr:"115 VAC EMER BUS",ess:true,
+      note:"One interrogator and one antenna per system. The selected ground station can be of VOR or ILS type.",
+      ant:["DME antenna 1 (bottom of the fuselage)"],freq:"962 to 1213 MHz"},
+    DME2:{n:"DME interrogator 2",side:2,pwr:"115 VAC BUS 4",ess:false,
+      note:"Second DME system.",ant:["DME antenna 2"],freq:"962 to 1213 MHz"},
+    ADF1:{n:"ADF receiver 1 (optional)",side:1,pwr:"115 VAC ESSentiel BUS",ess:true,opt:true,
+      note:"The aircraft can be equipped with one, two or no ADF systems. This simulation assumes two (assumed fit).",
+      ant:["ADF antenna 1 (top of the fuselage)"],freq:"190 to 1750 kHz"},
+    ADF2:{n:"ADF receiver 2 (optional)",side:2,pwr:"115 VAC BUS 2",ess:false,opt:true,
+      note:"Second ADF system, if fitted.",ant:["ADF antenna 2"],freq:"190 to 1750 kHz"},
+    RA1:{n:"Radio Altimeter transceiver 1",side:1,pwr:"115 VAC NORMAL BUS",ess:false,
+      note:"Three independent radio altimeter systems. Each transceiver has its own transmission and reception antenna at the bottom of the rear fuselage, joined by coaxial cable.",
+      ant:["RA 1 transmission antenna","RA 1 reception antenna"],freq:"4200 to 4400 MHz"},
+    RA2:{n:"Radio Altimeter transceiver 2",side:2,pwr:"115 VAC NORMAL BUS",ess:false,
+      note:"Second radio altimeter.",ant:["RA 2 transmission antenna","RA 2 reception antenna"],freq:"4200 to 4400 MHz"},
+    RA3:{n:"Radio Altimeter transceiver 3",side:3,pwr:"115 AC ESS BUS",ess:true,
+      note:"The only radio altimeter on an essential bus. PRIM 1 takes RA 1 and RA 3, PRIM 2 takes RA 2 and RA 3, PRIM 3 takes RA 1 and RA 2.",
+      ant:["RA 3 transmission antenna","RA 3 reception antenna"],freq:"4200 to 4400 MHz"},
+    OANC:{n:"On-board Airport Navigation Computer",side:2,pwr:"115 VAC BUS 4",ess:false,
+      note:"Hosts the OANS software, the Airport Data Base with two embedded cycles, and a BITE module for the CMS. It takes the aircraft GPS position from the MMRs and drives two independent airport map images to the two NDs through the CMV.",
+      ant:["— no antenna of its own —"]}
+  },
+  /* antennas that are shared, and who they feed */
+  sharedAnt:[
+    ["Localizer antenna (radome)","common — feeds MMR 1 and MMR 2"],
+    ["G/S capture antenna (radome)","common — selected by the RF relay when the nose gear is retracted"],
+    ["G/S track antenna (nose landing gear)","common — selected when the nose gear is extended"],
+    ["Dual VOR antenna (top of the vertical stabilizer)","one antenna feeding both VOR receivers"],
+    ["Marker antenna (bottom of the fuselage)","connected to the VOR 1 receiver only"]
+  ],
+
+  /* 0.4 MMR landing functions */
+  fn:{
+    ILS:{n:"ILS — precision approach",tune:true,src:"the ground ILS station, through the Localizer antenna and the selected G/S antenna",
+      out:"real LOC and real G/S deviations",
+      pfd:"G/S and LOC scales with single magenta diamonds, magenta dagger course, station ident, frequency and ILS-DME distance",
+      note:"ILS 1 and ILS 2 must be tuned on the same frequency. A back-up ILS tuning from either RMP is sent to both MMRs over the RMP dialog bus."},
+    FLS:{n:"FLS — non-precision, computed beam",tune:false,src:"nothing from the ground — the beam is computed from an FMS anchor point and the ADIRS position",
+      out:"pseudo-LOC (F-LOC) and pseudo-G/S (F-G/S)",
+      pfd:"FMA shows F-G/S and F-LOC; the F-G/S index is a doubled magenta diamond",
+      note:"The FLS function is autonomous and does not require any additional information from the ground, so there is no need to tune the MMRs at all."},
+    MIX:{n:"MIX LOC/VNAV — real LOC, computed glide",tune:true,src:"a real localizer from the ground, plus FMS data for the vertical path",
+      out:"real LOC deviation and pseudo-G/S",
+      pfd:"LOC beside the LOC scale with a single diamond, F-G/S above the G/S scale with a double diamond",
+      note:"Used for a non-precision approach where a usable localizer exists."},
+    GLS:{n:"GLS — ground-based augmentation (optional)",tune:true,src:"the GLS ground station received through the Localizer antenna, plus GPS",
+      out:"pseudo-LOC and pseudo-Glide from a computed approach beam",
+      pfd:"GLS message, GLS station information and the approach capability",
+      note:"The station supplies pseudo-range corrections, satellite integrity and final approach segment data, so the MMR computes a position more accurate than raw GPS."},
+    GPS:{n:"GPS — continuous, independent of the landing mode",tune:false,src:"the active GPS antenna of that MMR",
+      out:"position, velocity and time to the three ADIRUs, which compute GPIRS",
+      pfd:"GPS PRIMARY, or GPS PRIMARY LOST, on the lower part of the ND",
+      note:"MMR 1 also sends UTC and date to the clock over ARINC 429, and GPS data to both ISIS — used only if the GPIRS data are lost."}
+  },
+
+  /* 0.5 scenarios */
+  scen:[
+    {id:"S1",n:"Normal auto-tuned cruise",set:{}},
+    {id:"S2",n:"Manual tuning from the MFD",set:{manual:true}},
+    {id:"S3",n:"Back-up tuning — both IOMs failed",set:{iom3:false,iom4:false}},
+    {id:"S4",n:"ILS approach with LS selected",set:{fn:"ILS",ls:true,nlg:true,height:1200}},
+    {id:"S5",n:"FLS non-precision approach",set:{fn:"FLS",ls:true,nlg:true,height:1800}},
+    {id:"S6",n:"MIX LOC/VNAV approach",set:{fn:"MIX",ls:true,nlg:true,height:1500}},
+    {id:"S7",n:"GLS approach",set:{fn:"GLS",ls:true,nlg:true,height:1400}},
+    {id:"S8",n:"Radio altimeter in band",set:{height:800}},
+    {id:"S9",n:"Radio altimeter above the display band",set:{height:4000}},
+    {id:"S11",n:"VOR 1 failed — the Marker goes with it",set:{fail:{VOR1:true}}},
+    {id:"S11b",n:"MMR 1 failed — ILS 1 and GPS 1 both lost",set:{fail:{MMR1:true}}},
+    {id:"S12",n:"GPS PRIMARY lost",set:{gpsPrimary:false}},
+    {id:"S13",n:"OANS airport map on the ND",set:{zoom:true}},
+    {id:"S14",n:"Below 700 ft with the nose gear down — tuning frozen",set:{height:400,nlg:true}},
+    {id:"SE",n:"Emergency electrical configuration",set:{elecEmer:true}},
+    {id:"FREE",n:"Free play — nothing preset",set:{}}
+  ],
+
+  /* 0.7 NUMBERS — the whitelist */
+  numbers:[
+    ["2","MMR receivers, each hosting ILS, FLS, GPS, GLS and MIX LOC/VNAV"],
+    ["2","GPS antennae — one active antenna per MMR, on the top of the fuselage"],
+    ["1","common Localizer antenna, in the radome"],
+    ["1","common G/S capture antenna, in the radome"],
+    ["1","common G/S track antenna, on the nose landing gear"],
+    ["2","VOR receivers, sharing one dual VOR antenna on the top of the vertical stabilizer"],
+    ["108 to 117.95 MHz","VOR ground-station frequency range"],
+    ["1","Marker antenna, connected to the VOR 1 receiver only"],
+    ["75 MHz","Marker beacon frequency"],
+    ["2","DME systems, each an interrogator plus an antenna at the bottom of the fuselage"],
+    ["962 to 1213 MHz","DME operating frequency range"],
+    ["1, 2 or none","ADF systems — the fit is optional"],
+    ["190 to 1750 kHz","ADF antenna operating range"],
+    ["3","independent radio altimeter systems, each with a transmission and a reception antenna"],
+    ["4200 to 4400 MHz","radio altimeter transmitted frequency-modulated band"],
+    ["± 30°","radio altimeter antenna operating range in roll and pitch"],
+    ["5000 ft","the radio height is valid for user systems up to this altitude"],
+    ["2500 ft","the radio height is displayed on the PFD from the ground up to this height"],
+    ["700 ft","below this height with the nose gear extended, the PRIMs set the Tune/Test Inhibit discrete"],
+    ["115 VAC","supply voltage of every radio navigation LRU"],
+    ["MMR1 EMER · MMR2 AC BUS 2","MMR power sources"],
+    ["VOR1 EMER · VOR2 NORMAL BUS 2","VOR power sources"],
+    ["DME1 EMER · DME2 BUS 4","DME power sources"],
+    ["ADF1 ESSentiel · ADF2 BUS 2","ADF power sources"],
+    ["RA1 and RA2 NORMAL · RA3 ESS","radio altimeter power sources"],
+    ["OANC BUS 4","On-board Airport Navigation Computer power"],
+    ["IOM 3 and IOM 4","the two IOMs in the tuning path"],
+    ["RS 422","the link between the OANC and each KCCU"],
+    ["2","Airport Data Base cycles embedded on the OANC"],
+    ["ZOOM, 10, 20, 40, 80, 160, 320, 640","EFIS control panel range selector positions"],
+    ["PRIM 1: RA 1 and RA 3 · PRIM 2: RA 2 and RA 3 · PRIM 3: RA 1 and RA 2","radio altimeter allocation to the PRIMs"]
+  ],
+
+  /* 0.8 GAPS */
+  gaps:[
+    ["The ILS localizer and glide frequency band and channel spacing are never stated","no ILS band is displayed"],
+    ["Channel counts for VOR, ILS, DME and ADF are not given","channel counts are omitted entirely"],
+    ["The DME pairing algorithm is not stated — only that the station can be of VOR or ILS type","DME 1 follows the navaid tuned on side 1 and DME 2 the navaid tuned on side 2 (assumed)"],
+    ["The GLS frequency band and channel numbering are not stated","the GLS frequency is treated as an opaque channel identifier"],
+    ["Radio altimeter accuracy, resolution and update rate are not stated","no accuracy figure is displayed"],
+    ["The lower limit of the radio altimeter display band is not stated","the display band is modelled as 0 to 2500 ft (assumed lower limit)"],
+    ["Marker OM, MM and IM discrimination is given only by colour","the three markers are modelled as discrete events with the stated colours only"],
+    ["Behaviour on a single IOM failure is not described — only the both-failed case","one IOM failed reverts that side alone to RMP back-up (assumed)"],
+    ["The back-up annunciation is written R in the text and drawn B in the illustration","B is shown, with the conflict stated"],
+    ["The V V pushbutton on the EFIS control panel is not described in these pages","left inert and labelled as not covered"],
+    ["An MLS line appears on the RMP NAV page but no MLS system is described","the line is shown as present but not implemented"]
+  ],
+
+  /* 0.10 MISCONCEPTIONS */
+  misc:[
+    "There is one ILS receiver and one GPS receiver.",
+    "Each receiver has its own antenna.",
+    "FLS is just ILS from a different station.",
+    "Manual tuning bypasses the RMP.",
+    "The radio altimeter only works below 2500 ft.",
+    "The G/S antenna is selected by the pilot."
+  ],
+
+  gloss:{
+    MMR:"Multi-Mode Receiver",ILS:"Instrument Landing System",FLS:"FMS Landing System",
+    GLS:"GBAS Landing System",GPS:"Global Positioning System",GPIRS:"GPS / Inertial Reference System position",
+    VOR:"VHF Omnidirectional Range",MKR:"Marker",DME:"Distance Measuring Equipment",
+    ADF:"Automatic Direction Finder",RA:"Radio Altimeter",DRA:"the radio altimeter BITE entry name",
+    OANS:"On-board Airport Navigation System",OANC:"On-board Airport Navigation Computer",
+    ADB:"Airport Data Base",RMP:"Radio and audio Management Panel",IOM:"Input Output Module",
+    FMS:"Flight Management System",FMC:"Flight Management Computer",
+    ADCN:"Avionics Data Communication Network",CDS:"Control and Display System",
+    PFD:"Primary Flight Display",ND:"Navigation Display",MFD:"MultiFunction Display",
+    KCCU:"Keyboard and Cursor Control Unit",EFIS:"Electronic Flight Instrument System",
+    PRIM:"PRIMary flight control computer",FCDC:"Flight Control Data Concentrator",
+    LAS:"Landing Antenna Select discrete",FT:"Functional Test discrete",TTI:"Tune/Test Inhibit discrete",
+    VASC:"the MMR's antenna select command discrete",VASA:"the RF relay's select acknowledge discrete",
+    NLG:"Nose Landing Gear",LGERS:"Landing Gear Extension and Retraction System",
+    AMU:"Audio Management Unit",CMV:"Concentrator and Multiplexer for Video",
+    CMS:"Centralized Maintenance System",OMS:"Onboard Maintenance System",BITE:"Built-In Test Equipment",
+    OM:"Outer Marker",MM:"Middle Marker",IM:"Inner Marker",
+    MLS:"a line on the RMP NAV page; no MLS system is described in these notes"
+  }
+};
+
+/* =====================================================================================
+   STATE
+   ===================================================================================== */
+function freshState(){
+  return {
+    fail:{MMR1:false,MMR2:false,VOR1:false,VOR2:false,DME1:false,DME2:false,
+          ADF1:false,ADF2:false,RA1:false,RA2:false,RA3:false,OANC:false},
+    adfFitted:true,
+    iom3:true, iom4:true, manual:false, elecEmer:false,
+    fn:"ILS", ls:false, gpsPrimary:true, zoom:false, adbValid:true,
+    nlg:false, height:8000, roll:0,
+    marker:null,           /* null | OM | MM | IM */
+    scen:"S1", sel_:"MMR1", trace:null
+  };
+}
+let STATE=freshState();
+let ANIM=true, BUILDUP=false, BUILDUPI=0;
+const $=id=>document.getElementById(id);
+const SVGNS="http://www.w3.org/2000/svg";
+
+/* =====================================================================================
+   ENGINE
+     1. power  — in an emergency electrical configuration only the EMER/ESS-fed LRUs survive
+     2. health — powered and not failed
+     3. tuning mode — auto through the FMC/IOM/RMP port B, manual through the MFD to port B,
+        or back-up straight from the RMP to port A when both IOMs are gone
+     4. approach function, G/S antenna selection, TTI and the radio altimeter band
+   ===================================================================================== */
+function lruPowered(id){
+  const L=MODEL.lru[id]; if(!L) return false;
+  if(id.indexOf("ADF")===0 && !STATE.adfFitted) return false;
+  if(STATE.elecEmer && !L.ess) return false;
+  return true;
+}
+function lruOK(id){ return lruPowered(id) && !STATE.fail[id]; }
+
+function solve(){
+  const S={};
+  S.ok={}; Object.keys(MODEL.lru).forEach(k=>S.ok[k]=lruOK(k));
+  S.powered={}; Object.keys(MODEL.lru).forEach(k=>S.powered[k]=lruPowered(k));
+
+  /* the Marker lives inside VOR 1 and its antenna feeds VOR 1 only */
+  S.marker = S.ok.VOR1;
+
+  /* tuning mode */
+  if(!STATE.iom3 && !STATE.iom4){ S.tuning="BACKUP"; S.tuneWhy="both IOM 3 and IOM 4 have failed, so each pilot tunes the own-side receivers straight from the RMP, on port A"; S.ann="B"; }
+  else if(STATE.manual){ S.tuning="MAN"; S.tuneWhy="entered on the MFD POSITION/NAVAIDS page and sent through the IOMs and the RMPs to port B"; S.ann="M"; }
+  else { S.tuning="AUTO"; S.tuneWhy="each active FMC tunes its own-side aids through its IOM and the on-side RMP, on port B"; S.ann=null; }
+  /* (assumed) one IOM out reverts only that side */
+  S.halfBackup = (STATE.iom3 !== STATE.iom4);
+
+  /* Tune/Test Inhibit — below 700 ft with the nose gear extended */
+  S.tti = STATE.height<700 && STATE.nlg;
+
+  /* G/S antenna selection by the RF relay, commanded from the LAS and FT discretes */
+  S.gsAnt = STATE.nlg ? "G/S track antenna (nose landing gear)" : "G/S capture antenna (radome)";
+
+  /* MMR landing function */
+  const f=MODEL.fn[STATE.fn]||MODEL.fn.ILS;
+  S.fn=f; S.fnKey=STATE.fn;
+  S.mmrAny = S.ok.MMR1||S.ok.MMR2;
+  S.ilsSameFreq = true;                                    /* enforced by the tuning logic */
+  S.apprAvail = S.mmrAny && (!f.tune || S.tuning!=="NONE") && !(STATE.fn!=="FLS" && !S.mmrAny);
+
+  /* radio altimeter */
+  S.raList=["RA1","RA2","RA3"].filter(k=>S.ok[k]);
+  S.raAny=S.raList.length>0;
+  S.raInBand = S.raAny && STATE.height<=2500;
+  S.raValid  = S.raAny && STATE.height<=5000 && Math.abs(STATE.roll)<=30;
+  S.raWhy = !S.raAny ? "no radio altimeter available"
+          : Math.abs(STATE.roll)>30 ? "outside the ±30° antenna operating range, so the measurement is not guaranteed"
+          : STATE.height>5000 ? "above 5000 ft — beyond the range for which the height is valid to user systems"
+          : STATE.height>2500 ? "valid to user systems, but above the 2500 ft PFD display limit"
+          : "displayed on the PFD and valid to user systems";
+  /* PRIM allocation */
+  S.prim={1:["RA1","RA3"],2:["RA2","RA3"],3:["RA1","RA2"]};
+  S.primFed={}; [1,2,3].forEach(p=>S.primFed[p]=S.prim[p].some(k=>S.ok[k]));
+
+  /* GPS and OANS */
+  S.gps = (S.ok.MMR1||S.ok.MMR2) && STATE.gpsPrimary;
+  S.oans = S.ok.OANC && STATE.zoom && (S.ok.MMR1||S.ok.MMR2);
+  S.oansWhy = !S.ok.OANC ? "the OANC is not available"
+            : !STATE.zoom ? "the on-side EFIS control panel range selector is not at ZOOM"
+            : !(S.ok.MMR1||S.ok.MMR2) ? "no MMR is available to give the aircraft GPS position"
+            : "airport map displayed";
+  return S;
+}
+
+function tracePath(kind){
+  const S=solve();
+  switch(kind){
+    case "auto": return {t:"Automatic tuning",
+      chain:["Navigation database in the FMS","active FMC","IOM 3 (side 1) or IOM 4 (side 2)","own-side RMP","port B of VOR, DME, ADF and MMR"],
+      cls:"",notes:["If no activity is detected by the RMP on port B, the port A/B selection switches and the receivers listen on port A instead."]};
+    case "man": return {t:"Manual tuning",
+      chain:["MFD POSITION/NAVAIDS page, entered with the KCCU","ADCN","IOMs","RMPs","port B of the related receiver"],
+      cls:"",notes:["Manual tuning still goes through the IOMs and the RMPs — it does not bypass them.",
+                    "An M, underlined and dimmed, appears next to the navaid identification on the NDs."]};
+    case "backup": return {t:"Back-up tuning",
+      chain:["RMP 1 or RMP 2, NAV page","direct wiring","port A of the own-side receivers"],
+      cls:"a4",notes:["Used when both IOM 3 and IOM 4 have failed. Each pilot controls the own-side receivers.",
+                      "An ILS back-up tuning from either RMP is sent to both MMRs over the RMP dialog bus, because ILS 1 and ILS 2 must be on the same frequency.",
+                      "The notes' text calls the annunciation R while the illustration labels it B — the conflict is recorded in the model."]};
+    case "gs": return {t:"Glide slope antenna selection",
+      chain:["Landing gear status and radio altimeter data","PRIMs","LAS and FT discretes","MMR","VASC discrete","RF relay",S.gsAnt,"VASA acknowledge back to the MMR"],
+      cls:"rf",notes:["The pilot has no control over this — the capture antenna is used with the gear up and the track antenna with the gear down."]};
+    case "ra": return {t:"Radio altimeter output",
+      chain:["Transmission antenna, FM 4200 to 4400 MHz","reception antenna","transceiver","ARINC 429 output bus 1 — the basic means","PRIM systems"],
+      cls:"a4",notes:["ARINC 429 output bus 2 through the ADCN and the IOMs is the back-up if output bus 1 is not available.",
+                      "The transceiver also feeds the FWC for warnings and auto call-outs, and RA fault messages reach the ECAM."]};
+    case "gps": return {t:"GPS and GPIRS",
+      chain:["Active GPS antenna","MMR GPS function","the three ADIRUs","GPIRS computed","FMS, AESS and FWS"],
+      cls:"",notes:["MMR 1 also sends UTC and date to the clock over ARINC 429, and GPS data to ISIS 1 and 2 — used only if the GPIRS data are lost."]};
+    case "oans": return {t:"Airport navigation",
+      chain:["Aircraft GPS position from the MMRs, plus ADIRS and FMS","OANC with the Airport Data Base","DVI","CMV","ND CAPT and ND F/O"],
+      cls:"",notes:["The KCCUs reach the OANC over RS 422 for the interactive map.","Two independent images are generated, one per ND."]};
+  }
+  return null;
+}
+
+/* =====================================================================================
+   VIEW
+   ===================================================================================== */
+function el(tag,attrs,parent){
+  const n=document.createElementNS(SVGNS,tag);
+  for(const k in attrs){ if(k==="text") n.textContent=attrs[k]; else if(attrs[k]!=null) n.setAttribute(k,attrs[k]); }
+  if(parent) parent.appendChild(n); return n;
+}
+function h(tag,attrs,parent){
+  const n=document.createElement(tag);
+  for(const k in attrs){
+    if(k==="text") n.textContent=attrs[k];
+    else if(k==="html") n.innerHTML=attrs[k];
+    else if(k==="class") n.className=attrs[k];
+    else if(attrs[k]!=null) n.setAttribute(k,attrs[k]);
+  }
+  if(parent) parent.appendChild(n); return n;
+}
+
+const RXLAY=[
+  {id:"MMR1",x:330,y:96,c:"--mmr",g:"MMR"},{id:"MMR2",x:330,y:172,c:"--mmr",g:"MMR"},
+  {id:"VOR1",x:330,y:262,c:"--vor",g:"VOR"},{id:"VOR2",x:330,y:338,c:"--vor",g:"VOR"},
+  {id:"DME1",x:330,y:420,c:"--dme",g:"DME"},{id:"DME2",x:330,y:480,c:"--dme",g:"DME"},
+  {id:"ADF1",x:330,y:552,c:"--adf",g:"ADF"},{id:"ADF2",x:330,y:612,c:"--adf",g:"ADF"},
+  {id:"RA1",x:660,y:420,c:"--ra",g:"RA"},{id:"RA2",x:660,y:480,c:"--ra",g:"RA"},{id:"RA3",x:660,y:540,c:"--ra",g:"RA"},
+  {id:"OANC",x:660,y:612,c:"--oans",g:"OANS"}
+];
+const BUILDUP_SEQ=[
+  ["MMR","Two Multi-Mode Receivers hold the ILS, FLS, GPS, GLS and MIX LOC/VNAV functions — five jobs in two boxes."],
+  ["ANT","They share antennas: one common Localizer antenna in the radome, and two common glide slope antennas, capture and track."],
+  ["GPSA","Each MMR has its own active GPS antenna on the top of the fuselage."],
+  ["VOR","Two VOR receivers share one dual antenna on the top of the vertical stabilizer."],
+  ["MKR","The Marker function lives inside VOR 1 only, with its own antenna at the bottom of the fuselage."],
+  ["DME","Two DME systems, each an interrogator with its own antenna underneath the aircraft."],
+  ["ADF","And, optionally, one, two or no Automatic Direction Finder systems."],
+  ["RA","Three independent radio altimeters, each with a transmission and a reception antenna at the rear."],
+  ["OANS","The On-board Airport Navigation Computer takes the aircraft GPS position and draws the airport map."],
+  ["NET","Everything reaches the flight deck over the ADCN, through the IOM-A concentrators."]
+];
+
+function renderRx(gid){
+  const g=$(gid); g.innerHTML="";
+  const S=solve();
+  const shown=BUILDUP?new Set(BUILDUP_SEQ.slice(0,BUILDUPI+1).map(s=>s[0])):null;
+  const vis=k=>!BUILDUP||shown.has(k);
+
+  el("text",{x:150,y:70,"text-anchor":"middle",fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"ANTENNAS"},g);
+  el("text",{x:420,y:70,"text-anchor":"middle",fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"RECEIVERS"},g);
+  el("text",{x:760,y:70,"text-anchor":"middle",fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"USERS"},g);
+
+  /* shared antenna column */
+  const ants=[
+    ["LOCALIZER ANT","radome · common to both MMRs",90,"--mmr","ANT"],
+    ["G/S CAPTURE ANT","radome · gear up",138,"--mmr","ANT"],
+    ["G/S TRACK ANT","nose gear · gear down",186,"--mmr","ANT"],
+    ["GPS ANT 1 / 2","top of the fuselage",234,"--mmr","GPSA"],
+    ["DUAL VOR ANT","top of the vertical stabilizer",282,"--vor","VOR"],
+    ["MARKER ANT","bottom of the fuselage · VOR 1 only",330,"--vor","MKR"],
+    ["DME ANT 1 / 2","bottom of the fuselage",378,"--dme","DME"],
+    ["ADF ANT 1 / 2","top of the fuselage",426,"--adf","ADF"],
+    ["RA TX / RX ANT ×3","bottom of the rear fuselage",474,"--ra","RA"]
+  ];
+  ants.forEach(([n2,sub,y,c,key])=>{
+    if(!vis(key)) return;
+    const sel = (key==="ANT"&&n2.indexOf("G/S")===0) &&
+      ((STATE.nlg&&n2.indexOf("TRACK")>-1)||(!STATE.nlg&&n2.indexOf("CAPTURE")>-1));
+    const gg=el("g",{transform:`translate(20,${y})`,tabindex:"0",role:"button","aria-label":n2,style:"cursor:pointer"},g);
+    el("rect",{x:0,y:0,width:260,height:44,rx:7,fill:"#1b2337",
+      stroke:sel?"var(--focus)":`var(${c})`,"stroke-width":sel?2.8:1.5},gg);
+    el("text",{x:10,y:19,fill:"#e8ecf4","font-size":"11.5","font-weight":"600",text:n2},gg);
+    el("text",{x:10,y:34,fill:"#8fa3c4","font-size":"9",text:sub},gg);
+    if(sel) el("text",{x:250,y:27,"text-anchor":"end",fill:"var(--focus)","font-size":"9","font-weight":"700",text:"SELECTED"},gg);
+    gg.addEventListener("click",()=>{STATE.sel_= n2.indexOf("VOR")>-1?"VOR1":(n2.indexOf("RA")===0?"RA1":(n2.indexOf("DME")===0?"DME1":(n2.indexOf("ADF")===0?"ADF1":"MMR1")));renderInspector();});
+    gg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.sel_="MMR1";renderInspector();}});
+  });
+
+  /* receivers */
+  RXLAY.forEach(r=>{
+    if(!vis(r.g)) return;
+    if(r.id.indexOf("ADF")===0 && !STATE.adfFitted) return;
+    const ok=S.ok[r.id], pw=S.powered[r.id];
+    const w=(r.g==="RA"||r.g==="OANS")?130:250;      /* narrow, so they clear the PRIM block */
+    const gg=el("g",{transform:`translate(${r.x},${r.y})`,tabindex:"0",role:"button","aria-label":MODEL.lru[r.id].n,style:"cursor:pointer"},g);
+    el("rect",{x:0,y:0,width:w,height:r.g==="MMR"||r.g==="VOR"?66:52,rx:7,
+      fill:ok?"#1b2337":"#2a1010",stroke:ok?`var(${r.c})`:"var(--fault)","stroke-width":ok?1.8:2.4},gg);
+    el("text",{x:10,y:20,fill:ok?"#e8ecf4":"#ff8080","font-size":"12.5","font-weight":"600",
+      text:r.id+(ok?"":(pw?" — FAILED":" — NOT SUPPLIED"))},gg);
+    el("text",{x:10,y:35,fill:"#8fa3c4","font-size":"9",text:MODEL.lru[r.id].pwr},gg);
+    if(r.g==="MMR") el("text",{x:10,y:52,fill:ok?`var(${r.c})`:"#6d7c99","font-size":"9.5",text:"ILS · FLS · GPS · GLS · MIX"},gg);
+    if(r.id==="VOR1") el("text",{x:10,y:52,fill:S.marker?"var(--vor)":"var(--fault)","font-size":"9.5",
+      text:S.marker?"+ MARKER function — beacons at 75 MHz":"+ MARKER LOST WITH VOR 1"},gg);
+    const tall=(r.g==="MMR"||r.g==="VOR");
+    if(MODEL.lru[r.id].freq&&w>=250) el("text",{x:w-10,y:tall?35:20,"text-anchor":"end",fill:"#6d7c99","font-size":"8.5",text:MODEL.lru[r.id].freq},gg);
+    gg.addEventListener("click",()=>{STATE.sel_=r.id;renderInspector();});
+    gg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.sel_=r.id;renderInspector();}});
+    /* antenna link */
+    el("path",{d:`M 280 ${r.y+22} L ${r.x} ${r.y+22}`,stroke:ok?`var(${r.c})`:"var(--dead)","stroke-width":1.8,
+      "stroke-dasharray":ok?null:"4 4"},g);
+  });
+
+  /* users */
+  if(vis("NET")){
+    el("rect",{x:620,y:96,width:120,height:220,rx:8,fill:"#1b2337",stroke:"var(--adcn)","stroke-width":1.8},g);
+    el("text",{x:680,y:196,"text-anchor":"middle",fill:"#e8ecf4","font-size":"13","font-weight":"600",text:"IOM-A"},g);
+    el("text",{x:680,y:213,"text-anchor":"middle",fill:"#8fa3c4","font-size":"10",text:"→ ADCN"},g);
+    RXLAY.filter(r=>["MMR","VOR","DME","ADF"].indexOf(r.g)>-1).forEach(r=>{
+      if(r.id.indexOf("ADF")===0&&!STATE.adfFitted) return;
+      if(!vis(r.g)) return;
+      const ok=S.ok[r.id];
+      el("path",{d:`M 580 ${r.y+22} C 600 ${r.y+22}, 600 206, 620 206`,fill:"none",
+        stroke:ok?"var(--adcn)":"var(--dead)","stroke-width":ok?1.8:1.2,"stroke-dasharray":ok?null:"4 4",opacity:ok?.9:.4},g);
+      if(ok&&ANIM) el("path",{d:`M 580 ${r.y+22} C 600 ${r.y+22}, 600 206, 620 206`,fill:"none",stroke:"var(--adcn)","stroke-width":1.8,class:"flow"},g);
+    });
+    [["PFD / ND",96],["MFD",160],["FMS",224],["AESS · FWS · CMS",288]].forEach(([n2,y])=>{
+      el("rect",{x:800,y,width:200,height:50,rx:7,fill:"#1b2337",stroke:"#3a4666","stroke-width":1.5},g);
+      el("text",{x:900,y:y+30,"text-anchor":"middle",fill:"#e8ecf4","font-size":"12","font-weight":"600",text:n2},g);
+      el("path",{d:`M 740 206 C 770 206, 770 ${y+25}, 800 ${y+25}`,fill:"none",stroke:"var(--adcn)","stroke-width":1.8},g);
+    });
+    /* radio altimeter goes to the PRIMs on its own bus */
+    if(vis("RA")){
+      el("rect",{x:800,y:420,width:200,height:112,rx:8,fill:"#1b2337",stroke:"var(--ra)","stroke-width":1.6},g);
+      el("text",{x:900,y:442,"text-anchor":"middle",fill:"#e8ecf4","font-size":"12","font-weight":"600",text:"PRIM 1 / 2 / 3"},g);
+      [1,2,3].forEach((pn,i)=>{
+        const fed=S.primFed[pn];
+        el("text",{x:812,y:464+i*20,fill:fed?"#8fa3c4":"var(--fault)","font-size":"10",
+          text:"PRIM "+pn+" ← "+S.prim[pn].join(" and ")+(fed?"":"  ✕")},g);
+      });
+      ["RA1","RA2","RA3"].forEach((k,i)=>{
+        const ok=S.ok[k];
+      });
+      RXLAY.filter(r=>r.g==="RA").forEach(r=>{
+        const ok=S.ok[r.id];
+        el("path",{d:`M ${r.x+130} ${r.y+26} L 800 ${r.y+26}`,fill:"none",
+          stroke:ok?"var(--a429)":"var(--dead)","stroke-width":ok?1.8:1.2,"stroke-dasharray":ok?null:"4 4"},g);
+      });
+      el("text",{x:755,y:412,"text-anchor":"middle",fill:"#8fa3c4","font-size":"9",text:"A429 output bus 1"},g);
+    }
+    if(vis("OANS")){
+      el("rect",{x:800,y:596,width:200,height:52,rx:7,fill:"#1b2337",stroke:"var(--oans)","stroke-width":1.5},g);
+      el("text",{x:900,y:618,"text-anchor":"middle",fill:"#e8ecf4","font-size":"12","font-weight":"600",text:"CMV → NDs"},g);
+      el("text",{x:900,y:634,"text-anchor":"middle",fill:"#8fa3c4","font-size":"9",text:S.oans?"airport map displayed":"map not displayed"},g);
+      el("path",{d:`M ${660+130} 638 L 800 622`,fill:"none",stroke:S.oans?"var(--oans)":"var(--dead)","stroke-width":1.8,"stroke-dasharray":S.oans?null:"4 4"},g);
+    }
+  }
+  if(STATE.elecEmer)
+    el("text",{x:590,y:684,"text-anchor":"middle",fill:"var(--fault)","font-size":"11","font-weight":"700",
+      text:"Emergency electrical configuration — only MMR 1, VOR 1, DME 1, ADF 1 and RA 3 remain supplied"},g);
+}
+
+function renderTune(gid){
+  const g=$(gid); g.innerHTML="";
+  const S=solve();
+  el("text",{x:590,y:40,"text-anchor":"middle",fill:"#cfd8ea","font-size":"16","font-weight":"600",
+    text:"Radio navigation tuning — three paths, one set of receivers"},g);
+  el("text",{x:590,y:62,"text-anchor":"middle",fill:S.tuning==="BACKUP"?"var(--a429)":(S.tuning==="MAN"?"var(--amber)":"var(--avail)"),
+    "font-size":"13","font-weight":"600",text:"Current mode: "+S.tuning+(S.ann?"  —  ND annunciation \""+S.ann+"\"":"")},g);
+  el("text",{x:590,y:82,"text-anchor":"middle",fill:"#8fa3c4","font-size":"11.5",text:S.tuneWhy},g);
+
+  const rows=[
+    {k:"AUTO",y:120,lab:"AUTOMATIC",col:"--avail",
+     nodes:[["NAV DATABASE",40],["ACTIVE FMC",230],["IOM 3 / IOM 4",420],["RMP 1 / RMP 2",610],["PORT B",810]]},
+    {k:"MAN",y:290,lab:"MANUAL",col:"--amber",
+     nodes:[["MFD NAVAIDS page",40],["KCCU entry",230],["IOMs",420],["RMP 1 / RMP 2",610],["PORT B",810]]},
+    {k:"BACKUP",y:460,lab:"BACK-UP",col:"--a429",
+     nodes:[["RMP NAV page",230],["direct wiring",480],["PORT A",810]]}
+  ];
+  rows.forEach(r=>{
+    const active=S.tuning===r.k;
+    el("text",{x:40,y:r.y-14,fill:active?`var(${r.col})`:"#6d7c99","font-size":"11","letter-spacing":"2","font-weight":active?"700":"400",text:r.lab},g);
+    r.nodes.forEach((n2,i)=>{
+      const gg=el("g",{transform:`translate(${n2[1]},${r.y})`,tabindex:"0",role:"button","aria-label":r.lab+" "+n2[0],style:"cursor:pointer"},g);
+      el("rect",{x:0,y:0,width:170,height:56,rx:8,fill:active?"#1b2337":"#141b28",
+        stroke:active?`var(${r.col})`:"#2c3650","stroke-width":active?2.2:1.2,opacity:active?1:.5},gg);
+      el("text",{x:85,y:33,"text-anchor":"middle",fill:active?"#e8ecf4":"#5a6478","font-size":"12","font-weight":"600",text:n2[0]},gg);
+      gg.addEventListener("click",()=>{STATE.trace=r.k==="AUTO"?"auto":(r.k==="MAN"?"man":"backup");refresh();});
+      gg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.trace="auto";refresh();}});
+      if(i<r.nodes.length-1){
+        const nx=r.nodes[i+1][1];
+        el("path",{d:`M ${n2[1]+170} ${r.y+28} L ${nx} ${r.y+28}`,stroke:active?`var(${r.col})`:"#2c3650",
+          "stroke-width":active?2.4:1.2,opacity:active?1:.5},g);
+        if(active&&ANIM) el("path",{d:`M ${n2[1]+170} ${r.y+28} L ${nx} ${r.y+28}`,stroke:`var(${r.col})`,"stroke-width":2.4,class:"flow"},g);
+      }
+    });
+  });
+  el("text",{x:40,y:590,fill:"#8fa3c4","font-size":"12",
+    text:"If no activity is detected by the RMP on port B, the port A/B selection switches and the receivers listen on port A instead."},g);
+  el("text",{x:40,y:612,fill:"#8fa3c4","font-size":"12",
+    text:"ILS 1 and ILS 2 must be tuned on the same frequency, so a back-up ILS tuning from either RMP goes to both MMRs over the RMP dialog bus."},g);
+  if(S.halfBackup)
+    el("text",{x:40,y:640,fill:"var(--amber)","font-size":"12","font-weight":"600",
+      text:"(assumed) One IOM has failed. The notes describe only the both-failed case; that side alone is modelled as reverting to RMP back-up."},g);
+  if(S.tti)
+    el("text",{x:40,y:664,fill:"var(--amber)","font-size":"12","font-weight":"700",
+      text:"Tune/Test Inhibit active — below 700 ft with the nose gear extended, the PRIMs freeze the tuning and inhibit the MMR test."},g);
+}
+
+function renderAppr(gid){
+  const g=$(gid); g.innerHTML="";
+  const S=solve();
+  el("text",{x:590,y:40,"text-anchor":"middle",fill:"#cfd8ea","font-size":"16","font-weight":"600",
+    text:"The five MMR functions — what each needs from the ground"},g);
+  const keys=["ILS","MIX","FLS","GLS","GPS"];
+  keys.forEach((k,i)=>{
+    const f=MODEL.fn[k], cur=STATE.fn===k, x=30+ (i%3)*385, y=80+Math.floor(i/3)*290;
+    const gg=el("g",{transform:`translate(${x},${y})`,tabindex:"0",role:"button","aria-label":f.n,style:"cursor:pointer"},g);
+    el("rect",{x:0,y:0,width:360,height:266,rx:10,fill:cur?"#1d2942":"#1b2337",
+      stroke:cur?"var(--focus)":"#3a4666","stroke-width":cur?2.8:1.5},gg);
+    el("text",{x:16,y:28,fill:"#e8ecf4","font-size":"14","font-weight":"700",text:k},gg);
+    el("text",{x:16,y:47,fill:"#9aa5bd","font-size":"11",text:f.n.replace(k+" — ","")},gg);
+    el("rect",{x:16,y:60,width:118,height:24,rx:5,fill:f.tune?"#3a2a12":"#0f2418",
+      stroke:f.tune?"var(--amber)":"var(--avail)","stroke-width":1.4},gg);
+    el("text",{x:75,y:77,"text-anchor":"middle",fill:f.tune?"var(--amber)":"var(--avail)","font-size":"10","font-weight":"700",
+      text:f.tune?"TUNING REQUIRED":"NO TUNING"},gg);
+    const wrap=(t,w,y0,fill,size)=>{
+      const words=t.split(" "); let line="",yy=y0;
+      words.forEach(word=>{
+        if((line+" "+word).length>w){ el("text",{x:16,y:yy,fill,"font-size":size||"10.5",text:line},gg); line=word; yy+=15; }
+        else line=line?line+" "+word:word;
+      });
+      el("text",{x:16,y:yy,fill,"font-size":size||"10.5",text:line},gg);
+      return yy+18;
+    };
+    let yy=104;
+    el("text",{x:16,y:yy,fill:"#6d7c99","font-size":"9","letter-spacing":"1",text:"SOURCE"},gg); yy+=15;
+    yy=wrap(f.src,50,yy,"#cfd8ea");
+    el("text",{x:16,y:yy,fill:"#6d7c99","font-size":"9","letter-spacing":"1",text:"OUTPUT"},gg); yy+=15;
+    yy=wrap(f.out,50,yy,"#cfd8ea");
+    el("text",{x:16,y:yy,fill:"#6d7c99","font-size":"9","letter-spacing":"1",text:"ON THE PFD"},gg); yy+=15;
+    wrap(f.pfd,52,yy,"#8fa3c4","10");
+    gg.addEventListener("click",()=>{STATE.fn=k;refresh();});
+    gg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.fn=k;refresh();}});
+  });
+  el("text",{x:800,y:400,fill:"#8fa3c4","font-size":"12",text:"Selected: "+MODEL.fn[STATE.fn].n},g);
+  el("text",{x:800,y:424,fill:"#8fa3c4","font-size":"11",text:S.mmrAny?"at least one MMR available":"no MMR available"},g);
+}
+
+let VIEWBOX={x:0,y:0,w:1180,h:700};
+function applyVB(id){ $(id).setAttribute("viewBox",`${VIEWBOX.x} ${VIEWBOX.y} ${VIEWBOX.w} ${VIEWBOX.h}`); }
+function drawLegend(id){
+  const L=$(id); if(!L) return;
+  L.innerHTML='<b>Systems</b>'+
+    '<div><span class="sw" style="border-color:var(--mmr)"></span>MMR — ILS · FLS · GPS · GLS · MIX</div>'+
+    '<div><span class="sw" style="border-color:var(--vor)"></span>VOR and Marker</div>'+
+    '<div><span class="sw" style="border-color:var(--dme)"></span>DME</div>'+
+    '<div><span class="sw" style="border-color:var(--adf)"></span>ADF (optional fit)</div>'+
+    '<div><span class="sw" style="border-color:var(--ra)"></span>Radio altimeter</div>'+
+    '<div><span class="sw" style="border-color:var(--oans)"></span>Airport navigation</div>'+
+    '<div><span class="sw" style="border-color:var(--dead);border-top-style:dashed"></span>not available</div>';
+}
+function draw(){
+  const v=$("selView").value;
+  if(v==="tune") renderTune("vp"); else if(v==="appr") renderAppr("vp"); else renderRx("vp");
+  $("legend").style.display = v==="rx" ? "block" : "none";
+  drawLegend("legend");
+  applyVB("svg");
+}
+
+/* =====================================================================================
+   UI
+   ===================================================================================== */
+function pfdHTML(){
+  const S=solve();
+  let s="";
+  if(STATE.ls&&S.mmrAny){
+    const f=MODEL.fn[STATE.fn];
+    s+='<div class="mag">'+STATE.fn+(STATE.fn==="FLS"?"  F-LOC / F-G/S":(STATE.fn==="MIX"?"  LOC + F-G/S":"  LOC + G/S"))+'</div>';
+    s+='<div class="gry">'+f.pfd+"</div>";
+  } else if(!S.mmrAny){
+    s+='<div class="red">no MMR available — no approach guidance</div>';
+  } else {
+    s+='<div class="gry">LS not selected on the EFIS control panel — no deviation scales</div>';
+  }
+  s+='<div class="wht" style="margin-top:5px">RADIO HEIGHT '+(S.raInBand?('<span class="grn">'+STATE.height+' ft</span>'):'<span class="gry">not displayed above 2500 ft</span>')+"</div>";
+  s+='<div class="gry small">'+S.raWhy+"</div>";
+  if(STATE.marker){
+    const col=STATE.marker==="OM"?"blu":(STATE.marker==="MM"?"amb":"wht");
+    s+='<div class="'+col+'">'+STATE.marker+(S.marker?"":" — VOR 1 lost, no marker")+"</div>";
+  }
+  return s;
+}
+function ndHTML(){
+  const S=solve();
+  let s="";
+  s+='<div class="cyn">'+(S.ann?('<span class="wht">'+S.ann+'</span> underlined and dimmed next to the navaid ident'):"navaid ident, no tuning annunciation (AUTO)")+"</div>";
+  s+='<div class="'+(S.gps?"grn":"amb")+'">'+(S.gps?"GPS PRIMARY":"GPS PRIMARY LOST")+"</div>";
+  s+='<div class="blu" style="margin-top:4px">'+(S.ok.VOR1?"▲ VOR1 — single pointer":"VOR1 unavailable")+"</div>";
+  s+='<div class="blu">'+(S.ok.VOR2?"▲▲ VOR2 — double pointer":"VOR2 unavailable")+"</div>";
+  if(STATE.adfFitted){
+    s+='<div class="grn">'+(S.ok.ADF1?"ADF1 — single pointer":"ADF1 unavailable")+"</div>";
+    s+='<div class="grn">'+(S.ok.ADF2?"ADF2 — double pointer":"ADF2 unavailable")+"</div>";
+  } else s+='<div class="gry">no ADF fitted</div>';
+  s+='<div class="'+(S.oans?"amb":"gry")+'" style="margin-top:4px">'+(S.oans?"AIRPORT MAP — OANS":"airport map: "+S.oansWhy)+"</div>";
+  if(!STATE.adbValid) s+='<div class="red">DATABASE CYCLE NOT VALID</div>';
+  return s;
+}
+
+function renderInspector(){
+  const p=$("inspector"); p.innerHTML="";
+  const S=solve();
+
+  const st=h("div",{class:"card"},p);
+  h("h2",{text:"System state"},st);
+  const dl=h("dl",{class:"kv"},st);
+  h("dt",{text:"Tuning"},dl); h("dd",{text:S.tuning+(S.ann?" — ND shows \""+S.ann+"\"":"")},dl);
+  h("dt",{text:"MMR function"},dl); h("dd",{text:STATE.fn+(MODEL.fn[STATE.fn].tune?" — tuning required":" — no tuning needed")},dl);
+  h("dt",{text:"G/S antenna"},dl); h("dd",{text:S.gsAnt},dl);
+  h("dt",{text:"Radio height"},dl); h("dd",{text:STATE.height+" ft — "+(S.raInBand?"on the PFD":(S.raValid?"valid to user systems only":"not valid"))},dl);
+  h("dt",{text:"Marker"},dl); h("dd",{html:S.marker?'<span class="pill ok">available in VOR 1</span>':'<span class="pill bad">lost with VOR 1</span>'},dl);
+  h("dt",{text:"Electrical"},dl); h("dd",{html:STATE.elecEmer?'<span class="pill bad">emergency configuration</span>':'<span class="pill ok">normal</span>'},dl);
+  if(S.tti) h("div",{class:"notice small",text:"Tune/Test Inhibit: below 700 ft with the nose landing gear extended, the PRIMs freeze the tuning and inhibit the MMR test."},st);
+  if(S.halfBackup) h("div",{class:"notice small",text:"(assumed) One IOM has failed. The notes describe only the case where both have failed."},st);
+  if(STATE.elecEmer) h("div",{class:"err small",text:"Only the LRUs on the EMER and ESSentiel buses remain: MMR 1, VOR 1, DME 1, ADF 1 and RA 3. MMR 2, VOR 2, DME 2, ADF 2, RA 1, RA 2 and the OANC are lost."},st);
+
+  /* displays */
+  const c1=h("div",{class:"card"},p);
+  h("h2",{text:"Primary Flight Display"},c1);
+  h("div",{class:"scr",html:pfdHTML()},c1);
+  const c2=h("div",{class:"card"},p);
+  h("h2",{text:"Navigation Display"},c2);
+  h("div",{class:"scr",html:ndHTML()},c2);
+
+  /* controls */
+  const c3=h("div",{class:"card"},p);
+  h("h2",{text:"Controls"},c3);
+  h("h3",{text:"MMR landing function"},c3);
+  const g1=h("div",{class:"grid3"},c3);
+  ["ILS","FLS","MIX","GLS","GPS"].forEach(k=>{
+    const b=h("button",{class:"small"+(STATE.fn===k?" tog on":""),text:k},g1);
+    b.title=MODEL.fn[k].note;
+    b.addEventListener("click",()=>{STATE.fn=k;refresh();});
+  });
+  h("h3",{text:"Tuning"},c3);
+  const g2=h("div",{class:"grid3"},c3);
+  const bm=h("button",{class:"small tog"+(STATE.manual?" on":""),text:"Manual"},g2);
+  bm.addEventListener("click",()=>{STATE.manual=!STATE.manual;refresh();});
+  [["iom3","IOM 3"],["iom4","IOM 4"]].forEach(([k,l])=>{
+    const b=h("button",{class:"small tog"+(STATE[k]?" on":""),text:l},g2);
+    b.addEventListener("click",()=>{STATE[k]=!STATE[k];refresh();});
+  });
+  h("h3",{text:"EFIS control panel and gear"},c3);
+  const g3=h("div",{class:"grid3"},c3);
+  [["ls","LS"],["zoom","ZOOM"],["nlg","NLG down"]].forEach(([k,l])=>{
+    const b=h("button",{class:"small tog"+(STATE[k]?" on":""),text:l},g3);
+    b.addEventListener("click",()=>{STATE[k]=!STATE[k];refresh();});
+  });
+  h("h3",{text:"Flight condition"},c3);
+  const g4=h("div",{class:"grid3"},c3);
+  const bh=h("button",{class:"small",text:STATE.height+" ft"},g4);
+  bh.addEventListener("click",()=>{
+    const seq=[400,800,1500,2500,4000,8000];
+    STATE.height=seq[(seq.indexOf(STATE.height)+1)%seq.length]||800; refresh();
+  });
+  const br=h("button",{class:"small",text:"roll "+STATE.roll+"°"},g4);
+  br.addEventListener("click",()=>{STATE.roll=STATE.roll===0?45:0;refresh();});
+  const bmk=h("button",{class:"small",text:STATE.marker||"marker —"},g4);
+  bmk.addEventListener("click",()=>{
+    const seq=[null,"OM","MM","IM"];
+    STATE.marker=seq[(seq.indexOf(STATE.marker)+1)%seq.length]; refresh();
+  });
+  const g5=h("div",{class:"grid3"},c3);
+  [["elecEmer","Elec emer"],["gpsPrimary","GPS prim"],["adfFitted","ADF fitted"],["adbValid","ADB valid"]].forEach(([k,l])=>{
+    const b=h("button",{class:"small tog"+(STATE[k]?" on":""),text:l},g5);
+    b.addEventListener("click",()=>{STATE[k]=!STATE[k];refresh();});
+  });
+
+  /* LRU health */
+  const c4=h("div",{class:"card"},p);
+  h("h2",{text:"Line replaceable units"},c4);
+  const g6=h("div",{class:"grid3"},c4);
+  Object.keys(MODEL.lru).forEach(k=>{
+    if(k.indexOf("ADF")===0&&!STATE.adfFitted) return;
+    const b=h("button",{class:"small tog"+(S.ok[k]?" on":""),text:k},g6);
+    b.title=MODEL.lru[k].n+" — "+MODEL.lru[k].pwr;
+    b.addEventListener("click",()=>{STATE.fail[k]=!STATE.fail[k];STATE.sel_=k;refresh();});
+  });
+  h("div",{class:"small muted",text:"Click to fail or restore. Grey means failed or not supplied in the current electrical configuration."},c4);
+
+  /* trace */
+  const c5=h("div",{class:"card"},p);
+  h("h2",{text:"Signal trace"},c5);
+  const g7=h("div",{class:"grid3"},c5);
+  [["auto","Auto tune"],["man","Manual"],["backup","Back-up"],["gs","G/S antenna"],["ra","Radio alt"],["gps","GPS"],["oans","OANS"]].forEach(([k,l])=>{
+    const b=h("button",{class:"small"+(STATE.trace===k?" tog on":""),text:l},g7);
+    b.addEventListener("click",()=>{STATE.trace=STATE.trace===k?null:k;refresh();});
+  });
+  if(STATE.trace){
+    const tr=tracePath(STATE.trace);
+    h("h3",{text:tr.t},c5);
+    const ul=h("ul",{class:"pathlist"},c5);
+    tr.chain.forEach(x=>h("li",{class:tr.cls,text:x},ul));
+    tr.notes.forEach(n=>h("div",{class:"small muted",text:"· "+n},c5));
+  }
+
+  /* component inspector */
+  const comp=MODEL.lru[STATE.sel_];
+  if(comp){
+    const c6=h("div",{class:"card"},p);
+    h("h2",{text:comp.n},c6);
+    const d=h("dl",{class:"kv"},c6);
+    h("dt",{text:"Power"},d); h("dd",{text:comp.pwr},d);
+    if(comp.freq){ h("dt",{text:"Frequency"},d); h("dd",{text:comp.freq},d); }
+    h("dt",{text:"Antennas"},d); h("dd",{text:comp.ant.join("; ")},d);
+    h("p",{class:"small",text:comp.note},c6);
+    if(comp.opt) h("div",{class:"notice small",text:"Optional fit — the aircraft can be equipped with one, two or no ADF systems."},c6);
+  }
+
+  const c7=h("div",{class:"card"},p);
+  h("h2",{text:"Glossary"},c7);
+  const gw=h("div",{},c7);
+  Object.keys(MODEL.gloss).forEach(k=>{ const s=h("span",{class:"chip",text:k},gw); s.title=MODEL.gloss[k]; });
+}
+
+let toastT=null;
+function toast(msg){
+  let t=$("toast");
+  if(!t){ t=h("div",{id:"toast"},document.body);
+    t.style.cssText="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1f2840;border:1px solid #3a4666;padding:9px 16px;border-radius:9px;z-index:99;max-width:74ch;box-shadow:0 6px 22px rgba(0,0,0,.5)"; }
+  t.textContent=msg; t.style.display="block";
+  clearTimeout(toastT); toastT=setTimeout(()=>{t.style.display="none";},5200);
+}
+function applyScenario(id){
+  const s=MODEL.scen.find(x=>x.id===id); if(!s) return;
+  STATE=freshState(); STATE.scen=id;
+  const set=s.set;
+  if(set.fail) Object.assign(STATE.fail,set.fail);
+  ["iom3","iom4","manual","elecEmer","fn","ls","gpsPrimary","zoom","nlg","height","adbValid","adfFitted"].forEach(k=>{ if(k in set) STATE[k]=set[k]; });
+  refresh();
+}
+function refresh(){ draw(); renderInspector(); writeHash(); if($("p-fault").classList.contains("active")) renderFault(); }
+
+/* STORE */
+function writeHash(){
+  try{
+    const s=JSON.stringify({f:STATE.fail,i3:STATE.iom3,i4:STATE.iom4,m:STATE.manual,ee:STATE.elecEmer,
+      fn:STATE.fn,ls:STATE.ls,gp:STATE.gpsPrimary,z:STATE.zoom,nl:STATE.nlg,ht:STATE.height,
+      rl:STATE.roll,mk:STATE.marker,af:STATE.adfFitted,ad:STATE.adbValid,sc:STATE.scen});
+    history.replaceState(null,"","#"+encodeURIComponent(s));
+  }catch(e){}
+}
+function readHash(){
+  try{
+    if(!location.hash||location.hash.length<3) return false;
+    const o=JSON.parse(decodeURIComponent(location.hash.slice(1)));
+    if(!o||!o.f) return false;
+    Object.assign(STATE.fail,o.f);
+    STATE.iom3=o.i3!==false; STATE.iom4=o.i4!==false; STATE.manual=!!o.m; STATE.elecEmer=!!o.ee;
+    STATE.fn=o.fn||"ILS"; STATE.ls=!!o.ls; STATE.gpsPrimary=o.gp!==false; STATE.zoom=!!o.z;
+    STATE.nlg=!!o.nl; STATE.height=o.ht!=null?o.ht:8000; STATE.roll=o.rl||0; STATE.marker=o.mk||null;
+    STATE.adfFitted=o.af!==false; STATE.adbValid=o.ad!==false; STATE.scen=o.sc||"S1";
+    return true;
+  }catch(e){ return false; }
+}
+
+/* =====================================================================================
+   BUILD MODE
+   ===================================================================================== */
+const PALETTE=[
+  {id:"FMC",l:"Active FMC",c:"#31d158"},{id:"IOM",l:"IOM 3 / 4",c:"#31d158"},{id:"RMP",l:"RMP",c:"#ffd24a"},
+  {id:"MMR",l:"MMR",c:"#ff4fd8"},{id:"VOR",l:"VOR receiver",c:"#4aa8ff"},{id:"DME",l:"DME interrogator",c:"#3ddc84"},
+  {id:"ADF",l:"ADF receiver",c:"#c084fc"},{id:"RA",l:"RA transceiver",c:"#ffb020"},
+  {id:"LOCANT",l:"Localizer ant",c:"#ff4fd8"},{id:"GSANT",l:"G/S antenna",c:"#ff4fd8"},
+  {id:"GPSANT",l:"GPS antenna",c:"#ff4fd8"},{id:"VORANT",l:"Dual VOR ant",c:"#4aa8ff"},
+  {id:"MKRANT",l:"Marker ant",c:"#4aa8ff"},{id:"RAANT",l:"RA antenna",c:"#ffb020"},
+  {id:"PRIM",l:"PRIM",c:"#8fa3c4"},{id:"ADIRU",l:"ADIRU",c:"#8fa3c4"},
+  {id:"OANC",l:"OANC",c:"#ffd24a"},{id:"ND",l:"PFD / ND",c:"#4aa8ff"}
+];
+const TARGETS=[
+  {id:"t1",n:"Automatic tuning path",need:[["FMC","IOM"],["IOM","RMP"],["RMP","MMR"]],
+   hint:"Each active FMC tunes its own-side aids through its IOM and the on-side RMP, on port B."},
+  {id:"t2",n:"Back-up tuning path",need:[["RMP","MMR"],["RMP","VOR"]],
+   hint:"With both IOMs gone, the RMP tunes the own-side receivers directly on port A — no FMC and no IOM in the chain."},
+  {id:"t3",n:"The MMR antenna set",need:[["LOCANT","MMR"],["GSANT","MMR"],["GPSANT","MMR"]],
+   hint:"One common Localizer antenna, the selected G/S antenna, and that MMR's own active GPS antenna."},
+  {id:"t4",n:"VOR and Marker",need:[["VORANT","VOR"],["MKRANT","VOR"]],
+   hint:"One dual VOR antenna feeds both receivers, and the single Marker antenna is connected to VOR 1 only."},
+  {id:"t5",n:"A radio altimeter channel",need:[["RAANT","RA"],["RA","PRIM"]],
+   hint:"A transmission and a reception antenna per transceiver, then ARINC 429 output bus 1 to the PRIMs as the basic means."},
+  {id:"t6",n:"GPS to the inertial reference",need:[["GPSANT","MMR"],["MMR","ADIRU"]],
+   hint:"The MMR GPS function feeds the three ADIRUs, which compute GPIRS."},
+  {id:"t7",n:"The airport map",need:[["MMR","OANC"],["OANC","ND"]],
+   hint:"The OANC takes the aircraft GPS position from the MMRs and drives two independent images to the NDs."},
+  {id:"t8",n:"Navaid data to the flight deck",need:[["VOR","ND"],["DME","ND"]],
+   hint:"Receiver outputs reach the PFDs and NDs through the IOM-A concentrators and the ADCN."}
+];
+const STARTERS=[
+  {n:"One MMR, fully connected",nodes:[["LOCANT",40,80],["GSANT",40,170],["GPSANT",40,260],["MMR",400,170],["ADIRU",760,90],["ND",760,250],["OANC",760,380]],
+   wires:[[0,3],[1,3],[2,3],[3,4],[3,5],[3,6]]},
+  {n:"The three tuning paths",nodes:[["FMC",40,80],["IOM",300,80],["RMP",560,170],["MMR",860,170],["VOR",860,300]],
+   wires:[[0,1],[1,2],[2,3],[2,4]]},
+  {n:"One radio altimeter channel",nodes:[["RAANT",80,200],["RA",440,200],["PRIM",800,200]],
+   wires:[[0,1],[1,2]]}
+];
+let BUILD={nodes:[],wires:[],sel:null,wireFrom:null,running:false,target:null,undo:[],redo:[]};
+function pushUndo(){ BUILD.undo.push(JSON.stringify({n:BUILD.nodes,w:BUILD.wires})); if(BUILD.undo.length>40)BUILD.undo.shift(); BUILD.redo.length=0; }
+function doUndo(){ if(!BUILD.undo.length)return; BUILD.redo.push(JSON.stringify({n:BUILD.nodes,w:BUILD.wires}));
+  const s=JSON.parse(BUILD.undo.pop()); BUILD.nodes=s.n; BUILD.wires=s.w; drawBuild(); }
+function doRedo(){ if(!BUILD.redo.length)return; BUILD.undo.push(JSON.stringify({n:BUILD.nodes,w:BUILD.wires}));
+  const s=JSON.parse(BUILD.redo.pop()); BUILD.nodes=s.n; BUILD.wires=s.w; drawBuild(); }
+function addNode(t,x,y){ pushUndo(); BUILD.nodes.push({t,x:x||120+Math.random()*500,y:y||120+Math.random()*400}); drawBuild(); }
+function drawBuild(){
+  const g=$("bvp"); g.innerHTML="";
+  el("rect",{x:0,y:0,width:1180,height:700,fill:"#0b0f18"},g);
+  for(let x=0;x<1180;x+=40) el("line",{x1:x,y1:0,x2:x,y2:700,stroke:"#141b28","stroke-width":1},g);
+  for(let y=0;y<700;y+=40) el("line",{x1:0,y1:y,x2:1180,y2:y,stroke:"#141b28","stroke-width":1},g);
+  BUILD.wires.forEach((w,i)=>{
+    const a=BUILD.nodes[w[0]],b=BUILD.nodes[w[1]]; if(!a||!b) return;
+    const x1=a.x+130,y1=a.y+22,x2=b.x,y2=b.y+22,mx=(x1+x2)/2;
+    const d=`M ${x1} ${y1} L ${mx} ${y1} L ${mx} ${y2} L ${x2} ${y2}`;
+    el("path",{d,fill:"none",stroke:"#4aa8ff","stroke-width":2.4},g);
+    if(BUILD.running&&ANIM) el("path",{d,fill:"none",stroke:"#7cc4ff","stroke-width":2.4,class:"flow"},g);
+    el("circle",{cx:mx,cy:(y1+y2)/2,r:5,fill:"#0b0f18",stroke:"#4aa8ff","stroke-width":1.6,style:"cursor:pointer"},g)
+      .addEventListener("click",()=>{pushUndo();BUILD.wires.splice(i,1);drawBuild();});
+  });
+  BUILD.nodes.forEach((n,i)=>{
+    const p=PALETTE.find(x=>x.id===n.t)||{l:n.t,c:"#8fa3c4"};
+    const gg=el("g",{transform:`translate(${n.x},${n.y})`,tabindex:"0",role:"button","aria-label":p.l,style:"cursor:grab"},g);
+    el("rect",{x:0,y:0,width:130,height:44,rx:7,fill:"#1b2337",
+      stroke:BUILD.sel===i?"#7cc4ff":(BUILD.wireFrom===i?"#ffb020":p.c),"stroke-width":(BUILD.sel===i||BUILD.wireFrom===i)?3:1.8},gg);
+    el("text",{x:65,y:27,"text-anchor":"middle",fill:"#e8ecf4","font-size":"11.5","font-weight":"600",text:p.l},gg);
+    el("circle",{cx:130,cy:22,r:5,fill:p.c,style:"cursor:crosshair"},gg)
+      .addEventListener("click",e=>{e.stopPropagation();BUILD.wireFrom=i;drawBuild();});
+    el("circle",{cx:0,cy:22,r:5,fill:"#3a4666",style:"cursor:crosshair"},gg)
+      .addEventListener("click",e=>{e.stopPropagation();
+        if(BUILD.wireFrom!=null&&BUILD.wireFrom!==i){pushUndo();BUILD.wires.push([BUILD.wireFrom,i]);BUILD.wireFrom=null;}
+        drawBuild();});
+    gg.addEventListener("click",()=>{BUILD.sel=i;drawBuild();});
+    gg.addEventListener("keydown",e=>{
+      const s=e.shiftKey?20:8;
+      if(e.key==="ArrowLeft"){n.x-=s;drawBuild();e.preventDefault();}
+      if(e.key==="ArrowRight"){n.x+=s;drawBuild();e.preventDefault();}
+      if(e.key==="ArrowUp"){n.y-=s;drawBuild();e.preventDefault();}
+      if(e.key==="ArrowDown"){n.y+=s;drawBuild();e.preventDefault();}
+      if(e.key==="Delete"||e.key==="Backspace"){delNode(i);e.preventDefault();}
+    });
+    let drag=null;
+    gg.addEventListener("pointerdown",e=>{drag={sx:e.clientX,sy:e.clientY,ox:n.x,oy:n.y};gg.setPointerCapture(e.pointerId);pushUndo();});
+    gg.addEventListener("pointermove",e=>{
+      if(!drag)return; const r=$("bsvg").getBoundingClientRect(),k=1180/r.width;
+      n.x=Math.round((drag.ox+(e.clientX-drag.sx)*k)/8)*8;
+      n.y=Math.round((drag.oy+(e.clientY-drag.sy)*k)/8)*8; drawBuild();
+    });
+    gg.addEventListener("pointerup",()=>{drag=null;});
+  });
+}
+function delNode(i){
+  pushUndo(); BUILD.nodes.splice(i,1);
+  BUILD.wires=BUILD.wires.filter(w=>w[0]!==i&&w[1]!==i).map(w=>[w[0]>i?w[0]-1:w[0],w[1]>i?w[1]-1:w[1]]);
+  BUILD.sel=null; BUILD.wireFrom=null; drawBuild();
+}
+function checkBuild(t){
+  const have=BUILD.wires.map(w=>[BUILD.nodes[w[0]]&&BUILD.nodes[w[0]].t,BUILD.nodes[w[1]]&&BUILD.nodes[w[1]].t]);
+  const missing=t.need.filter(nd=>!have.some(hv=>hv[0]===nd[0]&&hv[1]===nd[1]));
+  const extra=have.filter(hv=>!t.need.some(nd=>nd[0]===hv[0]&&nd[1]===hv[1]));
+  return {ok:missing.length===0,missing,extra};
+}
+function reachSources(idx){
+  const seen=new Set([idx]),stack=[idx],src=[];
+  while(stack.length){ const c=stack.pop();
+    BUILD.wires.forEach(w=>{ if(w[1]===c&&!seen.has(w[0])){seen.add(w[0]);stack.push(w[0]);} }); }
+  seen.forEach(i=>{ if(i!==idx){ const t=BUILD.nodes[i].t;
+    if(["LOCANT","GSANT","GPSANT","VORANT","MKRANT","RAANT","FMC","RMP"].indexOf(t)>-1&&src.indexOf(t)===-1) src.push(t); }});
+  return src;
+}
+function renderBuildPanel(){
+  const p=$("buildPanel"); p.innerHTML="";
+  const c1=h("div",{class:"card"},p);
+  h("h2",{text:"Palette"},c1);
+  h("p",{class:"small muted",text:"Click to place. Click a right-hand dot then a left-hand dot to wire. Click a wire's midpoint to delete it. Arrow keys nudge the selected block; Delete removes it."},c1);
+  const g=h("div",{class:"grid2"},c1);
+  PALETTE.forEach(x=>{const b=h("button",{class:"small",text:x.l},g);b.style.borderColor=x.c;b.addEventListener("click",()=>addNode(x.id));});
+
+  const c2=h("div",{class:"card"},p);
+  h("h2",{text:"Starter architectures"},c2);
+  STARTERS.forEach(s=>{
+    const b=h("button",{class:"small",text:s.n},c2); b.style.margin="2px 4px 2px 0";
+    b.addEventListener("click",()=>{ pushUndo();
+      BUILD.nodes=s.nodes.map(n=>({t:n[0],x:n[1],y:n[2]}));
+      BUILD.wires=s.wires.filter(w=>w[0]!==w[1]&&w[0]<BUILD.nodes.length&&w[1]<BUILD.nodes.length);
+      drawBuild(); });
+  });
+
+  const c3=h("div",{class:"card"},p);
+  h("h2",{text:"Check my build"},c3);
+  const sel=h("select",{},c3);
+  h("option",{value:"",text:"— choose a target —"},sel);
+  TARGETS.forEach(t=>h("option",{value:t.id,text:t.n},sel));
+  sel.value=BUILD.target||"";
+  sel.addEventListener("change",()=>{BUILD.target=sel.value;renderBuildPanel();});
+  const res=h("div",{},c3);
+  if(BUILD.target){
+    const t=TARGETS.find(x=>x.id===BUILD.target);
+    h("p",{class:"small muted",text:t.hint},c3);
+    const b=h("button",{class:"small primary",text:"Check"},c3);
+    b.addEventListener("click",()=>{
+      const r=checkBuild(t); res.innerHTML="";
+      if(r.ok) h("div",{class:"ok-note small",text:"Correct — every required link is present."},res);
+      else{
+        h("div",{class:"err small",text:"Missing: "+r.missing.map(m=>m[0]+" → "+m[1]).join(", ")},res);
+        if(r.extra.length) h("div",{class:"notice small",text:"Links not required by this target: "+r.extra.map(m=>m[0]+" → "+m[1]).join(", ")},res);
+      }
+    });
+  }
+  const c4=h("div",{class:"card"},p);
+  h("h2",{text:"Instruments"},c4);
+  h("p",{class:"small muted",text:"System archetype: a path continuity tester and a source readout, not a voltmeter or an oscilloscope."},c4);
+  const bt=h("button",{class:"small",text:"Path continuity test"},c4);
+  const out=h("div",{class:"small"},c4);
+  bt.addEventListener("click",()=>{
+    const sinks=BUILD.nodes.map((n,i)=>[n,i]).filter(([n])=>["ND","PRIM","ADIRU","OANC","MMR","VOR","DME","ADF","RA"].indexOf(n.t)>-1);
+    if(!sinks.length){ out.innerHTML='<div class="err small">Place a receiver or a display block first.</div>'; return; }
+    out.innerHTML=sinks.map(([n,i])=>{
+      const s=reachSources(i);
+      return `<div class="${s.length?"ok-note":"err"} small">${n.t} #${i+1}: ${s.length?"fed by "+s.join(", "):"floating — nothing reaches it"}</div>`;
+    }).join("");
+  });
+
+  const c5=h("div",{class:"card"},p);
+  h("h2",{text:"Export / import"},c5);
+  const ta=h("textarea",{rows:"5",style:"width:100%"},c5);
+  ta.value=JSON.stringify({n:BUILD.nodes,w:BUILD.wires});
+  const r=h("div",{class:"grid2"},c5);
+  h("button",{class:"small",text:"Copy JSON"},r).addEventListener("click",()=>{ta.select();try{document.execCommand("copy");toast("Copied.");}catch(e){toast("Select the text and copy manually.");}});
+  h("button",{class:"small",text:"Load JSON"},r).addEventListener("click",()=>{
+    try{const o=JSON.parse(ta.value);pushUndo();BUILD.nodes=o.n||[];BUILD.wires=o.w||[];drawBuild();toast("Loaded.");}
+    catch(e){toast("That is not valid JSON.");}
+  });
+}
+
+/* =====================================================================================
+   FAULT LAB
+   ===================================================================================== */
+const FAULTS=[
+  {id:"f1",n:"VOR 1 failure",apply:s=>{s.fail.VOR1=true;},
+   ind:"VOR 1 is lost from the Captain's ND — and so is the Marker, because the Marker function is active only within the VOR 1 receiver and the single Marker antenna is connected to VOR 1 only.",
+   iso:"VOR1",fix:"Replace the VOR 1 receiver. Note in the log that the Marker was lost with it — that is architecture, not a second fault.",
+   misc:"Breaks the belief that each receiver has its own antenna and its own function."},
+  {id:"f2",n:"MMR 1 failure",apply:s=>{s.fail.MMR1=true;s.fn="ILS";s.ls=true;},
+   ind:"ILS 1 and GPS 1 disappear together, because both are functions of the same box. The FLS, GLS and MIX functions on side 1 go with them.",
+   iso:"MMR1",fix:"Replace MMR 1. Run the MMR System Test from the OMS, which checks the integrity of the MMR, all its inputs and the switching logic of the glide antennae.",
+   misc:"Breaks the belief that there is one ILS receiver and a separate GPS receiver."},
+  {id:"f3",n:"Both IOM 3 and IOM 4 failed",apply:s=>{s.iom3=false;s.iom4=false;},
+   ind:"Automatic tuning is gone. Each pilot now tunes the own-side receivers straight from the RMP, on port A, and the ND shows the back-up annunciation next to the navaid identification.",
+   iso:"IOM",fix:"Rectify the IOMs. Meanwhile use the RMP NAV page. Remember that an ILS back-up tuning from either RMP reaches both MMRs over the RMP dialog bus.",
+   misc:"Separates the three tuning paths and shows which one survives."},
+  {id:"f4",n:"Emergency electrical configuration",apply:s=>{s.elecEmer=true;},
+   ind:"Only the LRUs on the EMERgency and ESSentiel buses remain: MMR 1, VOR 1, DME 1, ADF 1 and RA 3. MMR 2, VOR 2, DME 2, ADF 2, RA 1, RA 2 and the OANC are all lost.",
+   iso:"POWER",fix:"Restore normal electrical generation. Note which side of every pair sits on an essential bus — it is not the same side for every system.",
+   misc:"RA 3 is the odd one out: RA 1 and RA 2 are on normal busses and only RA 3 is essential."},
+  {id:"f5",n:"Radio altimeter 3 failure",apply:s=>{s.fail.RA3=true;},
+   ind:"A radio altimeter fault message appears on the ECAM. PRIM 1 and PRIM 2 each lose one of their two sources; PRIM 3, which takes RA 1 and RA 2, is unaffected.",
+   iso:"RA3",fix:"Replace the RA 3 transceiver, then run the DRA RAMP TEST and SYSTEM TEST from the OMS. Those interactive tests are available on the ground only.",
+   misc:"Shows the PRIM source allocation and why three altimeters feed three computers in overlapping pairs."},
+  {id:"f6",n:"Radio height missing on late descent",apply:s=>{s.height=3000;s.nlg=false;},
+   ind:"The aircraft is at 3000 ft and there is no radio height on the PFD, yet the AFS and TAWS are still being fed. The height is displayed from the ground up to 2500 ft only, and it remains valid to user systems up to 5000 ft.",
+   iso:"BAND",fix:"No defect. Descend below 2500 ft and the height appears. Only above 5000 ft does it stop being valid to the user systems as well.",
+   misc:"Breaks the belief that the radio altimeter only works below 2500 ft."},
+  {id:"f7",n:"Radio height unreliable in a steep turn",apply:s=>{s.height=1200;s.roll=45;},
+   ind:"The aircraft is at 1200 ft, well inside the display band, but the measurement is not guaranteed — the antenna operating range is limited to ±30° for roll and pitch angles.",
+   iso:"ATTITUDE",fix:"No defect. Roll out. It is the attitude limit, not the height, that invalidates the reading here.",
+   misc:"The second half of the radio altimeter misconception."},
+  {id:"f8",n:"Tuning frozen on short final",apply:s=>{s.height=400;s.nlg=true;},
+   ind:"The tuning cannot be changed and the MMR test is inhibited. Below 700 ft with the nose landing gear extended, the PRIMs set the Tune/Test Inhibit discrete.",
+   iso:"TTI",fix:"No defect. This is a deliberate protection against an untimely tuning change close to the ground.",
+   misc:"An intentional inhibit that a student can easily report as a fault."},
+  {id:"f9",n:"GPS PRIMARY lost",apply:s=>{s.gpsPrimary=false;},
+   ind:"GPS PRIMARY LOST is shown on the lower part of the ND. The MFD POSITION/GPS page still shows the mode, the number of satellites and the accuracy for each GPS.",
+   iso:"GPS",fix:"Check the MFD POSITION/GPS page. Note that the MMRs still feed the three ADIRUs, which compute GPIRS.",
+   misc:"Separates a degraded GPS from a failed MMR."},
+  {id:"f10",n:"Airport map will not display on approach",apply:s=>{s.zoom=false;s.nlg=true;s.height=1500;},
+   ind:"The aircraft is on approach with the gear down and the crew has called for the airport map, but the ND does not show it. The OANC is healthy and the MMRs are giving a position — the on-side EFIS control panel range selector is simply not at ZOOM.",
+   iso:"ZOOM",fix:"No defect. Select ZOOM on the on-side EFIS control panel range selector.",
+   misc:"A control position mistaken for an equipment failure."},
+  {id:"f11",n:"Airport database cycle out of date",apply:s=>{s.adbValid=false;s.zoom=true;},
+   ind:"DATABASE CYCLE NOT VALID appears on the OANS STATUS page.",
+   iso:"ADB",fix:"Use SWAP on the STATUS page to select the other of the two Airport Data Base cycles embedded on the OANC, or reload through the DLCS.",
+   misc:"Introduces the two embedded cycles and the SWAP control."},
+  {id:"f12",n:"OANC failure",apply:s=>{s.fail.OANC=true;s.zoom=true;},
+   ind:"No airport map on either ND, and the FWS shows a message linked to the OANS fault. The rest of the radio navigation suite is unaffected.",
+   iso:"OANC",fix:"Reset the OANC with the ARPT NAV pushbutton on the First Officer's reset panel; if that fails, replace the computer.",
+   misc:"Shows that the airport navigation function is a separate computer, not part of the receivers."}
+];
+let FL=null;
+function newAttempt(id){
+  const f=FAULTS.find(x=>x.id===id)||FAULTS[0];
+  STATE=freshState(); f.apply(STATE);
+  FL={fault:f,tests:0,log:[],steps:{Observe:false,Hypothesise:false,Test:false,Isolate:false,Rectify:false,Verify:false},
+      guess:null,done:false,seed:$("fSeed").value||String(Date.now()).slice(-6)};
+  refresh(); renderFault();
+}
+function logF(s){ if(!FL)return; FL.log.unshift(new Date().toLocaleTimeString()+"  "+s); }
+function renderFlow(){
+  const e=$("fSteps"); if(!e)return; e.innerHTML="";
+  ["Observe","Hypothesise","Test","Isolate","Rectify","Verify"].forEach(s=>{
+    const sp=h("span",{class:"chip",text:s},e);
+    if(FL&&FL.steps[s]){sp.style.borderColor="#2c8f55";sp.style.color="var(--avail)";}
+  });
+}
+function runTest(n){
+  const S=solve();
+  switch(n){
+    case "LRU availability": return Object.keys(MODEL.lru).filter(k=>!(k.indexOf("ADF")===0&&!STATE.adfFitted))
+      .map(k=>k+(S.ok[k]?"":(S.powered[k]?" FAIL":" UNPWR"))).join(" ");
+    case "Tuning mode": return S.tuning+" — "+S.tuneWhy+(S.ann?"; ND annunciation \""+S.ann+"\"":"");
+    case "ND readout": return (S.gps?"GPS PRIMARY":"GPS PRIMARY LOST")+"; "+(S.marker?"marker available":"marker lost with VOR 1")+
+      "; "+(S.oans?"airport map shown":"airport map: "+S.oansWhy);
+    case "PFD readout": return (S.raInBand?("radio height "+STATE.height+" ft"):"no radio height on the PFD")+" — "+S.raWhy;
+    case "Radio altimeter check": return S.raList.length?("available: "+S.raList.join(", ")+"; PRIM feed "+[1,2,3].map(p=>"PRIM"+p+(S.primFed[p]?"✓":"✕")).join(" ")):"no radio altimeter available";
+    case "G/S antenna check": return S.gsAnt+" — selected by the RF relay from the LAS and FT discretes given by the PRIMs";
+    case "Power supply check": return STATE.elecEmer
+      ? "emergency configuration: MMR1, VOR1, DME1, ADF1 and RA3 supplied; everything else lost"
+      : "normal: every radio navigation LRU supplied with 115 VAC";
+    case "OMS BITE readout": {
+      const m=Object.keys(MODEL.lru).filter(k=>STATE.fail[k]);
+      return (m.length?m.join(", ")+" fault recorded":"no radio navigation fault message")+
+        " (menu: MMR System Test · VOR 1/2 · DME 1/2 · ADF 1/2 · DRA RAMP and SYSTEM test)";
+    }
+  }
+  return "—";
+}
+function renderFault(){
+  const p=$("faultPanel"); p.innerHTML="";
+  const exam=$("fExam").getAttribute("aria-pressed")==="true";
+  renderFlow();
+  if($("fInstr").getAttribute("aria-pressed")==="true"){
+    const ci=h("div",{class:"card"},p);
+    h("h2",{text:"Instructor — inject a fault"},ci);
+    FAULTS.forEach(f=>{
+      const b=h("button",{class:"small",text:f.n},ci); b.style.cssText+="display:block;width:100%;text-align:left;margin-bottom:3px";
+      b.addEventListener("click",()=>{$("fSeed").value=f.id;newAttempt(f.id);});
+    });
+    h("p",{class:"small muted",text:"Exam mode hides the fault name and the hints, and shows the seed so a run can be reproduced."},ci);
+  }
+  if(!FL){ h("div",{class:"card",html:"<h2>Fault Lab</h2><p class='small muted'>Open the instructor panel to inject a fault, or press Random fault.</p>"},p); drawFaultView(); return; }
+
+  const c=h("div",{class:"card"},p);
+  h("h2",{text:exam?"Unknown case — seed "+FL.seed:FL.fault.n},c);
+  h("div",{class:"small muted",text:"Tests used: "+FL.tests},c);
+  h("h3",{text:"1 · Observe"},c);
+  const bo=h("button",{class:"small",text:"Record the indications"},c);
+  bo.addEventListener("click",()=>{FL.steps.Observe=true;logF("Observed indications.");renderFault();});
+  if(FL.steps.Observe&&!exam) h("div",{class:"ok-note small",text:FL.fault.ind},c);
+
+  h("h3",{text:"2 · Test"},c);
+  const tg=h("div",{class:"grid2"},c);
+  ["LRU availability","Tuning mode","ND readout","PFD readout","Radio altimeter check","G/S antenna check","Power supply check","OMS BITE readout"].forEach(n=>{
+    const b=h("button",{class:"small",text:n},tg);
+    b.addEventListener("click",()=>{FL.tests++;FL.steps.Test=true;logF("Test: "+n+" → "+runTest(n));renderFault();});
+  });
+
+  h("h3",{text:"3 · Isolate"},c);
+  const sel=h("select",{},c);
+  h("option",{value:"",text:"— name the cause —"},sel);
+  ["VOR1","MMR1","IOM","POWER","RA3","BAND","ATTITUDE","TTI","GPS","ZOOM","ADB","OANC"].forEach(x=>h("option",{value:x,text:x},sel));
+  const bi=h("button",{class:"small primary",text:"Submit isolation"},c);
+  bi.addEventListener("click",()=>{
+    if(!sel.value){toast("Choose a cause first.");return;}
+    FL.guess=sel.value; FL.steps.Hypothesise=true; FL.steps.Isolate=true;
+    logF("Isolated to "+sel.value+" — "+(sel.value===FL.fault.iso?"correct":"incorrect"));
+    renderFault();
+  });
+  if(FL.guess) h("div",{class:FL.guess===FL.fault.iso?"ok-note small":"err small",
+    text:FL.guess===FL.fault.iso?"Correct.":"Not the cause. Ask which functions went together, and which stayed."},c);
+
+  h("h3",{text:"4 · Rectify and verify"},c);
+  const br=h("button",{class:"small",text:"Rectify"},c);
+  br.addEventListener("click",()=>{
+    if(FL.guess!==FL.fault.iso){toast("Isolate correctly before rectifying.");return;}
+    STATE=freshState(); FL.steps.Rectify=true; logF("Rectified: "+FL.fault.fix); refresh(); renderFault();
+  });
+  const bv=h("button",{class:"small",text:"Verify"},c); bv.style.marginLeft="6px";
+  bv.addEventListener("click",()=>{
+    if(!FL.steps.Rectify){toast("Rectify first.");return;}
+    const S=solve();
+    const ok=Object.keys(MODEL.lru).every(k=>(k.indexOf("ADF")===0&&!STATE.adfFitted)||S.ok[k])
+      && S.tuning==="AUTO" && !STATE.elecEmer && STATE.adbValid && STATE.gpsPrimary;
+    FL.steps.Verify=ok; FL.done=ok; logF("Verification "+(ok?"passed — every LRU available and automatic tuning restored.":"failed."));
+    renderFault();
+  });
+
+  if(FL.done){
+    const d=h("div",{class:"card"},p);
+    h("h2",{text:"Debrief"},d);
+    const eff=Math.max(0,Math.round(100*(1/Math.max(1,FL.tests))));
+    h("div",{class:"kv",html:`<dt>Case</dt><dd>${FL.fault.n}</dd><dt>Correct cause</dt><dd>${FL.fault.iso}</dd>
+      <dt>Tests used</dt><dd>${FL.tests} (minimum 1)</dd><dt>Efficiency</dt><dd>${eff}%</dd><dt>Seed</dt><dd>${FL.seed}</dd>`},d);
+    h("h3",{text:"Indications"},d); h("p",{class:"small",text:FL.fault.ind},d);
+    h("h3",{text:"Correct action"},d); h("p",{class:"small",text:FL.fault.fix},d);
+    h("h3",{text:"What this case teaches"},d); h("p",{class:"small",text:FL.fault.misc},d);
+  }
+
+  const lg=h("div",{class:"card"},p);
+  h("h2",{text:"Action log"},lg);
+  h("div",{class:"log",text:FL.log.join("\n")},lg);
+  drawFaultView();
+}
+function drawFaultView(){ renderRx("fvp"); drawLegend("flegend"); $("fsvg").setAttribute("viewBox","0 0 1180 700"); }
+
+/* =====================================================================================
+   LEARN
+   ===================================================================================== */
+const LESSON=[
+  {t:"Five functions, two boxes",lo:"LO1",
+   txt:"The two Multi-Mode Receivers each hold the ILS, FLS, GPS, GLS and MIX LOC/VNAV functions. There is no separate ILS receiver and no separate GPS receiver — lose one MMR and that side's ILS and GPS go together.",
+   act:"Fail MMR 1 in the inspector and read what disappears.",
+   ask:"Predict first: with MMR 1 failed, does the aircraft still have GPS?",
+   check:()=>STATE.fail.MMR1,hint:"Press MMR1 under Line replaceable units."},
+  {t:"Shared antennas",lo:"LO1",
+   txt:"One common Localizer antenna in the radome feeds both MMRs. One common G/S capture antenna and one common G/S track antenna serve both. One dual VOR antenna on the vertical stabilizer feeds both VOR receivers. Only the GPS, DME, ADF and radio altimeter antennas come one per system.",
+   act:"Turn on Build-up mode and step through the antenna reveals.",
+   ask:"What does a single common Localizer antenna failure do to the aircraft's ILS capability?",
+   check:()=>true,hint:"Press Build-up mode and step forward."},
+  {t:"The Marker lives inside VOR 1",lo:"LO1",
+   txt:"The Marker function is active only within the VOR 1 receiver, and the single Marker antenna is connected to VOR 1 only. Overflying a beacon at 75 MHz gives an outer marker in blue, a middle marker in amber and an inner marker in white on the PFD.",
+   act:"Fail VOR 1 and watch the Marker go with it.",
+   ask:"Which single failure takes out both a navigation aid and a marker indication?",
+   check:()=>STATE.fail.VOR1,hint:"Press VOR1 under Line replaceable units."},
+  {t:"Automatic tuning",lo:"LO2",
+   txt:"In normal operation each active Flight Management Computer tunes its own-side radio navigation aids through its Input Output Module and the on-side RMP, on port B. If no activity is detected by the RMP on port B, the port A/B selection switches and the receivers listen on port A instead.",
+   act:"Open the Tuning view and press the automatic row to trace it.",
+   ask:"How many boxes sit between the navigation database and the receiver?",
+   check:()=>STATE.trace==="auto"||STATE.trace==="man"||STATE.trace==="backup",hint:"Press a signal trace button, or a row in the Tuning view."},
+  {t:"Manual tuning still uses the RMP",lo:"LO2",
+   txt:"Entering a navaid on the MFD POSITION/NAVAIDS page sends the setting through the IOMs and the RMPs to port B, exactly as the automatic path does. An M, underlined and dimmed, appears next to the navaid identification on the NDs.",
+   act:"Switch Manual on and read the ND annunciation.",
+   ask:"Predict first: does manual tuning bypass the RMP?",
+   check:()=>STATE.manual,hint:"Press Manual under Tuning."},
+  {t:"Back-up tuning",lo:"LO2",
+   txt:"If both IOM 3 and IOM 4 have failed, each pilot tunes the own-side receivers directly from the RMP, on port A, bypassing the FMS and IOM chain. Because ILS 1 and ILS 2 must be tuned on the same frequency, a back-up ILS tuning from either RMP is sent to both MMRs over the RMP dialog bus.",
+   act:"Fail both IOMs and compare the tuning view with the automatic case.",
+   ask:"Why does an ILS back-up tuning have to reach both MMRs?",
+   check:()=>!STATE.iom3&&!STATE.iom4,hint:"Turn both IOM 3 and IOM 4 off."},
+  {t:"ILS and GLS need a station; FLS does not",lo:"LO5",
+   txt:"ILS takes real localizer and glide slope deviations from a ground station. GLS takes a ground-based augmentation station through the localizer antenna plus GPS. FLS is autonomous — the beam is computed from an FMS anchor point and the ADIRS position, and the MMRs do not need tuning at all. MIX LOC/VNAV mixes a real localizer with a computed glide.",
+   act:"Open the MMR landing functions view and click through all five.",
+   ask:"Which two functions produce a doubled magenta diamond, and why?",
+   check:()=>["FLS","MIX","GLS","GPS"].indexOf(STATE.fn)>-1,hint:"Select a function other than ILS."},
+  {t:"The glide slope antenna is chosen for you",lo:"LO4",
+   txt:"The capture antenna in the radome is used with the nose gear retracted and the track antenna on the nose gear with it extended. The PRIMs generate the LAS and FT discretes from the landing gear status combined with radio altimeter data; the MMR commands its RF relay with VASC and gets VASA back as an acknowledgement.",
+   act:"Toggle NLG down and watch which antenna is marked SELECTED.",
+   ask:"Which cockpit control selects the glide slope antenna?",
+   check:()=>STATE.nlg,hint:"Press NLG down under EFIS control panel and gear."},
+  {t:"Tune/Test Inhibit",lo:"LO4",
+   txt:"Below 700 ft with the nose landing gear extended, the PRIMs set the Tune/Test Inhibit discrete. That freezes the tuning, to avoid an untimely tuning change close to the ground, and inhibits the MMR test.",
+   act:"Set the height to 400 ft with the gear down.",
+   ask:"Is a frozen tuning on short final a fault?",
+   check:()=>solve().tti,hint:"Set the height to 400 ft and put the nose gear down."},
+  {t:"The radio altimeter has two limits",lo:"LO6",
+   txt:"Three independent transceivers each transmit a frequency-modulated signal between 4200 and 4400 MHz. The height is displayed on the PFD from the ground up to 2500 ft, but it remains valid to user systems up to 5000 ft. Separately, the antenna operating range is limited to ±30° in roll and pitch — outside that the measurement is not guaranteed.",
+   act:"Step the height up past 2500 ft, then set the roll to 45° at a low height.",
+   ask:"Which of the two limits stops the reading in a steep turn at 1000 ft?",
+   check:()=>STATE.height>2500||Math.abs(STATE.roll)>30,hint:"Raise the height above 2500 ft, or set the roll to 45°."},
+  {t:"Three altimeters, three PRIMs",lo:"LO6",
+   txt:"PRIM 1 takes RA 1 and RA 3, PRIM 2 takes RA 2 and RA 3, and PRIM 3 takes RA 1 and RA 2 — overlapping pairs, so no single altimeter failure leaves a PRIM blind. ARINC 429 output bus 1 is the basic means; output bus 2 through the ADCN and the IOMs is the back-up.",
+   act:"Fail RA 3 and read which PRIMs lose a source.",
+   ask:"Why pair them this way rather than one altimeter per computer?",
+   check:()=>STATE.fail.RA1||STATE.fail.RA2||STATE.fail.RA3,hint:"Fail one of the three radio altimeters."},
+  {t:"Which side is essential?",lo:"LO3",
+   txt:"It is not the same side for every system. MMR 1, VOR 1 and DME 1 are on the EMERgency bus, ADF 1 on the ESSentiel bus, and among the radio altimeters only RA 3 is essential — RA 1 and RA 2 sit on normal busses. The OANC is on BUS 4.",
+   act:"Select the emergency electrical configuration and read what survives.",
+   ask:"Which radio altimeter would you expect to keep, and does the answer surprise you?",
+   check:()=>STATE.elecEmer,hint:"Press Elec emer under Flight condition."},
+  {t:"The airport map",lo:"LO4",
+   txt:"The On-board Airport Navigation Computer takes the aircraft GPS position from the MMRs, adds the Airport Data Base, and drives two independent images to the two NDs through the CMV. The map appears when the on-side EFIS control panel range selector is at ZOOM. Two database cycles are embedded, and SWAP on the STATUS page selects the other one.",
+   act:"Select ZOOM and watch the map appear, then turn the ADB validity off.",
+   ask:"What single control makes the airport map appear?",
+   check:()=>STATE.zoom,hint:"Press ZOOM under EFIS control panel and gear."}
+];
+const QUIZ=[
+  {q:"Which functions does a single MMR host?",lo:"LO1",
+   a:["ILS only","ILS and GPS only","ILS, FLS, GPS, GLS and MIX LOC/VNAV","VOR and DME"],c:2,
+   e:"All five are functions of the same box, plus a BITE module connected to the CMS. Losing one MMR loses that side's ILS and GPS together."},
+  {q:"How many Localizer antennas are fitted?",lo:"LO1",
+   a:["One per MMR, so two","One common antenna feeding both MMRs","Three, one per PRIM","None — the localizer uses the VOR antenna"],c:1,
+   e:"There is one common Localizer antenna in the radome, plus one common G/S capture antenna and one common G/S track antenna."},
+  {q:"Where does the Marker function live?",lo:"LO1",
+   a:["In a dedicated Marker receiver","In both VOR receivers","In the VOR 1 receiver only","In MMR 1"],c:2,
+   e:"The Marker function is active only within the VOR 1 receiver, and the single Marker antenna is connected to VOR 1 only."},
+  {q:"In automatic tuning, what is the path from the FMC to the receiver?",lo:"LO2",
+   a:["FMC straight to the receiver","FMC → IOM → own-side RMP → port B","FMC → RMP → port A","FMC → MFD → port A"],c:1,
+   e:"Each active FMC tunes its own-side aids through its IOM and the on-side RMP, on port B."},
+  {q:"Manual tuning from the MFD…",lo:"LO2",
+   a:["bypasses the RMP and drives port A","still goes through the IOMs and RMPs to port B","only works on the ground","tunes both sides at once"],c:1,
+   e:"Manual settings are sent on port B via the IOMs and RMPs, and an M appears underlined and dimmed next to the navaid identification on the NDs."},
+  {q:"Which function needs no tuning at all?",lo:"LO5",
+   a:["ILS","GLS","FLS","MIX LOC/VNAV"],c:2,
+   e:"The FLS function is autonomous and does not require any additional information from the ground, so there is no need to tune the MMRs."},
+  {q:"How is the glide slope antenna selected?",lo:"LO4",
+   a:["By the pilot on the EFIS control panel","Automatically by an RF relay, commanded from the LAS and FT discretes","By the FMS with the approach","It is fixed — there is only one"],c:1,
+   e:"The PRIMs generate LAS and FT from the landing gear status and radio altimeter data; the capture antenna is used gear up and the track antenna gear down, acknowledged by VASA."},
+  {q:"Below what height, and in what configuration, is the tuning frozen?",lo:"LO4",
+   a:["Below 2500 ft, any configuration","Below 700 ft with the nose landing gear extended","Below 5000 ft on approach","Below 1000 ft with the gear up"],c:1,
+   e:"The PRIMs set the Tune/Test Inhibit discrete, which freezes the tuning and inhibits the MMR test."},
+  {q:"The radio altimeter height is displayed on the PFD up to…",lo:"LO6",
+   a:["5000 ft","2500 ft","700 ft","4400 ft"],c:1,
+   e:"It is displayed from the ground up to 2500 ft, but remains valid for user systems up to 5000 ft."},
+  {q:"What makes a radio altimeter reading unreliable in a steep turn?",lo:"LO6",
+   a:["The 2500 ft display limit","The ±30° antenna operating range in roll and pitch","The 4400 MHz upper frequency","The Tune/Test Inhibit"],c:1,
+   e:"Outside ±30° for roll and pitch angles the measurement is not guaranteed."},
+  {q:"Which radio altimeter is on an essential bus?",lo:"LO3",
+   a:["RA 1","RA 2","RA 3","All three"],c:2,
+   e:"RA 1 and RA 2 are supplied from the 115 VAC normal bus; only RA 3 is on the 115 AC ESS bus."},
+  {q:"What makes the airport moving map appear on a ND?",lo:"LO4",
+   a:["Selecting TERR on the EFIS control panel","Selecting ZOOM on the on-side EFIS control panel range selector","Pressing ARPT NAV on the reset panel","Tuning the airport on the MFD"],c:1,
+   e:"The on-side EFIS control panel range selector at ZOOM enables the Airport Navigation image on that ND."}
+];
+let LEARN={cur:0,done:[],ans:{},name:""};
+function renderRail(){
+  const r=$("rail"); r.innerHTML="";
+  h("h2",{text:"Lesson"},r);
+  LESSON.forEach((s,i)=>{
+    const d=h("div",{class:"step"+(LEARN.cur===i?" cur":"")+(LEARN.done.indexOf(i)>-1?" done":""),tabindex:"0",role:"button"},r);
+    h("span",{class:"n",text:LEARN.done.indexOf(i)>-1?"✓":String(i+1)},d);
+    h("span",{html:"<strong>"+s.t+"</strong><br><span class='muted small'>"+s.lo+"</span>"},d);
+    d.addEventListener("click",()=>{LEARN.cur=i;renderLearn();});
+    d.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();LEARN.cur=i;renderLearn();}});
+  });
+  const d=h("div",{class:"step"+(LEARN.cur>=LESSON.length?" cur":""),tabindex:"0",role:"button"},r);
+  h("span",{class:"n",text:"Q"},d); h("span",{html:"<strong>Final quiz</strong><br><span class='muted small'>12 questions</span>"},d);
+  d.addEventListener("click",()=>{LEARN.cur=LESSON.length;renderLearn();});
+  d.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();LEARN.cur=LESSON.length;renderLearn();}});
+}
+function renderLearn(){
+  renderRail();
+  const b=$("learnBody"); b.innerHTML="";
+  if(LEARN.cur>=LESSON.length){ renderQuiz(); return; }
+  const s=LESSON[LEARN.cur];
+  h("h2",{text:"Step "+(LEARN.cur+1)+" of "+LESSON.length+" — "+s.t},b);
+  h("p",{text:s.txt},b);
+  h("div",{class:"card",html:"<strong>Do this</strong><br>"+s.act},b);
+  h("div",{class:"notice",html:"<strong>Predict first — ask the class:</strong> "+s.ask},b);
+  const row=h("div",{},b), res=h("div",{},b);
+  const bc=h("button",{class:"small primary",text:"Check this step"},row);
+  bc.addEventListener("click",()=>{
+    res.innerHTML="";
+    if(s.check()){ if(LEARN.done.indexOf(LEARN.cur)===-1) LEARN.done.push(LEARN.cur);
+      h("div",{class:"ok-note",text:"Completed."},res); renderRail(); }
+    else h("div",{class:"notice",text:s.hint},res);
+  });
+  const bn=h("button",{class:"small",text:"Next step ▸"},row); bn.style.marginLeft="6px";
+  bn.addEventListener("click",()=>{LEARN.cur=Math.min(LESSON.length,LEARN.cur+1);renderLearn();});
+  const bp=h("button",{class:"small",text:"◂ Previous"},row); bp.style.marginLeft="6px";
+  bp.addEventListener("click",()=>{LEARN.cur=Math.max(0,LEARN.cur-1);renderLearn();});
+}
+function renderQuiz(){
+  const b=$("learnBody"); b.innerHTML="";
+  h("h2",{text:"Final quiz"},b);
+  const nm=h("label",{html:"Student name "},b);
+  const ni=h("input",{type:"text",value:LEARN.name},nm);
+  ni.addEventListener("input",()=>{LEARN.name=ni.value;});
+  QUIZ.forEach((q,i)=>{
+    const d=h("div",{class:"q"},b);
+    h("div",{html:"<strong>"+(i+1)+".</strong> "+q.q+" <span class='pill'>"+q.lo+"</span>"},d);
+    q.a.forEach((a,j)=>{
+      const l=h("label",{},d);
+      const r=h("input",{type:"radio",name:"q"+i,value:String(j)},l);
+      if(LEARN.ans[i]===j) r.checked=true;
+      r.addEventListener("change",()=>{LEARN.ans[i]=j;});
+      h("span",{text:" "+a},l);
+    });
+    h("div",{id:"qe"+i,class:"small"},d);
+  });
+  const bs=h("button",{class:"primary",text:"Submit quiz"},b);
+  const out=h("div",{},b);
+  bs.addEventListener("click",()=>{
+    let score=0; const byLO={};
+    QUIZ.forEach((q,i)=>{
+      const e=$("qe"+i), ok=LEARN.ans[i]===q.c;
+      if(ok) score++;
+      byLO[q.lo]=byLO[q.lo]||[0,0]; byLO[q.lo][1]++; if(ok) byLO[q.lo][0]++;
+      e.innerHTML=(ok?"<span class='ok'>Correct.</span> ":"<span class='bad'>Not correct.</span> ")+q.e;
+    });
+    out.innerHTML="";
+    h("h3",{text:"Result"},out);
+    let txt="A380 ATA 34 — Radio Navigation Aids\nStudent: "+(LEARN.name||"(name not entered)")+
+      "\nDate: "+new Date().toISOString().slice(0,10)+"\nScore: "+score+" / "+QUIZ.length+"  ("+Math.round(100*score/QUIZ.length)+"%)\n\nBy learning outcome:\n";
+    Object.keys(byLO).sort().forEach(k=>{ txt+="  "+k+": "+byLO[k][0]+" / "+byLO[k][1]+"\n"; });
+    const ta=h("textarea",{rows:"10",style:"width:100%;font-family:ui-monospace,monospace"},out);
+    ta.value=txt;
+    h("p",{class:"small muted",text:"Copy this block into Brightspace."},out);
+  });
+}
+
+/* =====================================================================================
+   WIRING
+   ===================================================================================== */
+function initTabs(){
+  const tabs=[["t-explore","p-explore"],["t-build","p-build"],["t-fault","p-fault"],["t-learn","p-learn"]];
+  tabs.forEach(([t,pnl])=>{
+    $(t).addEventListener("click",()=>{
+      tabs.forEach(([t2,p2])=>{ $(t2).setAttribute("aria-selected",t2===t?"true":"false"); $(p2).classList.toggle("active",p2===pnl); });
+      if(pnl==="p-build"){ drawBuild(); renderBuildPanel(); }
+      if(pnl==="p-fault") renderFault();
+      if(pnl==="p-learn") renderLearn();
+      if(pnl==="p-explore") draw();
+    });
+    $(t).addEventListener("keydown",e=>{
+      const i=tabs.findIndex(x=>x[0]===t);
+      if(e.key==="ArrowRight"){const n=tabs[(i+1)%tabs.length][0];$(n).focus();$(n).click();}
+      if(e.key==="ArrowLeft"){const n=tabs[(i+tabs.length-1)%tabs.length][0];$(n).focus();$(n).click();}
+    });
+  });
+}
+function initExplore(){
+  const s=$("selScen");
+  MODEL.scen.forEach(x=>h("option",{value:x.id,text:x.id+" · "+x.n},s));
+  s.value=STATE.scen;
+  s.addEventListener("change",()=>applyScenario(s.value));
+  $("selView").addEventListener("change",draw);
+  $("btnFit").addEventListener("click",()=>{VIEWBOX={x:0,y:0,w:1180,h:700};applyVB("svg");});
+  $("btnZin").addEventListener("click",()=>{VIEWBOX.w*=0.82;VIEWBOX.h*=0.82;VIEWBOX.x+=VIEWBOX.w*0.11;VIEWBOX.y+=VIEWBOX.h*0.11;applyVB("svg");});
+  $("btnZout").addEventListener("click",()=>{VIEWBOX.x-=VIEWBOX.w*0.11;VIEWBOX.y-=VIEWBOX.h*0.11;VIEWBOX.w/=0.82;VIEWBOX.h/=0.82;applyVB("svg");});
+  $("btnBuildup").addEventListener("click",()=>{
+    BUILDUP=!BUILDUP; BUILDUPI=0;
+    $("btnBuildup").classList.toggle("on",BUILDUP);
+    $("btnStepNext").disabled=!BUILDUP;
+    $("buildupTxt").textContent=BUILDUP?BUILDUP_SEQ[0][1]:"";
+    if(BUILDUP) $("selView").value="rx";
+    draw();
+  });
+  $("btnStepNext").addEventListener("click",()=>{
+    if(!BUILDUP)return;
+    BUILDUPI=Math.min(BUILDUP_SEQ.length-1,BUILDUPI+1);
+    $("buildupTxt").textContent=BUILDUP_SEQ[BUILDUPI][1];
+    draw();
+  });
+  const cv=$("svg"); let pan=null;
+  cv.addEventListener("pointerdown",e=>{ if(e.target===cv) pan={x:e.clientX,y:e.clientY,vx:VIEWBOX.x,vy:VIEWBOX.y}; });
+  cv.addEventListener("pointermove",e=>{ if(!pan)return; const r=cv.getBoundingClientRect();
+    VIEWBOX.x=pan.vx-(e.clientX-pan.x)*(VIEWBOX.w/r.width); VIEWBOX.y=pan.vy-(e.clientY-pan.y)*(VIEWBOX.h/r.height); applyVB("svg"); });
+  window.addEventListener("pointerup",()=>{pan=null;});
+}
+function initFault(){
+  $("fInstr").addEventListener("click",()=>{const b=$("fInstr"),on=b.getAttribute("aria-pressed")==="true";b.setAttribute("aria-pressed",String(!on));b.classList.toggle("on",!on);renderFault();});
+  $("fExam").addEventListener("click",()=>{const b=$("fExam"),on=b.getAttribute("aria-pressed")==="true";b.setAttribute("aria-pressed",String(!on));b.classList.toggle("on",!on);renderFault();});
+  $("fRandom").addEventListener("click",()=>{const f=FAULTS[Math.floor(Math.random()*FAULTS.length)];$("fSeed").value=f.id;newAttempt(f.id);});
+  $("fRestart").addEventListener("click",()=>{const s=$("fSeed").value;newAttempt(FAULTS.some(f=>f.id===s)?s:FAULTS[0].id);});
+}
+function initGlobal(){
+  $("btnHC").addEventListener("click",()=>{const on=document.body.classList.toggle("hc");$("btnHC").setAttribute("aria-pressed",String(on));draw();});
+  $("btnProj").addEventListener("click",()=>{const on=document.body.classList.toggle("proj");$("btnProj").setAttribute("aria-pressed",String(on));});
+  $("btnReset").addEventListener("click",()=>{
+    STATE=freshState(); FL=null; LEARN={cur:0,done:[],ans:{},name:""};
+    BUILD={nodes:[],wires:[],sel:null,wireFrom:null,running:false,target:null,undo:[],redo:[]};
+    $("selScen").value="S1"; refresh(); drawBuild(); renderBuildPanel(); renderFault(); renderLearn(); toast("Everything reset.");
+  });
+  $("bRun").addEventListener("click",()=>{BUILD.running=true;drawBuild();});
+  $("bPause").addEventListener("click",()=>{BUILD.running=false;drawBuild();});
+  $("bStep").addEventListener("click",()=>{BUILD.running=true;drawBuild();setTimeout(()=>{BUILD.running=false;drawBuild();},420);});
+  $("bClear").addEventListener("click",()=>{pushUndo();BUILD.nodes=[];BUILD.wires=[];drawBuild();});
+  $("bUndo").addEventListener("click",doUndo);
+  $("bRedo").addEventListener("click",doRedo);
+  $("bSpeed").addEventListener("input",()=>{document.body.classList.toggle("noanim",$("bSpeed").value==="1");});
+}
+
+const _solve=solve;
+solve=function(){
+  try{ return _solve(); }
+  catch(err){
+    console.error(err);
+    const ok={}; Object.keys(MODEL.lru).forEach(k=>ok[k]=false);
+    return {ok,powered:ok,marker:false,tuning:"AUTO",tuneWhy:"solver error: "+err.message,ann:null,halfBackup:false,
+      tti:false,gsAnt:"—",fn:MODEL.fn.ILS,fnKey:"ILS",mmrAny:false,ilsSameFreq:true,apprAvail:false,
+      raList:[],raAny:false,raInBand:false,raValid:false,raWhy:"solver error",
+      prim:{1:[],2:[],3:[]},primFed:{1:false,2:false,3:false},gps:false,oans:false,oansWhy:"solver error"};
+  }
+};
+function boot(){
+  try{
+    initTabs(); initExplore(); initFault(); initGlobal();
+    readHash();
+    draw(); renderInspector(); drawBuild(); renderBuildPanel(); renderFault(); renderLearn();
+  }catch(err){
+    const d=document.createElement("div");
+    d.style.cssText="padding:16px;color:#ff8080;font-family:ui-monospace,monospace;white-space:pre-wrap";
+    d.textContent="AeroSim could not start:\n"+(err&&err.stack?err.stack:String(err));
+    document.body.insertBefore(d,document.body.firstChild);
+  }
+}
+boot();
+</script>
+</body>
+</html>

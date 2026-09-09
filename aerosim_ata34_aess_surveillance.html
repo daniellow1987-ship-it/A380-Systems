@@ -1,0 +1,1690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AeroSim – A380 ATA 34 Aircraft Environment Surveillance System</title>
+<!--
+  AeroSim Generator output — single-file, self-contained (no CDN, no network, no login).
+  Architecture:  MODEL (JSON block, editable) → ENGINE (master/mode solver + surveillance alert logic)
+                 → VIEW (SVG architecture, traffic picture, reconfiguration modes) → UI → STORE (JSON + URL hash + undo)
+  Every number shown as "specified" comes from the course notes (A380 TTM LEVEL I Apr 2007;
+  LEVEL 2&3 Nov 2011 / 01 AUG 2013). Anything the notes do not state is tagged (assumed).
+-->
+<style>
+:root{--bg:#0f1420;--panel:#171e2e;--panel2:#1f2840;--ink:#e8ecf4;--muted:#9aa5bd;--line:#2c3650;
+ --wxr:#3ddc84;--taws:#ffb020;--tcas:#4aa8ff;--xpdr:#c084fc;--master:#ffd24a;
+ --adcn:#4aa8ff;--aural:#c084fc;--disc:#ffd24a;--ta:#ffb020;--ra:#ff4040;
+ --dead:#5a6478;--fault:#ff4040;--avail:#31d158;--focus:#7cc4ff;--amber:#ffb020;
+ --btn:#2a3550;--btnh:#37456b;--fs:15px}
+body.hc{--bg:#000;--panel:#000;--panel2:#111;--ink:#fff;--muted:#ddd;--line:#fff;--dead:#888;--btn:#222;--btnh:#444;--wxr:#5cff9a;--tcas:#7ac8ff;--taws:#ffd24a}
+body.proj{--fs:18px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:var(--fs)/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;display:flex;flex-direction:column;min-height:100vh}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:1.05em;margin:0;font-weight:600}
+header .meta{color:var(--muted);font-size:.9em}
+button,select,input[type=text],input[type=range],textarea{font:inherit;color:var(--ink)}
+button{background:var(--btn);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer;min-height:34px}
+button:hover{background:var(--btnh)}
+button:focus-visible,[tabindex]:focus-visible,select:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+button.primary{background:#2f6fd6;border-color:#2f6fd6}
+button.small{padding:2px 8px;min-height:28px;font-size:.9em}
+button.tog.on{background:#1d5c37;border-color:#2c8f55}
+button[disabled]{opacity:.4;cursor:not-allowed}
+select,input[type=text],textarea{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+nav.tabs{display:flex;gap:4px;padding:6px 14px 0;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+nav.tabs button{border-radius:8px 8px 0 0;border-bottom:none;background:var(--panel2)}
+nav.tabs button[aria-selected=true]{background:var(--bg);font-weight:600;border-color:var(--focus)}
+main{flex:1;display:flex;flex-direction:column;min-height:0}
+.tab{display:none;flex:1;min-height:0}
+.tab.active{display:flex}
+.split{flex:1;display:flex;min-height:0}
+.split .left{flex:1;display:flex;flex-direction:column;min-width:0}
+.split .right{width:352px;flex:none;border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:10px}
+@media(max-width:900px){.split{flex-direction:column}.split .right{width:auto;border-left:none;border-top:1px solid var(--line);max-height:44vh}}
+.toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.canvas{flex:1;min-height:0;position:relative;overflow:hidden;background:#0b0f18}
+svg{width:100%;height:100%;display:block;touch-action:none}
+.legend{position:absolute;left:8px;bottom:8px;background:rgba(15,20,32,.92);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:.8em;line-height:1.6;max-width:275px}
+.legend b{display:block;margin-bottom:3px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:.85em}
+.sw{display:inline-block;width:22px;height:0;border-top:3px solid;vertical-align:middle;margin-right:6px}
+h2{font-size:1em;margin:0 0 6px}
+h3{font-size:.95em;margin:12px 0 4px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.muted{color:var(--muted)}.small{font-size:.86em}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:.9em}
+.kv dt{color:var(--muted)}.kv dd{margin:0}
+.pill{display:inline-block;font-size:.75em;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin:2px 3px 2px 0}
+.pill.ok{border-color:#2c8f55;color:var(--avail)}
+.pill.bad{border-color:#8f2c2c;color:var(--fault)}
+.pill.asm{border-color:#8a6d1f;color:var(--amber)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.pathlist{list-style:none;padding:0;margin:6px 0;font-size:.9em}
+.pathlist li{padding:3px 8px;border-left:3px solid var(--adcn);margin-bottom:3px;background:var(--panel2)}
+.pathlist li.au{border-left-color:var(--aural)}
+.pathlist li.di{border-left-color:var(--disc)}
+table{border-collapse:collapse;width:100%;font-size:.86em}
+th,td{border:1px solid var(--line);padding:3px 6px;text-align:left}
+th{background:var(--panel2);color:var(--muted);font-weight:600}
+.log{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82em;background:#0b0f18;border:1px solid var(--line);border-radius:6px;padding:6px;height:130px;overflow:auto;white-space:pre-wrap}
+.step{display:flex;gap:8px;align-items:flex-start;padding:7px 8px;border:1px solid var(--line);border-radius:8px;margin-bottom:5px;cursor:pointer;background:var(--panel2)}
+.step.cur{border-color:var(--focus);background:#1d2942}
+.step.done{opacity:.65}
+.step .n{flex:none;width:22px;height:22px;border-radius:50%;background:var(--btn);display:grid;place-items:center;font-size:.8em}
+.step.done .n{background:#1d5c37}
+.rail{width:270px;flex:none;border-right:1px solid var(--line);padding:10px;overflow:auto;background:var(--panel)}
+@media(max-width:900px){.rail{width:auto;border-right:none;border-bottom:1px solid var(--line);max-height:34vh}}
+.learnwrap{flex:1;display:flex;min-height:0}
+.learnbody{flex:1;overflow:auto;padding:14px 18px;max-width:900px}
+.q{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;margin:10px 0}
+.q label{display:block;padding:3px 0;cursor:pointer}
+.ok{color:var(--avail)}.bad{color:var(--fault)}.warn{color:var(--amber)}
+.flash{animation:fl .9s steps(2,end) infinite}
+@keyframes fl{50%{opacity:.42}}
+.flow{stroke-dasharray:6 10;animation:dash 1.1s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-16}}
+body.noanim .flow,body.noanim .flash{animation:none}
+.chip{display:inline-block;padding:2px 8px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);font-size:.82em;margin:2px 3px 2px 0}
+.notice{border-left:3px solid var(--amber);padding:5px 9px;background:#221c0d;border-radius:0 6px 6px 0;font-size:.88em;margin:6px 0}
+.err{border-left:3px solid var(--fault);padding:5px 9px;background:#2a1010;border-radius:0 6px 6px 0;font-size:.88em;margin:6px 0}
+.ok-note{border-left:3px solid var(--avail);padding:5px 9px;background:#0f2418;border-radius:0 6px 6px 0;font-size:.88em;margin:6px 0}
+.scr{background:#04070d;border:1px solid #2c3650;border-radius:6px;padding:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8em;line-height:1.5;min-height:80px}
+.scr .red{color:#ff4040}.scr .amb{color:#ffb020}.scr .grn{color:#3ddc84}.scr .cyn{color:#4aa8ff}
+.scr .wht{color:#e8ecf4}.scr .gry{color:#6d7c99}
+.cp{background:#3a4150;border:1px solid #565f73;border-radius:8px;padding:8px}
+.cp button{background:#4a5364;border:1px solid #667089;border-radius:4px;font-size:.74em;padding:5px 2px;min-height:32px;color:#cfd8ea}
+.cp button.on{background:#1d5c37;border-color:#48d68a;color:#fff;font-weight:700}
+.cp .lbl{font-size:.72em;color:#cfd8ea;font-weight:600;letter-spacing:.04em;margin:5px 0 3px}
+footer{padding:5px 14px;background:var(--panel);border-top:1px solid var(--line);color:var(--muted);font-size:.8em}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>AeroSim — ATA 34 Aircraft Environment Surveillance System</h1>
+  <span class="meta">Aircraft Electrical &amp; Digital Systems · A380 (RR Trent 900) · CAAS SAR-66 Cat B2, Level 2 · v1.0 · 2026-09</span>
+  <span style="flex:1"></span>
+  <button class="small" id="btnHC" aria-pressed="false">High contrast</button>
+  <button class="small" id="btnProj" aria-pressed="false">Projector</button>
+  <button class="small" id="btnReset">Reset everything</button>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Simulation modes">
+  <button role="tab" id="t-explore" aria-selected="true" aria-controls="p-explore">1 · Explore</button>
+  <button role="tab" id="t-build" aria-selected="false" aria-controls="p-build">2 · Build</button>
+  <button role="tab" id="t-fault" aria-selected="false" aria-controls="p-fault">3 · Fault Lab</button>
+  <button role="tab" id="t-learn" aria-selected="false" aria-controls="p-learn">4 · Learn</button>
+</nav>
+
+<main>
+
+<section class="tab active" id="p-explore" role="tabpanel" aria-labelledby="t-explore">
+  <div class="split">
+    <div class="left">
+      <div class="toolbar">
+        <label>View
+          <select id="selView">
+            <option value="arch">Architecture — two AESUs, five modules each</option>
+            <option value="traffic">TCAS — the traffic picture</option>
+            <option value="modes">Reconfiguration — normal, mixed, downgraded</option>
+          </select>
+        </label>
+        <label>Scenario <select id="selScen"></select></label>
+        <button class="small" id="btnFit">Fit</button>
+        <button class="small" id="btnZin">Zoom +</button>
+        <button class="small" id="btnZout">Zoom −</button>
+        <button class="small tog" id="btnBuildup">Build-up mode</button>
+        <button class="small" id="btnStepNext" disabled>Next component ▸</button>
+        <span class="muted small" id="buildupTxt"></span>
+      </div>
+      <div class="canvas" id="cv">
+        <svg id="svg" viewBox="0 0 1180 700" role="img" aria-label="A380 Aircraft Environment Surveillance System schematic"><g id="vp"></g></svg>
+        <div class="legend" id="legend"></div>
+      </div>
+    </div>
+    <div class="right" id="inspector"></div>
+  </div>
+</section>
+
+<section class="tab" id="p-build" role="tabpanel" aria-labelledby="t-build">
+  <div class="split">
+    <div class="left">
+      <div class="toolbar">
+        <button class="small" id="bRun">▶ Run</button>
+        <button class="small" id="bPause">⏸ Pause</button>
+        <button class="small" id="bStep">⏭ Step</button>
+        <button class="small" id="bClear">Clear</button>
+        <button class="small" id="bUndo">↶ Undo</button>
+        <button class="small" id="bRedo">↷ Redo</button>
+        <label class="small">Speed <input type="range" id="bSpeed" min="1" max="10" value="5" style="width:90px"></label>
+      </div>
+      <div class="canvas" id="bcv">
+        <svg id="bsvg" viewBox="0 0 1180 700" role="img" aria-label="AESS constructor canvas"><g id="bvp"></g></svg>
+      </div>
+    </div>
+    <div class="right" id="buildPanel"></div>
+  </div>
+</section>
+
+<section class="tab" id="p-fault" role="tabpanel" aria-labelledby="t-fault">
+  <div class="split">
+    <div class="left">
+      <div class="toolbar">
+        <button class="small tog" id="fInstr" aria-pressed="false">Instructor panel</button>
+        <button class="small" id="fRandom">Random fault</button>
+        <label class="small">Seed <input type="text" id="fSeed" style="width:80px" value=""></label>
+        <button class="small tog" id="fExam" aria-pressed="false">Exam mode</button>
+        <button class="small" id="fRestart">New attempt</button>
+        <span style="flex:1"></span>
+        <span id="fSteps" class="small"></span>
+      </div>
+      <div class="canvas" id="fcv">
+        <svg id="fsvg" viewBox="0 0 1180 700" role="img" aria-label="Fault lab AESS schematic"><g id="fvp"></g></svg>
+        <div class="legend" id="flegend"></div>
+      </div>
+    </div>
+    <div class="right" id="faultPanel"></div>
+  </div>
+</section>
+
+<section class="tab" id="p-learn" role="tabpanel" aria-labelledby="t-learn">
+  <div class="learnwrap">
+    <div class="rail" id="rail"></div>
+    <div class="learnbody" id="learnBody"></div>
+  </div>
+</section>
+
+</main>
+
+<footer>Temasek Polytechnic · Aerospace Electronics · training use only. Paraphrased from the A380 TTM; values not in the notes are tagged (assumed). No network calls, no login, no tracking.</footer>
+
+<script>
+"use strict";
+/* =====================================================================================
+   MODEL
+   ===================================================================================== */
+const MODEL={
+  meta:{topic:"ATA 34 – Aircraft Environment Surveillance System (AESS)",
+        ac:"Airbus A380 (RR Trent 900)",level:"CAAS SAR-66 Cat B2, Level 2 (Level 3 BITE included)",
+        src:"A380 TTM LEVEL I (Apr 19 2007) pp.32–48; LEVEL 2&3 (Nov 21 2011) pp.104–132"},
+
+  /* 0.1 COMPONENTS */
+  comp:{
+    AESU1:{n:"Aircraft Environment Surveillance Unit 1",t:"unit",loc:"Avionics bay",pwr:"115 VAC — ESS BUS and EMER BUS, one power supply unit per function group",
+      note:"Two identical AESUs. Each holds five modules: weather radar with predictive windshear, terrain awareness and warning, traffic collision avoidance, transponder, and an input/output module that also does the centralized alert priority management. The five are organised in two function groups: WXR/TAWS and TCAS/XPDR."},
+    AESU2:{n:"Aircraft Environment Surveillance Unit 2",t:"unit",loc:"Avionics bay",pwr:"115 VAC — BUS 4",
+      note:"Identical to AESU 1. Which unit is Master depends on where the WXR/TAWS function group is activated, not on the unit number."},
+    CP:{n:"AESS Control Panel — 3SE",t:"panel",loc:"Pedestal",pwr:"28 VDC",
+      note:"Carries the WXR ELEVN, GAIN and VD AZIM selector knobs for each pilot, the TCAS ABV, BLW and TA ONLY keys, the G/S MODE inhibit key, and the two reconfiguration pushbuttons that assign the WXR/TAWS and XPDR/TCAS groups to SYS 1 or SYS 2."},
+    ANT:{n:"Combined Mode S / TCAS antennas ×4",t:"ant",loc:"Top and bottom of the fuselage",
+      note:"Four identical antennas. Each AESU is connected by coaxial cable to one top and one bottom antenna, so each unit can both interrogate and reply."},
+    WXRANT:{n:"Weather Radar Antenna",t:"ant",loc:"Radome",
+      note:"A 30 inch flat plate antenna with its drive unit, two Radar Transceiver Units and an RF switch. Azimuth envelope ±80°, tilt envelope ±15°, polarization 45°, range 320 NM, X-band."},
+    CDS:{n:"Control and Display System",t:"disp",
+      note:"Receives the surveillance images and messages for the PFDs, NDs, the vertical display and the MFD SURV pages. Any detected threat pops up on the ND automatically, overriding the crew's selection."},
+    FWS:{n:"Flight Warning System",t:"disp",
+      note:"The master AESU's input/output module sends authorised audio to the aircraft audio system in coordination with the Flight Warning Computer, and reports BITE failures to the FWS through the ADCN."},
+    AMU:{n:"Audio Management Units and loudspeakers",t:"aural",
+      note:"Carry the AESS aural alerts. The ECAM control panel EMERGENCY CANCEL momentary switch cancels an AESS aural alert through an AESU input discrete."},
+    CMS:{n:"Central Maintenance System",t:"src",
+      note:"Only the Master AESU communicates with the CMS, and the Master AESU does the system BITE for all the AESS components. The OMS test menu offers five interactive tests."},
+    SRC:{n:"Aircraft data sources",t:"src",
+      note:"Three radio altimeters through IOM-A, the ADIRUs, the FMS, the two MMRs, the PRIMs and their FCGUs, the EECs, the SFCCs and the LGERS — all over the ADCN. The ATC application is hosted in CPIOM-D1."}
+  },
+
+  /* the five modules and the two groups */
+  modules:[
+    {id:"WXR",n:"Weather radar and predictive windshear",grp:"A",c:"--wxr"},
+    {id:"TAWS",n:"Terrain awareness and warning",grp:"A",c:"--taws"},
+    {id:"TCAS",n:"Traffic collision avoidance",grp:"B",c:"--tcas"},
+    {id:"XPDR",n:"Transponder",grp:"B",c:"--xpdr"},
+    {id:"IOM",n:"Input/output and alert priority management",grp:"-",c:"--master"}
+  ],
+
+  /* 0.4 L5 — intruder categories */
+  traffic:[
+    {id:"other",n:"Other traffic",sym:"open diamond",col:"#e8ecf4",
+     crit:"from ±1200 ft to ±9900 ft, no collision threat, closer than 30 NM",
+     out:"symbol on the ND only",aural:false},
+    {id:"pa",n:"Proximate traffic",sym:"solid white diamond",col:"#e8ecf4",
+     crit:"altitude difference less than 1200 ft and range within 6 NM, no collision threat",
+     out:"symbol on the ND only",aural:false},
+    {id:"ta",n:"Traffic Advisory",sym:"amber filled circle",col:"#ffb020",
+     crit:"near the aircraft but not an immediate threat — a potential collision threat",
+     out:"intruder position on the ND and an aural message",aural:true},
+    {id:"ra",n:"Resolution Advisory",sym:"red filled square",col:"#ff4040",
+     crit:"near the aircraft and an immediate threat — a real collision threat",
+     out:"intruder position on the ND, an aural message, and avoidance manoeuvre orders on the PFD with a safe vertical speed scale",aural:true}
+  ],
+  scanBands:{AUTO:"the TCAS selects the proper altitude band from the flight plan and the vertical rate",
+             ABV:"−2700 ft to +9000 ft",BLW:"−9000 ft to +2700 ft"},
+
+  /* 0.5 scenarios */
+  scen:[
+    {id:"S1",n:"Normal — AESU 1 Master",set:{}},
+    {id:"S2",n:"Normal — AESU 2 Master",set:{wxrTawsSys:2,xpdrTcasSys:2}},
+    {id:"S3",n:"Mixed mode — groups split across the units",set:{wxrTawsSys:1,xpdrTcasSys:2}},
+    {id:"S4",n:"Downgraded type 1 — complementary losses",set:{avail:{1:{WXR:false},2:{TAWS:false}}}},
+    {id:"S5",n:"Downgraded type 2 — same function lost in both",set:{avail:{1:{TCAS:false},2:{TCAS:false}}}},
+    {id:"S6",n:"Weather radar selected",set:{wx:true}},
+    {id:"S7",n:"Terrain display selected",set:{terr:true}},
+    {id:"S8",n:"Traffic display selected",set:{traf:true}},
+    {id:"S9",n:"TCAS Traffic Advisory",set:{traf:true,threat:"ta"}},
+    {id:"S10",n:"TCAS Resolution Advisory",set:{traf:true,threat:"ra"}},
+    {id:"S11",n:"TA ONLY selected with an RA intruder",set:{traf:true,threat:"ra",tcasMode:"TAONLY"}},
+    {id:"S12",n:"TCAS in standby",set:{traf:true,threat:"ra",tcasMode:"STBY"}},
+    {id:"S13",n:"Terrain warning with the display not selected",set:{threat:"none",tawsAlert:true}},
+    {id:"S14",n:"Transponder AUTO on the ground",set:{onGround:true,xpdrMode:"AUTO"}},
+    {id:"S15",n:"AESU 1 unavailable",set:{avail:{1:{WXR:false,TAWS:false,TCAS:false,XPDR:false}},wxrTawsSys:2,xpdrTcasSys:2}},
+    {id:"FREE",n:"Free play — nothing preset",set:{}}
+  ],
+
+  /* 0.7 NUMBERS */
+  numbers:[
+    ["2","identical AESUs"],
+    ["5","modules per AESU — WXR/PWS, TAWS, TCAS, XPDR and the input/output module"],
+    ["2","function groups per AESU — WXR/TAWS and TCAS/XPDR"],
+    ["2","power supply units per AESU, one per function group"],
+    ["115 VAC","AESU supply — AESU 1 from the ESS and EMER buses, AESU 2 from BUS 4"],
+    ["200 VDC / 28 VDC","Radar Transceiver Unit supply / antenna drive and control panel supply"],
+    ["3SE","AESS control panel identifier"],
+    ["1231VM and 1222VM","AESS reset switch panel identifiers"],
+    ["4","combined Mode S transponder / TCAS antennas — one top and one bottom per AESU"],
+    ["1","weather radar antenna, with 2 Radar Transceiver Units and one antenna drive"],
+    ["30 inch","flat plate antenna size"],
+    ["±80° / ±15° / 45°","antenna azimuth envelope, tilt envelope and polarization"],
+    ["320 NM","weather radar range, X-band"],
+    ["0 to 60000 ft in 1000 ft steps","manual ELEVN planar view selection range"],
+    ["once per second","weather radar extraction and image generation rate"],
+    ["1030 MHz / 1090 MHz","interrogation frequency / reply frequency"],
+    ["40 NM to 100 NM","TCAS intruder detection volume around the aircraft"],
+    ["±1200 ft to ±9900 ft","other traffic altitude band"],
+    ["less than 1200 ft and within 6 NM","proximate traffic criteria"],
+    ["closer than 30 NM","other traffic range on the ND"],
+    ["−2700 ft to +9000 ft","ABV traffic display limits"],
+    ["−9000 ft to +2700 ft","BLW traffic display limits"],
+    ["+2000 / +1000 / −250 / −500 / −1000 / −2000","terrain display bands referenced to REF ALTITUDE"],
+    ["3","TCAS scanning modes — ABV, BLW and AUTO"],
+    ["3","AESS modes of operation — normal, mixed and downgraded"],
+    ["2","types of downgraded mode"],
+    ["a minimum of two faults","one downgraded-mode trigger, the other being a defective weather radar antenna or RF switch"],
+    ["CPIOM-D1","the module hosting the ATC application"],
+    ["5 m in an arc of 135°","minimum safety distance from the weather radar antenna"],
+    ["60 m","minimum distance between the antenna and any refuelling operation"],
+    ["13.64 kg","weather radar antenna assembly weight"],
+    ["5 / 4 / 3","OMS interactive tests, Master AESU module tests, and AESU aural alert tests"]
+  ],
+
+  /* 0.8 GAPS */
+  gaps:[
+    ["The notes state that a centralized alert priority function exists but never publish the ranking between the WXR, TAWS, TCAS and XPDR alerts","alerts are shown by source with no invented ranking; where an order is needed it is labelled (assumed)"],
+    ["No aural message wording is given anywhere in either note set","aurals are shown as an aural message with the source named, never with invented words"],
+    ["No ECAM warning or caution message text for the AESS appears in either note set","ECAM content is described generically"],
+    ["The notes do not distinguish a TAWS caution from a TAWS warning","the simulation says terrain alert, not caution or warning"],
+    ["Total loss of both AESUs is not described","offered only as an instructor-injected extreme case, labelled (assumed)"],
+    ["The CLEAR INFO key on the control panel is not described","left inert and labelled as not covered"],
+    ["RAMS in the LEVEL I set and RAIMS in the LEVEL 2&3 set","RAIMS is used, from the later revision"],
+    ["Predictive windshear alerting thresholds are not stated","the alert is modelled as a discrete event with no thresholds shown"],
+    ["The terrain database resolution and the terrain conflict algorithm are not stated","the terrain picture is illustrative and labelled as such"]
+  ],
+
+  /* 0.10 MISCONCEPTIONS */
+  misc:[
+    "AESU 1 is always the master.",
+    "Each surveillance function is a separate black box.",
+    "Selecting TERR off means terrain alerts cannot reach you.",
+    "TA ONLY and STBY do the same thing.",
+    "The transponder replies to everything, all the time.",
+    "A single AESU failure loses half the surveillance functions."
+  ],
+
+  gloss:{
+    AESS:"Aircraft Environment Surveillance System",AESU:"Aircraft Environment Surveillance Unit",
+    WXR:"Weather Radar",PWS:"Predictive WindShear",TAWS:"Terrain Awareness and Warning System",
+    TCAS:"Traffic Collision Avoidance System",XPDR:"transponder",
+    TA:"Traffic Advisory",RA:"Resolution Advisory",PA:"Proximate traffic",
+    GPWS:"Ground Proximity Warning System",TCF:"Terrain and runway Clearance Floor",
+    TAD:"terrain and obstacle awareness alerting and warning",
+    RTU:"Radar Transceiver Unit",IOM:"Input/Output Module",
+    ADCN:"Avionics Data Communication Network",CDS:"Control and Display System",
+    PFD:"Primary Flight Display",ND:"Navigation Display",VD:"Vertical Display",
+    MFD:"MultiFunction Display",EFIS:"Electronic Flight Instrument System",
+    KCCU:"Keyboard and Cursor Control Unit",RMP:"Radio and audio Management Panel",
+    FWC:"Flight Warning Computer",FWS:"Flight Warning System",AMU:"Audio Management Unit",
+    RAIMS:"the audio system named in the LEVEL 2&3 set (LEVEL I writes RAMS)",
+    CMS:"Central Maintenance System",OMS:"Onboard Maintenance System",BITE:"Built-In Test Equipment",
+    CPIOM:"Core Processing Input/Output Module",EEC:"Engine Electronic Control",
+    SFCC:"Slat Flap Control Computer",LGERS:"Landing Gear Extension and Retraction System",
+    PRIM:"PRIMary flight control computer",AFS:"Auto Flight System",
+    SQWK:"the squawk, or transponder, code",IDENT:"the transponder identification function",
+    "REF ALTITUDE":"the aircraft reference altitude the terrain display colours are banded against"
+  }
+};
+
+/* =====================================================================================
+   STATE
+   ===================================================================================== */
+function freshState(){
+  return {
+    avail:{1:{WXR:true,TAWS:true,TCAS:true,XPDR:true},2:{WXR:true,TAWS:true,TCAS:true,XPDR:true}},
+    wxrTawsSys:1, xpdrTcasSys:1,
+    wxrAntFault:false,
+    wx:false, terr:false, traf:false,
+    tcasMode:"TARA",        /* TARA | TAONLY | STBY */
+    scan:"AUTO",            /* AUTO | ABV | BLW */
+    xpdrMode:"AUTO",        /* AUTO | ON | STBY */
+    altRptg:true, squawk:"2000",
+    gsInhibit:false,
+    threat:"none",          /* none | other | pa | ta | ra */
+    tawsAlert:false, pwsAlert:false,
+    onGround:false, engRunning:true, auralCancelled:false,
+    scen:"S1", sel_:"AESU1", trace:null
+  };
+}
+let STATE=freshState();
+let ANIM=true, BUILDUP=false, BUILDUPI=0;
+const $=id=>document.getElementById(id);
+const SVGNS="http://www.w3.org/2000/svg";
+
+/* =====================================================================================
+   ENGINE
+     1. master — the AESU with the WXR/TAWS function group activated
+     2. mode — normal when both groups sit in one unit, mixed when they are split,
+        downgraded when the weather radar antenna or RF switch is defective, or on two faults
+     3. per-function availability across the two units
+     4. surveillance outputs: displays, automatic pop-up, aurals
+   ===================================================================================== */
+function fnAvail(f){
+  /* a function is available to the aircraft if it is available in the unit that hosts its group */
+  const sys = (f==="WXR"||f==="TAWS") ? STATE.wxrTawsSys : STATE.xpdrTcasSys;
+  if(f==="WXR" && STATE.wxrAntFault) return false;
+  return !!STATE.avail[sys][f];
+}
+function fnAvailAnywhere(f){
+  if(f==="WXR" && STATE.wxrAntFault) return false;
+  return !!(STATE.avail[1][f]||STATE.avail[2][f]);
+}
+function faultCount(){
+  let n=0;
+  [1,2].forEach(u=>["WXR","TAWS","TCAS","XPDR"].forEach(f=>{ if(!STATE.avail[u][f]) n++; }));
+  return n;
+}
+
+function solve(){
+  const S={};
+  /* 1. the Master AESU is the one with the WXR/TAWS group activated */
+  S.master = STATE.wxrTawsSys;
+  S.nonMaster = S.master===1?2:1;
+
+  /* 2. mode */
+  S.faults=faultCount();
+  if(STATE.wxrAntFault || S.faults>=2) S.mode="DOWNGRADED";
+  else if(STATE.wxrTawsSys!==STATE.xpdrTcasSys) S.mode="MIXED";
+  else S.mode="NORMAL";
+
+  /* downgraded type: 2 when the same function is unavailable in both units */
+  S.dgType=null;
+  if(S.mode==="DOWNGRADED"){
+    const both=["WXR","TAWS","TCAS","XPDR"].filter(f=>!STATE.avail[1][f]&&!STATE.avail[2][f]);
+    S.dgType = both.length? 2 : 1;
+    S.dgLost = both;
+  } else S.dgLost=[];
+
+  S.modeWhy = S.mode==="NORMAL" ? "both function groups are activated in AESU "+S.master
+    : S.mode==="MIXED" ? "the WXR/TAWS group is in AESU "+STATE.wxrTawsSys+" and the TCAS/XPDR group in AESU "+STATE.xpdrTcasSys
+    : (STATE.wxrAntFault ? "the weather radar antenna or the RF switch is defective"
+       : "the system has a minimum of two faults, one after the other")
+      + (S.dgType===1 ? " — type 1: the losses are complementary, so the AESS can still do all the surveillance functions"
+                      : " — type 2: "+S.dgLost.join(" and ")+" is unavailable in both units, so that surveillance is lost");
+
+  /* 3. function availability */
+  S.fn={}; ["WXR","TAWS","TCAS","XPDR"].forEach(f=>{
+    /* in downgraded type 1 the unit lacking a function takes the data from the other unit */
+    S.fn[f] = fnAvail(f) || (S.dgType===1 && fnAvailAnywhere(f));
+  });
+
+  /* 4. TCAS */
+  S.tcasOn = S.fn.TCAS && STATE.tcasMode!=="STBY";
+  S.threat = STATE.threat;
+  S.tcasEntry = MODEL.traffic.find(t=>t.id===STATE.threat)||null;
+  /* TA ONLY suppresses the RA display; STBY suppresses everything */
+  S.raShown = S.tcasOn && STATE.threat==="ra" && STATE.tcasMode==="TARA";
+  S.taShown = S.tcasOn && (STATE.threat==="ta" || (STATE.threat==="ra" && STATE.tcasMode==="TAONLY"));
+  S.tcasMsg = !S.fn.TCAS ? "TCAS not available"
+    : STATE.tcasMode==="STBY" ? "TCAS STBY"
+    : STATE.tcasMode==="TAONLY" ? ("TA ONLY"+(STATE.scan!=="AUTO"?" "+STATE.scan:""))
+    : (STATE.scan!=="AUTO" ? "TCAS "+STATE.scan : "TCAS");
+  S.scanBand = MODEL.scanBands[STATE.scan];
+
+  /* 5. weather radar operating conditions */
+  S.wxrRunning = S.fn.WXR && (!STATE.onGround || (STATE.engRunning && STATE.wx));
+  S.wxrWhy = !S.fn.WXR ? "the weather radar function is not available"
+    : !STATE.onGround ? "in flight the weather radar operates without conditions"
+    : (STATE.engRunning&&STATE.wx) ? "on the ground it operates automatically when at least one engine starts and the EFIS WX key is pushed"
+    : "on the ground it needs at least one engine started and the EFIS WX key pushed";
+
+  /* 6. automatic pop-up — a detected threat overrides the crew's display selection */
+  S.popTraf = S.tcasOn && (S.taShown||S.raShown);
+  S.popTerr = S.fn.TAWS && STATE.tawsAlert;
+  S.popWx   = S.wxrRunning && STATE.pwsAlert;
+  S.ndTraf  = (STATE.traf && S.tcasOn) || S.popTraf;
+  S.ndTerr  = (STATE.terr && S.fn.TAWS) || S.popTerr;
+  S.ndWx    = (STATE.wx && S.wxrRunning) || S.popWx;
+
+  /* 7. aurals — the notes give no wording and no ranking, so both are declared, not invented */
+  S.aurals=[];
+  if(S.raShown) S.aurals.push({src:"TCAS",txt:"aural message for the Resolution Advisory"});
+  else if(S.taShown) S.aurals.push({src:"TCAS",txt:"aural message for the Traffic Advisory"});
+  if(S.popTerr && !STATE.gsInhibit) S.aurals.push({src:"TAWS",txt:"terrain aural alert message"});
+  if(S.popTerr && STATE.gsInhibit) S.aurals.push({src:"TAWS",txt:"visual and aural alert inhibited by the G/S MODE key"});
+  if(S.popWx) S.aurals.push({src:"PWS",txt:"predictive windshear aural alert"});
+  if(STATE.auralCancelled) S.aurals=S.aurals.map(a=>({src:a.src,txt:"cancelled with EMERGENCY CANCEL"}));
+
+  /* 8. transponder */
+  S.xpdrReplies = S.fn.XPDR && (STATE.xpdrMode==="ON" || (STATE.xpdrMode==="AUTO" && !STATE.onGround));
+  S.xpdrWhy = !S.fn.XPDR ? "the transponder function is not available"
+    : STATE.xpdrMode==="STBY" ? "in STBY the transponder sends no replies"
+    : STATE.xpdrMode==="AUTO" && STATE.onGround ? "in AUTO the transponder does not transmit automatic Mode A and C replies on the ground"
+    : "replies at 1090 MHz to interrogations at 1030 MHz"+(STATE.altRptg?"":", but altitude reporting is OFF so no altitude is transmitted");
+  return S;
+}
+
+function tracePath(kind){
+  const S=solve();
+  switch(kind){
+    case "master": return {t:"Master and non-Master",
+      chain:["AESS control panel WXR TAWS pushbutton, or the MFD Status & Switching page",
+             "the WXR/TAWS group is activated in AESU "+S.master,
+             "AESU "+S.master+" becomes the Master",
+             "AESU "+S.nonMaster+" sends its data to the Master only",
+             "the Master sends data to the aircraft and to the CMS"],
+      cls:"di",notes:["The Master AESU is the one where the WXR function is available.",
+                      "Only the Master AESU communicates with the CMS, and the Master does the system BITE for all the AESS components."]};
+    case "alert": return {t:"Alert path",
+      chain:["function module detects a threat","centralized alert management on the Master AESU input/output module",
+             "visual alerts over the ADCN to the cockpit displays",
+             "audio authorised in coordination with the Flight Warning Computer","aircraft audio system"],
+      cls:"au",notes:["The notes state that this centralized priority management exists, but they do not publish the ranking between the WXR, TAWS, TCAS and XPDR alerts.",
+                      "The ECAM control panel EMERGENCY CANCEL switch cancels an AESS aural alert through an AESU input discrete."]};
+    case "tcas": return {t:"Traffic surveillance",
+      chain:["interrogation transmitted at 1030 MHz","intruder Mode C or Mode S transponder",
+             "reply at 1090 MHz","top and bottom combined antennas","TCAS module",
+             "range, bearing, altitude and Mode S address"],
+      cls:"",notes:["The AESU detects an intruder flying in a volume of 40 NM to 100 NM around the aircraft.",
+                    "On a Resolution Advisory the TCAS sends the PRIMs the data for an escape manoeuvre and a safe vertical speed scale is shown on the PFDs."]};
+    case "wxr": return {t:"Weather radar",
+      chain:["30 inch flat plate antenna in the radome","two Radar Transceiver Units and the RF switch",
+             "continuous 3-dimensional scan into a Volumetric Buffer",
+             "extraction and image generation once per second","ND and vertical display"],
+      cls:"",notes:["The TAWS terrain database is used to enhance ground clutter removal and the MAP mode.",
+                    "The predictive windshear function is started automatically from the engine take-off power information."]};
+    case "taws": return {t:"Terrain awareness",
+      chain:["aircraft position and trajectory","comparison against a worldwide terrain database",
+             "alerting algorithms against the alerting envelope","visual annunciations and aural alerts"],
+      cls:"",notes:["The terrain display is banded against the aircraft REF ALTITUDE: +2000, +1000, −250 and −500, −1000, −2000."]};
+    case "bite": return {t:"Maintenance",
+      chain:["input/output module BITE","ADCN","OMS and FWS","only the Master AESU communicates with the CMS"],
+      cls:"",notes:["The OMS menu offers five interactive tests: Master AESU module tests, AESU aural alerts, Master AESU audio test, Master AESU display test and Master AESU system test.",
+                    "On the WXR test and the system test the antenna will move and a test pulse will be emitted — ensure the antenna area is clear."]};
+  }
+  return null;
+}
+
+/* =====================================================================================
+   VIEW
+   ===================================================================================== */
+function el(tag,attrs,parent){
+  const n=document.createElementNS(SVGNS,tag);
+  for(const k in attrs){ if(k==="text") n.textContent=attrs[k]; else if(attrs[k]!=null) n.setAttribute(k,attrs[k]); }
+  if(parent) parent.appendChild(n); return n;
+}
+function h(tag,attrs,parent){
+  const n=document.createElement(tag);
+  for(const k in attrs){
+    if(k==="text") n.textContent=attrs[k];
+    else if(k==="html") n.innerHTML=attrs[k];
+    else if(k==="class") n.className=attrs[k];
+    else if(attrs[k]!=null) n.setAttribute(k,attrs[k]);
+  }
+  if(parent) parent.appendChild(n); return n;
+}
+const BUILDUP_SEQ=[
+  ["ANT","Four identical combined Mode S transponder and TCAS antennas, top and bottom of the fuselage — one top and one bottom to each unit."],
+  ["WXRANT","One weather radar antenna in the radome: a 30 inch flat plate with its drive unit, two Radar Transceiver Units and an RF switch."],
+  ["A1","The first Aircraft Environment Surveillance Unit."],
+  ["A1M","Inside it, five modules — weather radar with predictive windshear, terrain awareness, traffic collision avoidance, transponder, and the input/output module."],
+  ["A1G","Those five are organised into two function groups: WXR with TAWS, and TCAS with XPDR."],
+  ["A2","The second unit is identical. Which one is Master depends on where the WXR/TAWS group is activated, not on the number."],
+  ["SRC","Both units take aircraft data over the ADCN — three radio altimeters, the ADIRUs, the FMS, the MMRs, the PRIMs, the EECs, the slat flap computers and the landing gear system."],
+  ["OUT","The Master sends the surveillance images to the CDS, the aurals through the Flight Warning Computer to the audio system, and escape-manoeuvre data to the PRIMs."],
+  ["CMS","And only the Master AESU talks to the Central Maintenance System."]
+];
+
+function renderArch(gid){
+  const g=$(gid); g.innerHTML="";
+  const S=solve();
+  const shown=BUILDUP?new Set(BUILDUP_SEQ.slice(0,BUILDUPI+1).map(s=>s[0])):null;
+  const vis=k=>!BUILDUP||shown.has(k);
+
+  el("text",{x:110,y:60,"text-anchor":"middle",fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"ANTENNAS"},g);
+  el("text",{x:520,y:60,"text-anchor":"middle",fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"SURVEILLANCE UNITS"},g);
+  el("text",{x:960,y:60,"text-anchor":"middle",fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"USERS"},g);
+
+  if(vis("ANT")){
+    const gg=el("g",{transform:"translate(20,80)",tabindex:"0",role:"button","aria-label":"Combined Mode S and TCAS antennas",style:"cursor:pointer"},g);
+    el("rect",{x:0,y:0,width:180,height:88,rx:8,fill:"#1b2337",stroke:"var(--tcas)","stroke-width":1.6},gg);
+    el("text",{x:90,y:22,"text-anchor":"middle",fill:"#e8ecf4","font-size":"12","font-weight":"600",text:"MODE S / TCAS ANT ×4"},gg);
+    el("text",{x:10,y:42,fill:"#8fa3c4","font-size":"9.5",text:"top and bottom of the fuselage"},gg);
+    el("text",{x:10,y:58,fill:"#8fa3c4","font-size":"9.5",text:"one top + one bottom per AESU"},gg);
+    el("text",{x:10,y:76,fill:"var(--tcas)","font-size":"9.5",text:"1030 MHz out · 1090 MHz in"},gg);
+    gg.addEventListener("click",()=>{STATE.sel_="ANT";renderInspector();});
+    gg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.sel_="ANT";renderInspector();}});
+  }
+  if(vis("WXRANT")){
+    const gg=el("g",{transform:"translate(20,190)",tabindex:"0",role:"button","aria-label":"Weather radar antenna",style:"cursor:pointer"},g);
+    const bad=STATE.wxrAntFault;
+    el("rect",{x:0,y:0,width:180,height:88,rx:8,fill:bad?"#2a1010":"#1b2337",stroke:bad?"var(--fault)":"var(--wxr)","stroke-width":bad?2.4:1.6},gg);
+    el("text",{x:90,y:22,"text-anchor":"middle",fill:bad?"#ff8080":"#e8ecf4","font-size":"12","font-weight":"600",text:"WXR ANTENNA"+(bad?" — FAULT":"")},gg);
+    el("text",{x:10,y:42,fill:"#8fa3c4","font-size":"9.5",text:"30 inch flat plate · 2 RTUs"},gg);
+    el("text",{x:10,y:58,fill:"#8fa3c4","font-size":"9.5",text:"±80° azimuth · ±15° tilt · 45°"},gg);
+    el("text",{x:10,y:76,fill:"var(--wxr)","font-size":"9.5",text:"X-band · 320 NM"},gg);
+    gg.addEventListener("click",()=>{STATE.sel_="WXRANT";renderInspector();});
+    gg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.sel_="WXRANT";renderInspector();}});
+  }
+
+  /* the two AESUs */
+  [1,2].forEach(u=>{
+    const key=u===1?"A1":"A2"; if(!vis(key)) return;
+    const x=280,y=u===1?80:330, isM=S.master===u;
+    const gg=el("g",{transform:`translate(${x},${y})`,tabindex:"0",role:"button","aria-label":"AESU "+u,style:"cursor:pointer"},g);
+    el("rect",{x:0,y:0,width:470,height:220,rx:10,fill:"#1b2337",
+      stroke:isM?"var(--master)":"#3a4666","stroke-width":isM?3:1.6},gg);
+    el("text",{x:14,y:26,fill:"#e8ecf4","font-size":"15","font-weight":"700",text:"AESU "+u},gg);
+    el("text",{x:14,y:44,fill:"#8fa3c4","font-size":"10",text:MODEL.comp["AESU"+u].pwr},gg);
+    if(isM){
+      el("rect",{x:340,y:12,width:118,height:26,rx:6,fill:"#3a2f0d",stroke:"var(--master)","stroke-width":1.6},gg);
+      el("text",{x:399,y:30,"text-anchor":"middle",fill:"var(--master)","font-size":"12","font-weight":"700",text:"MASTER"},gg);
+    } else {
+      el("text",{x:458,y:30,"text-anchor":"end",fill:"#6d7c99","font-size":"11",text:"non-Master"},gg);
+    }
+    if(vis(u===1?"A1M":key)){
+      /* the two function groups */
+      [["A","WXR / TAWS group",["WXR","TAWS"],14,STATE.wxrTawsSys===u],
+       ["B","TCAS / XPDR group",["TCAS","XPDR"],240,STATE.xpdrTcasSys===u]].forEach(([gid2,lab,mods,gx,active])=>{
+        if(BUILDUP&&!shown.has("A1G")&&u===1) return;
+        el("rect",{x:gx,y:56,width:216,height:104,rx:8,fill:active?"#141f33":"#141b28",
+          stroke:active?"var(--focus)":"#2c3650","stroke-width":active?2.2:1.2},gg);
+        el("text",{x:gx+8,y:73,fill:active?"#cfd8ea":"#6d7c99","font-size":"10","font-weight":"600",text:lab+(active?"  · ACTIVATED":"")},gg);
+        mods.forEach((m,i)=>{
+          const md=MODEL.modules.find(x2=>x2.id===m);
+          const ok=STATE.avail[u][m] && !(m==="WXR"&&STATE.wxrAntFault);
+          el("rect",{x:gx+8,y:82+i*36,width:200,height:30,rx:5,fill:ok?"#1b2337":"#2a1010",
+            stroke:ok?`var(${md.c})`:"var(--fault)","stroke-width":1.5},gg);
+          el("text",{x:gx+16,y:102+i*36,fill:ok?`var(${md.c})`:"#ff8080","font-size":"11","font-weight":"600",text:m},gg);
+          el("text",{x:gx+200,y:102+i*36,"text-anchor":"end",fill:"#8fa3c4","font-size":"9",text:ok?"available":"NOT AVAILABLE"},gg);
+        });
+      });
+      /* the input/output module */
+      el("rect",{x:14,y:170,width:442,height:36,rx:7,fill:"#1b2337",stroke:"var(--master)","stroke-width":isM?2:1.2},gg);
+      el("text",{x:24,y:192,fill:isM?"var(--master)":"#8fa3c4","font-size":"11","font-weight":"600",
+        text:"IOM — I/O and centralized alert priority management"+(isM?"  · ACTIVE":"")},gg);
+    }
+    gg.addEventListener("click",()=>{STATE.sel_="AESU"+u;renderInspector();});
+    gg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.sel_="AESU"+u;renderInspector();}});
+
+    /* antenna links */
+    el("path",{d:`M 200 ${u===1?124:234} L 280 ${y+110}`,stroke:"var(--tcas)","stroke-width":1.8,fill:"none"},g);
+    if(u===S.master&&vis("WXRANT"))
+      el("path",{d:`M 200 234 L 280 ${y+110}`,stroke:STATE.wxrAntFault?"var(--dead)":"var(--wxr)","stroke-width":2.2,fill:"none",
+        "stroke-dasharray":STATE.wxrAntFault?"4 4":null},g);
+  });
+
+  /* the non-Master sends data to the Master only */
+  if(vis("A2")){
+    const from=S.nonMaster===1?300:300, y1=S.nonMaster===1?300:330, y2=S.master===1?300:330;
+    el("path",{d:`M 760 ${S.nonMaster===1?190:440} C 800 ${S.nonMaster===1?190:440}, 800 ${S.master===1?190:440}, 760 ${S.master===1?190:440}`,
+      fill:"none",stroke:"var(--master)","stroke-width":2.2},g);
+    el("text",{x:800,y:312,"text-anchor":"middle",fill:"var(--master)","font-size":"9",text:"non-Master →"},g);
+    el("text",{x:800,y:324,"text-anchor":"middle",fill:"var(--master)","font-size":"9",text:"Master only"},g);
+  }
+
+  /* users */
+  if(vis("OUT")){
+    const users=[["CDS — PFD · ND · VD · MFD",80,S.ndTraf||S.ndTerr||S.ndWx],
+                 ["FWC → audio system",156,S.aurals.length>0],
+                 ["PRIMs — escape manoeuvre",232,S.raShown],
+                 ["FWS — BITE and status",308,true]];
+    users.forEach(([n2,y,live])=>{
+      const gg=el("g",{transform:`translate(860,${y})`,tabindex:"0",role:"button","aria-label":n2,style:"cursor:pointer"},g);
+      el("rect",{x:0,y:0,width:290,height:58,rx:8,fill:"#1b2337",stroke:live?"var(--adcn)":"#3a4666","stroke-width":live?2.2:1.4},gg);
+      el("text",{x:145,y:34,"text-anchor":"middle",fill:live?"#e8ecf4":"#8fa3c4","font-size":"12","font-weight":"600",text:n2},gg);
+      const mx=(750+860)/2, my=S.master===1?190:440;
+      el("path",{d:`M 750 ${my} C ${mx} ${my}, ${mx} ${y+29}, 860 ${y+29}`,fill:"none",
+        stroke:live?"var(--adcn)":"var(--dead)","stroke-width":live?2.2:1.2,"stroke-dasharray":live?null:"4 4",opacity:live?1:.45},g);
+      if(live&&ANIM) el("path",{d:`M 750 ${my} C ${mx} ${my}, ${mx} ${y+29}, 860 ${y+29}`,fill:"none",stroke:"var(--adcn)","stroke-width":2.2,class:"flow"},g);
+      gg.addEventListener("click",()=>{STATE.sel_= n2.indexOf("CDS")===0?"CDS":(n2.indexOf("FWC")===0?"AMU":"FWS");renderInspector();});
+      gg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.sel_="CDS";renderInspector();}});
+    });
+  }
+  if(vis("CMS")){
+    const gg=el("g",{transform:"translate(860,384)",tabindex:"0",role:"button","aria-label":"Central Maintenance System",style:"cursor:pointer"},g);
+    el("rect",{x:0,y:0,width:290,height:58,rx:8,fill:"#1b2337",stroke:"var(--master)","stroke-width":1.8},gg);
+    el("text",{x:145,y:28,"text-anchor":"middle",fill:"#e8ecf4","font-size":"12","font-weight":"600",text:"CMS"},gg);
+    el("text",{x:145,y:45,"text-anchor":"middle",fill:"var(--master)","font-size":"9.5",text:"Master AESU only"},gg);
+    gg.addEventListener("click",()=>{STATE.sel_="CMS";renderInspector();});
+    gg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.sel_="CMS";renderInspector();}});
+  }
+  if(vis("SRC")){
+    el("rect",{x:280,y:566,width:470,height:56,rx:8,fill:"#1b2337",stroke:"#3a4666","stroke-width":1.5},g);
+    el("text",{x:515,y:589,"text-anchor":"middle",fill:"#e8ecf4","font-size":"12","font-weight":"600",text:"AIRCRAFT DATA over the ADCN"},g);
+    el("text",{x:515,y:606,"text-anchor":"middle",fill:"#8fa3c4","font-size":"9.5",text:"3 radio altimeters · ADIRUs · FMS · 2 MMRs · PRIMs · EECs · SFCCs · LGERS"},g);
+    el("path",{d:"M 515 566 L 515 550",stroke:"var(--adcn)","stroke-width":2},g);
+  }
+
+  /* mode banner */
+  const col=S.mode==="NORMAL"?"var(--avail)":(S.mode==="MIXED"?"var(--amber)":"var(--fault)");
+  el("text",{x:590,y:660,"text-anchor":"middle",fill:col,"font-size":"13","font-weight":"700",
+    text:S.mode+" MODE"+(S.dgType?" — type "+S.dgType:"")},g);
+  el("text",{x:590,y:680,"text-anchor":"middle",fill:"#8fa3c4","font-size":"11",text:S.modeWhy},g);
+}
+
+function renderTraffic(gid){
+  const g=$(gid); g.innerHTML="";
+  const S=solve();
+  el("text",{x:590,y:38,"text-anchor":"middle",fill:"#cfd8ea","font-size":"16","font-weight":"600",
+    text:"TCAS — four intruder categories, and what each one gives the crew"},g);
+  el("text",{x:590,y:58,"text-anchor":"middle",fill:"#8fa3c4","font-size":"11.5",
+    text:"The AESU detects an intruder flying in a volume of 40 NM to 100 NM around the aircraft, interrogating at 1030 MHz and receiving replies at 1090 MHz."},g);
+
+  MODEL.traffic.forEach((t,i)=>{
+    const x=30+i*288, cur=STATE.threat===t.id;
+    const gg=el("g",{transform:`translate(${x},86)`,tabindex:"0",role:"button","aria-label":t.n,style:"cursor:pointer"},g);
+    el("rect",{x:0,y:0,width:270,height:250,rx:10,fill:cur?"#1d2942":"#1b2337",
+      stroke:cur?"var(--focus)":"#3a4666","stroke-width":cur?2.8:1.5},gg);
+    el("text",{x:14,y:26,fill:t.col,"font-size":"14","font-weight":"700",text:t.n},gg);
+    /* symbol */
+    const cx=135,cy=68;
+    if(t.id==="other") el("path",{d:`M ${cx} ${cy-14} L ${cx+14} ${cy} L ${cx} ${cy+14} L ${cx-14} ${cy} Z`,fill:"none",stroke:t.col,"stroke-width":2},gg);
+    if(t.id==="pa") el("path",{d:`M ${cx} ${cy-14} L ${cx+14} ${cy} L ${cx} ${cy+14} L ${cx-14} ${cy} Z`,fill:t.col},gg);
+    if(t.id==="ta") el("circle",{cx,cy,r:14,fill:t.col},gg);
+    if(t.id==="ra") el("rect",{x:cx-13,y:cy-13,width:26,height:26,fill:t.col},gg);
+    el("text",{x:135,y:100,"text-anchor":"middle",fill:"#8fa3c4","font-size":"10",text:t.sym},gg);
+    const wrap=(txt,w,y0,fill,size)=>{
+      const words=txt.split(" "); let line="",yy=y0;
+      words.forEach(word=>{
+        if((line+" "+word).length>w){ el("text",{x:14,y:yy,fill,"font-size":size,text:line},gg); line=word; yy+=15; }
+        else line=line?line+" "+word:word;
+      });
+      el("text",{x:14,y:yy,fill,"font-size":size,text:line},gg); return yy+18;
+    };
+    let yy=124;
+    el("text",{x:14,y:yy,fill:"#6d7c99","font-size":"9","letter-spacing":"1",text:"CRITERIA"},gg); yy+=15;
+    yy=wrap(t.crit,38,yy,"#cfd8ea","10");
+    el("text",{x:14,y:yy,fill:"#6d7c99","font-size":"9","letter-spacing":"1",text:"WHAT THE CREW GETS"},gg); yy+=15;
+    wrap(t.out,38,yy,"#8fa3c4","10");
+    gg.addEventListener("click",()=>{STATE.threat=t.id;refresh();});
+    gg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.threat=t.id;refresh();}});
+  });
+
+  /* scanning bands */
+  el("text",{x:30,y:378,fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"SCANNING BAND"},g);
+  ["AUTO","ABV","BLW"].forEach((k,i)=>{
+    const cur=STATE.scan===k;
+    const gg=el("g",{transform:`translate(${30+i*388},392)`,tabindex:"0",role:"button","aria-label":"Scan "+k,style:"cursor:pointer"},g);
+    el("rect",{x:0,y:0,width:370,height:70,rx:9,fill:cur?"#1d2942":"#1b2337",stroke:cur?"var(--focus)":"#3a4666","stroke-width":cur?2.6:1.4},gg);
+    el("text",{x:14,y:26,fill:"#e8ecf4","font-size":"13","font-weight":"700",text:k},gg);
+    el("text",{x:14,y:48,fill:"#8fa3c4","font-size":"10.5",text:MODEL.scanBands[k].slice(0,58)},gg);
+    if(MODEL.scanBands[k].length>58) el("text",{x:14,y:62,fill:"#8fa3c4","font-size":"10.5",text:MODEL.scanBands[k].slice(58)},gg);
+    gg.addEventListener("click",()=>{STATE.scan=k;refresh();});
+    gg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.scan=k;refresh();}});
+  });
+
+  /* current outcome */
+  el("text",{x:30,y:502,fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"RIGHT NOW"},g);
+  el("rect",{x:30,y:516,width:1120,height:132,rx:10,fill:"#141b28",stroke:"#2c3650","stroke-width":1.4},g);
+  el("text",{x:46,y:544,fill:"#e8ecf4","font-size":"13","font-weight":"600",
+    text:"TCAS mode "+(STATE.tcasMode==="TARA"?"TA/RA":(STATE.tcasMode==="TAONLY"?"TA ONLY":"STBY"))+"  ·  ND message: "+S.tcasMsg},g);
+  el("text",{x:46,y:570,fill:S.raShown?"var(--ra)":(S.taShown?"var(--ta)":"#8fa3c4"),"font-size":"12",
+    text:S.raShown?"Resolution Advisory displayed — avoidance manoeuvre orders and a safe vertical speed scale on the PFD"
+      :(S.taShown?"Traffic Advisory displayed on the ND with an aural message"
+      :(S.tcasOn?"no advisory — intruder shown as a symbol only":"no traffic display and no resolution advisory"))},g);
+  if(STATE.threat==="ra"&&STATE.tcasMode==="TAONLY")
+    el("text",{x:46,y:594,fill:"var(--amber)","font-size":"12",
+      text:"TA ONLY is selected, so the Resolution Advisory display is not sent to the NDs — the intruder is shown as a Traffic Advisory instead."},g);
+  if(STATE.tcasMode==="STBY")
+    el("text",{x:46,y:594,fill:"var(--fault)","font-size":"12",
+      text:"In STBY the surveillance and advisory functions are not available: no traffic display on the NDs and no resolution advisory on the PFDs."},g);
+  el("text",{x:46,y:622,fill:"#8fa3c4","font-size":"11",text:"Scanning band: "+S.scanBand},g);
+}
+
+function renderModes(gid){
+  const g=$(gid); g.innerHTML="";
+  const S=solve();
+  el("text",{x:590,y:38,"text-anchor":"middle",fill:"#cfd8ea","font-size":"16","font-weight":"600",
+    text:"Three modes of operation, and which unit is Master"},g);
+  el("text",{x:590,y:58,"text-anchor":"middle",fill:"#8fa3c4","font-size":"11.5",
+    text:"The Master AESU is the one with the WXR/TAWS function group activated. Only the Master sends data to the aircraft and to the CMS."},g);
+
+  const modes=[
+    {k:"NORMAL",n:"Normal",d:"Both function groups are activated in one and the same AESU. That unit is Master and does all the surveillance functions."},
+    {k:"MIXED",n:"Mixed",d:"One function group is activated in one AESU and the other group in the other. The non-Master sends its data to the Master only."},
+    {k:"DOWNGRADED",n:"Downgraded",d:"The weather radar antenna or the RF switch is defective, or the system has a minimum of two faults, one after the other."}
+  ];
+  modes.forEach((m,i)=>{
+    const cur=S.mode===m.k, x=30+i*385;
+    const gg=el("g",{transform:`translate(${x},80)`,tabindex:"0",role:"button","aria-label":m.n+" mode",style:"cursor:pointer"},g);
+    el("rect",{x:0,y:0,width:365,height:150,rx:10,fill:cur?"#1d2942":"#1b2337",
+      stroke:cur?"var(--focus)":"#3a4666","stroke-width":cur?2.8:1.5},gg);
+    el("text",{x:16,y:30,fill:"#e8ecf4","font-size":"15","font-weight":"700",text:m.n},gg);
+    if(cur) el("text",{x:349,y:30,"text-anchor":"end",fill:"var(--focus)","font-size":"11","font-weight":"700",text:"CURRENT"},gg);
+    const words=m.d.split(" "); let line="",yy=56;
+    words.forEach(w=>{ if((line+" "+w).length>52){ el("text",{x:16,y:yy,fill:"#cfd8ea","font-size":"11",text:line},gg); line=w; yy+=17; } else line=line?line+" "+w:w; });
+    el("text",{x:16,y:yy,fill:"#cfd8ea","font-size":"11",text:line},gg);
+  });
+
+  /* the two downgraded types */
+  el("text",{x:30,y:266,fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"THE TWO DOWNGRADED TYPES"},g);
+  [[1,"A function of a group is unavailable in one unit and the other function of the same group is unavailable in the other unit. The unit missing a function receives that data from the other unit, so the AESS can still do all the surveillance functions."],
+   [2,"The same function or group is unavailable in both units. The AESS cannot do that surveillance, but it can still do the functions that remain available."]].forEach(([t,d],i)=>{
+    const cur=S.dgType===t;
+    const gg=el("g",{transform:`translate(30,${282+i*112})`,tabindex:"0",role:"button","aria-label":"Downgraded type "+t},g);
+    el("rect",{x:0,y:0,width:1120,height:100,rx:9,fill:cur?"#1d2942":"#1b2337",stroke:cur?"var(--fault)":"#3a4666","stroke-width":cur?2.6:1.4},gg);
+    el("text",{x:16,y:28,fill:cur?"var(--fault)":"#e8ecf4","font-size":"13","font-weight":"700",text:"TYPE "+t+(cur?"  —  CURRENT":"")},gg);
+    const words=d.split(" "); let line="",yy=52;
+    words.forEach(w=>{ if((line+" "+w).length>115){ el("text",{x:16,y:yy,fill:"#cfd8ea","font-size":"11.5",text:line},gg); line=w; yy+=18; } else line=line?line+" "+w:w; });
+    el("text",{x:16,y:yy,fill:"#cfd8ea","font-size":"11.5",text:line},gg);
+  });
+
+  /* function availability grid */
+  el("text",{x:30,y:530,fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"FUNCTION AVAILABILITY"},g);
+  ["WXR","TAWS","TCAS","XPDR"].forEach((f,i)=>{
+    const x=30+i*282, ok=S.fn[f];
+    const gg=el("g",{transform:`translate(${x},546)`,tabindex:"0",role:"button","aria-label":f+" availability"},g);
+    el("rect",{x:0,y:0,width:264,height:96,rx:9,fill:ok?"#0f2418":"#2a1010",stroke:ok?"var(--avail)":"var(--fault)","stroke-width":1.8},gg);
+    el("text",{x:132,y:32,"text-anchor":"middle",fill:ok?"var(--avail)":"var(--fault)","font-size":"15","font-weight":"700",text:f},gg);
+    el("text",{x:132,y:54,"text-anchor":"middle",fill:"#cfd8ea","font-size":"11",text:ok?"available to the aircraft":"NOT available"},gg);
+    el("text",{x:132,y:74,"text-anchor":"middle",fill:"#8fa3c4","font-size":"9.5",
+      text:"AESU 1 "+(STATE.avail[1][f]?"✓":"✕")+"   ·   AESU 2 "+(STATE.avail[2][f]?"✓":"✕")},gg);
+  });
+}
+
+let VIEWBOX={x:0,y:0,w:1180,h:700};
+function applyVB(id){ $(id).setAttribute("viewBox",`${VIEWBOX.x} ${VIEWBOX.y} ${VIEWBOX.w} ${VIEWBOX.h}`); }
+function drawLegend(id){
+  const L=$(id); if(!L) return;
+  L.innerHTML='<b>Functions</b>'+
+    '<div><span class="sw" style="border-color:var(--wxr)"></span>Weather radar and windshear</div>'+
+    '<div><span class="sw" style="border-color:var(--taws)"></span>Terrain awareness</div>'+
+    '<div><span class="sw" style="border-color:var(--tcas)"></span>Traffic collision avoidance</div>'+
+    '<div><span class="sw" style="border-color:var(--xpdr)"></span>Transponder</div>'+
+    '<div><span class="sw" style="border-color:var(--master)"></span>Master AESU and its I/O module</div>'+
+    '<div><span class="sw" style="border-color:var(--dead);border-top-style:dashed"></span>not available</div>';
+}
+function draw(){
+  const v=$("selView").value;
+  if(v==="traffic") renderTraffic("vp"); else if(v==="modes") renderModes("vp"); else renderArch("vp");
+  $("legend").style.display = v==="arch" ? "block" : "none";
+  drawLegend("legend");
+  applyVB("svg");
+}
+
+/* =====================================================================================
+   UI
+   ===================================================================================== */
+function ndHTML(){
+  const S=solve();
+  let s="";
+  s+='<div class="'+(S.ndWx?"grn":"gry")+'">WXR '+(S.ndWx?(S.popWx?"— POPPED UP (predictive windshear)":"selected"):"not displayed")+"</div>";
+  s+='<div class="'+(S.ndTerr?"amb":"gry")+'">TERR '+(S.ndTerr?(S.popTerr?"— POPPED UP (terrain alert)":"selected"):"not displayed")+"</div>";
+  s+='<div class="'+(S.ndTraf?"cyn":"gry")+'">TRAF '+(S.ndTraf?(S.popTraf?"— POPPED UP (advisory)":"selected"):"not displayed")+"</div>";
+  s+='<div class="wht" style="margin-top:5px">'+S.tcasMsg+"</div>";
+  if(S.tcasEntry&&S.tcasOn&&STATE.threat!=="none"){
+    const shown=S.raShown?MODEL.traffic[3]:(S.taShown?MODEL.traffic[2]:S.tcasEntry);
+    s+='<div class="'+(S.raShown?"red":(S.taShown?"amb":"wht"))+'">intruder: '+shown.n+" — "+shown.sym+"</div>";
+  }
+  return s;
+}
+function pfdHTML(){
+  const S=solve();
+  let s="";
+  if(S.raShown){
+    s+='<div class="red">TCAS — avoidance manoeuvre orders</div>';
+    s+='<div class="red">safe vertical speed scale · vertical speeds not allowed marked</div>';
+    s+='<div class="gry">the TCAS sends the PRIMs the data for an escape manoeuvre</div>';
+  } else if(S.taShown){
+    s+='<div class="amb">TCAS — Traffic Advisory, no manoeuvre order</div>';
+  } else {
+    s+='<div class="gry">no TCAS indication on the PFD</div>';
+  }
+  s+='<div class="wht" style="margin-top:5px">AURAL</div>';
+  if(!S.aurals.length) s+='<div class="gry">no aural alert</div>';
+  S.aurals.forEach(a=>s+='<div class="amb">'+a.src+" — "+a.txt+"</div>");
+  s+='<div class="gry small">the notes give no aural wording, so none is invented here</div>';
+  return s;
+}
+
+function renderInspector(){
+  const p=$("inspector"); p.innerHTML="";
+  const S=solve();
+
+  const st=h("div",{class:"card"},p);
+  h("h2",{text:"System state"},st);
+  const dl=h("dl",{class:"kv"},st);
+  h("dt",{text:"Master"},dl); h("dd",{text:"AESU "+S.master+" — it has the WXR/TAWS group"},dl);
+  h("dt",{text:"Mode"},dl); h("dd",{text:S.mode+(S.dgType?" type "+S.dgType:"")},dl);
+  h("dt",{text:"Faults"},dl); h("dd",{text:S.faults+(STATE.wxrAntFault?" + weather radar antenna":"")},dl);
+  h("dt",{text:"Weather radar"},dl); h("dd",{text:S.wxrRunning?"operating":"not operating"},dl);
+  h("dt",{text:"Transponder"},dl); h("dd",{text:S.xpdrReplies?"replying":"not replying"},dl);
+  h("div",{class:S.mode==="NORMAL"?"ok-note small":(S.mode==="MIXED"?"notice small":"err small"),text:S.modeWhy},st);
+
+  const c1=h("div",{class:"card"},p);
+  h("h2",{text:"Navigation Display"},c1);
+  h("div",{class:"scr",html:ndHTML()},c1);
+  const c2=h("div",{class:"card"},p);
+  h("h2",{text:"PFD and aural"},c2);
+  h("div",{class:"scr",html:pfdHTML()},c2);
+  h("div",{class:"notice small",text:"The notes state that a centralized alert priority function exists in the Master AESU's I/O module, but they do not publish the ranking between the WXR, TAWS, TCAS and XPDR alerts. No ranking is invented here."},c2);
+  const bc=h("button",{class:"small",text:"ECAM EMERGENCY CANCEL"},c2);
+  bc.addEventListener("click",()=>{STATE.auralCancelled=!STATE.auralCancelled;
+    toast("The ECAM control panel EMERGENCY CANCEL momentary switch cancels an AESS aural alert through an AESU input discrete.");refresh();});
+
+  /* control panel */
+  const c3=h("div",{class:"card"},p);
+  h("h2",{text:"AESS control panel — 3SE"},c3);
+  const cp=h("div",{class:"cp"},c3);
+  h("div",{class:"lbl",text:"WXR TAWS reconfiguration — this chooses the Master"},cp);
+  const r1=h("div",{class:"grid2"},cp);
+  [1,2].forEach(u=>{
+    const b=h("button",{class:STATE.wxrTawsSys===u?"on":"",text:"SYS "+u},r1);
+    b.addEventListener("click",()=>{STATE.wxrTawsSys=u;refresh();});
+  });
+  h("div",{class:"lbl",text:"XPDR TCAS reconfiguration"},cp);
+  const r2=h("div",{class:"grid2"},cp);
+  [1,2].forEach(u=>{
+    const b=h("button",{class:STATE.xpdrTcasSys===u?"on":"",text:"SYS "+u},r2);
+    b.addEventListener("click",()=>{STATE.xpdrTcasSys=u;refresh();});
+  });
+  h("div",{class:"lbl",text:"TCAS keys — automatic mode is active when ABV and BLW are both off"},cp);
+  const r3=h("div",{class:"grid3"},cp);
+  [["ABV","ABV"],["BLW","BLW"]].forEach(([k,l])=>{
+    const b=h("button",{class:STATE.scan===k?"on":"",text:l},r3);
+    b.addEventListener("click",()=>{STATE.scan=STATE.scan===k?"AUTO":k;refresh();});
+  });
+  const bta=h("button",{class:STATE.tcasMode==="TAONLY"?"on":"",text:"TA ONLY"},r3);
+  bta.addEventListener("click",()=>{STATE.tcasMode=STATE.tcasMode==="TAONLY"?"TARA":"TAONLY";refresh();});
+  h("div",{class:"lbl",text:"TAWS"},cp);
+  const r4=h("div",{class:"grid2"},cp);
+  const bgs=h("button",{class:STATE.gsInhibit?"on":"",text:"G/S MODE inhibit"},r4);
+  bgs.addEventListener("click",()=>{STATE.gsInhibit=!STATE.gsInhibit;refresh();});
+  const bta2=h("button",{class:STATE.tawsAlert?"on":"",text:"terrain alert"},r4);
+  bta2.addEventListener("click",()=>{STATE.tawsAlert=!STATE.tawsAlert;refresh();});
+
+  /* EFIS + MFD */
+  const c4=h("div",{class:"card"},p);
+  h("h2",{text:"EFIS control panel and MFD SURV"},c4);
+  const g4=h("div",{class:"grid3"},c4);
+  [["wx","WX"],["terr","TERR"],["traf","TRAF"]].forEach(([k,l])=>{
+    const b=h("button",{class:"small tog"+(STATE[k]?" on":""),text:l},g4);
+    b.addEventListener("click",()=>{STATE[k]=!STATE[k];refresh();});
+  });
+  h("h3",{text:"TCAS mode"},c4);
+  const g5=h("div",{class:"grid3"},c4);
+  [["TARA","TA/RA"],["TAONLY","TA ONLY"],["STBY","STBY"]].forEach(([k,l])=>{
+    const b=h("button",{class:"small"+(STATE.tcasMode===k?" tog on":""),text:l},g5);
+    b.addEventListener("click",()=>{STATE.tcasMode=k;refresh();});
+  });
+  h("h3",{text:"Transponder"},c4);
+  const g6=h("div",{class:"grid3"},c4);
+  [["AUTO","AUTO"],["ON","ON"],["STBY","STBY"]].forEach(([k,l])=>{
+    const b=h("button",{class:"small"+(STATE.xpdrMode===k?" tog on":""),text:l},g6);
+    b.addEventListener("click",()=>{STATE.xpdrMode=k;refresh();});
+  });
+  const g7=h("div",{class:"grid2"},c4);
+  const bar=h("button",{class:"small tog"+(STATE.altRptg?" on":""),text:"ALT RPTG"},g7);
+  bar.addEventListener("click",()=>{STATE.altRptg=!STATE.altRptg;refresh();});
+  const bsq=h("button",{class:"small",text:"SQWK "+STATE.squawk},g7);
+  bsq.addEventListener("click",()=>{STATE.squawk=STATE.squawk==="2000"?"2100":"2000";
+    toast("The AESU synchronises the MFD and the RMP when a new squawk code is entered.");refresh();});
+  h("div",{class:"small muted",text:S.xpdrWhy},c4);
+
+  /* intruder + conditions */
+  const c5=h("div",{class:"card"},p);
+  h("h2",{text:"Traffic and flight condition"},c5);
+  const g8=h("div",{class:"grid3"},c5);
+  [["none","no traffic"],["other","other"],["pa","proximate"],["ta","TA"],["ra","RA"]].forEach(([k,l])=>{
+    const b=h("button",{class:"small"+(STATE.threat===k?" tog on":""),text:l},g8);
+    b.addEventListener("click",()=>{STATE.threat=k;STATE.auralCancelled=false;refresh();});
+  });
+  const g9=h("div",{class:"grid3"},c5);
+  [["onGround","on ground"],["engRunning","engine running"],["pwsAlert","windshear"],["wxrAntFault","WXR ant fault"]].forEach(([k,l])=>{
+    const b=h("button",{class:"small tog"+(STATE[k]?" on":""),text:l},g9);
+    b.addEventListener("click",()=>{STATE[k]=!STATE[k];refresh();});
+  });
+  h("div",{class:"small muted",text:S.wxrWhy},c5);
+
+  /* per-unit availability */
+  const c6=h("div",{class:"card"},p);
+  h("h2",{text:"Module availability"},c6);
+  const t=h("table",{},c6);
+  t.innerHTML="<tr><th>Function</th><th>AESU 1</th><th>AESU 2</th><th>Aircraft</th></tr>";
+  ["WXR","TAWS","TCAS","XPDR"].forEach(f=>{
+    const tr=h("tr",{},t);
+    h("td",{text:f},tr);
+    [1,2].forEach(u=>{
+      const td=h("td",{},tr);
+      const b=h("button",{class:"small tog"+(STATE.avail[u][f]?" on":""),text:STATE.avail[u][f]?"✓":"✕"},td);
+      b.addEventListener("click",()=>{STATE.avail[u][f]=!STATE.avail[u][f];refresh();});
+    });
+    h("td",{html:S.fn[f]?'<span class="pill ok">available</span>':'<span class="pill bad">lost</span>'},tr);
+  });
+
+  /* trace */
+  const c7=h("div",{class:"card"},p);
+  h("h2",{text:"Signal trace"},c7);
+  const g10=h("div",{class:"grid3"},c7);
+  [["master","Master"],["alert","Alerts"],["tcas","TCAS"],["wxr","WXR"],["taws","TAWS"],["bite","BITE"]].forEach(([k,l])=>{
+    const b=h("button",{class:"small"+(STATE.trace===k?" tog on":""),text:l},g10);
+    b.addEventListener("click",()=>{STATE.trace=STATE.trace===k?null:k;refresh();});
+  });
+  if(STATE.trace){
+    const tr2=tracePath(STATE.trace);
+    h("h3",{text:tr2.t},c7);
+    const ul=h("ul",{class:"pathlist"},c7);
+    tr2.chain.forEach(x=>h("li",{class:tr2.cls,text:x},ul));
+    tr2.notes.forEach(n=>h("div",{class:"small muted",text:"· "+n},c7));
+  }
+
+  const comp=MODEL.comp[STATE.sel_];
+  if(comp){
+    const c8=h("div",{class:"card"},p);
+    h("h2",{text:comp.n},c8);
+    if(comp.loc) h("div",{class:"small muted",text:"Location: "+comp.loc},c8);
+    if(comp.pwr) h("div",{class:"small muted",text:"Power: "+comp.pwr},c8);
+    h("p",{class:"small",text:comp.note},c8);
+  }
+
+  const c9=h("div",{class:"card"},p);
+  h("h2",{text:"Glossary"},c9);
+  const gw=h("div",{},c9);
+  Object.keys(MODEL.gloss).forEach(k=>{ const s=h("span",{class:"chip",text:k},gw); s.title=MODEL.gloss[k]; });
+}
+
+let toastT=null;
+function toast(msg){
+  let t=$("toast");
+  if(!t){ t=h("div",{id:"toast"},document.body);
+    t.style.cssText="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1f2840;border:1px solid #3a4666;padding:9px 16px;border-radius:9px;z-index:99;max-width:74ch;box-shadow:0 6px 22px rgba(0,0,0,.5)"; }
+  t.textContent=msg; t.style.display="block";
+  clearTimeout(toastT); toastT=setTimeout(()=>{t.style.display="none";},5200);
+}
+function applyScenario(id){
+  const s=MODEL.scen.find(x=>x.id===id); if(!s) return;
+  STATE=freshState(); STATE.scen=id;
+  const set=s.set;
+  if(set.avail){ [1,2].forEach(u=>{ if(set.avail[u]) Object.assign(STATE.avail[u],set.avail[u]); }); }
+  ["wxrTawsSys","xpdrTcasSys","wx","terr","traf","tcasMode","scan","xpdrMode","threat","tawsAlert","pwsAlert","onGround","wxrAntFault"]
+    .forEach(k=>{ if(k in set) STATE[k]=set[k]; });
+  refresh();
+}
+function refresh(){ draw(); renderInspector(); writeHash(); if($("p-fault").classList.contains("active")) renderFault(); }
+
+/* STORE */
+function writeHash(){
+  try{
+    const s=JSON.stringify({a:STATE.avail,wt:STATE.wxrTawsSys,xt:STATE.xpdrTcasSys,wa:STATE.wxrAntFault,
+      wx:STATE.wx,te:STATE.terr,tr:STATE.traf,tm:STATE.tcasMode,sc:STATE.scan,xm:STATE.xpdrMode,
+      ar:STATE.altRptg,sq:STATE.squawk,gs:STATE.gsInhibit,th:STATE.threat,ta:STATE.tawsAlert,
+      pw:STATE.pwsAlert,og:STATE.onGround,er:STATE.engRunning,s:STATE.scen});
+    history.replaceState(null,"","#"+encodeURIComponent(s));
+  }catch(e){}
+}
+function readHash(){
+  try{
+    if(!location.hash||location.hash.length<3) return false;
+    const o=JSON.parse(decodeURIComponent(location.hash.slice(1)));
+    if(!o||!o.a) return false;
+    [1,2].forEach(u=>{ if(o.a[u]) Object.assign(STATE.avail[u],o.a[u]); });
+    STATE.wxrTawsSys=o.wt||1; STATE.xpdrTcasSys=o.xt||1; STATE.wxrAntFault=!!o.wa;
+    STATE.wx=!!o.wx; STATE.terr=!!o.te; STATE.traf=!!o.tr;
+    STATE.tcasMode=o.tm||"TARA"; STATE.scan=o.sc||"AUTO"; STATE.xpdrMode=o.xm||"AUTO";
+    STATE.altRptg=o.ar!==false; STATE.squawk=o.sq||"2000"; STATE.gsInhibit=!!o.gs;
+    STATE.threat=o.th||"none"; STATE.tawsAlert=!!o.ta; STATE.pwsAlert=!!o.pw;
+    STATE.onGround=!!o.og; STATE.engRunning=o.er!==false; STATE.scen=o.s||"S1";
+    return true;
+  }catch(e){ return false; }
+}
+
+/* =====================================================================================
+   BUILD MODE
+   ===================================================================================== */
+const PALETTE=[
+  {id:"ANT",l:"Mode S / TCAS ant",c:"#4aa8ff"},{id:"WXRANT",l:"WXR antenna",c:"#3ddc84"},
+  {id:"RTU",l:"Radar transceiver",c:"#3ddc84"},{id:"WXR",l:"WXR module",c:"#3ddc84"},
+  {id:"TAWS",l:"TAWS module",c:"#ffb020"},{id:"TCAS",l:"TCAS module",c:"#4aa8ff"},
+  {id:"XPDR",l:"XPDR module",c:"#c084fc"},{id:"IOM",l:"I/O + priority",c:"#ffd24a"},
+  {id:"ADCN",l:"ADCN",c:"#4aa8ff"},{id:"CDS",l:"CDS",c:"#4aa8ff"},
+  {id:"FWC",l:"FWC",c:"#c084fc"},{id:"AMU",l:"Audio system",c:"#c084fc"},
+  {id:"PRIM",l:"PRIM",c:"#8fa3c4"},{id:"CMS",l:"CMS",c:"#8fa3c4"},
+  {id:"CP",l:"AESS control panel",c:"#ffd24a"},{id:"SRC",l:"A/C data sources",c:"#8fa3c4"}
+];
+const TARGETS=[
+  {id:"t1",n:"The alert path out of a function module",need:[["TCAS","IOM"],["IOM","ADCN"],["ADCN","CDS"]],
+   hint:"Visual alerts go from the function module to the centralized alert management on the I/O module, then over the ADCN to the cockpit displays."},
+  {id:"t2",n:"The authorised audio path",need:[["IOM","FWC"],["FWC","AMU"]],
+   hint:"The I/O module sends authorised audio in coordination with the Flight Warning Computer."},
+  {id:"t3",n:"Traffic surveillance",need:[["ANT","TCAS"]],
+   hint:"Each AESU is connected by coaxial cable to one top and one bottom combined antenna."},
+  {id:"t4",n:"The weather radar chain",need:[["WXRANT","RTU"],["RTU","WXR"]],
+   hint:"The flat plate antenna and its drive feed two Radar Transceiver Units through the RF switch, then the WXR module."},
+  {id:"t5",n:"Escape manoeuvre data on a Resolution Advisory",need:[["TCAS","IOM"],["IOM","PRIM"]],
+   hint:"On an RA the TCAS sends the PRIMs the data to compute the escape manoeuvre."},
+  {id:"t6",n:"Maintenance — Master AESU only",need:[["IOM","CMS"]],
+   hint:"Only the Master AESU communicates with the CMS, and it does the system BITE for all the AESS components."},
+  {id:"t7",n:"Terrain awareness inputs",need:[["SRC","ADCN"],["ADCN","TAWS"]],
+   hint:"The Master AESU uses many aircraft parameters as inputs, all arriving over the ADCN."},
+  {id:"t8",n:"Crew reconfiguration",need:[["CP","IOM"]],
+   hint:"The AESS control panel assigns each function group to SYS 1 or SYS 2, which is what decides the Master."}
+];
+const STARTERS=[
+  {n:"One complete AESU",nodes:[["ANT",40,60],["WXRANT",40,150],["RTU",40,240],["WXR",340,60],["TAWS",340,150],["TCAS",340,240],["XPDR",340,330],["IOM",640,190],["ADCN",880,190],["CDS",880,60],["CMS",880,330]],
+   wires:[[0,5],[0,6],[1,2],[2,3],[3,7],[4,7],[5,7],[6,7],[7,8],[8,9],[7,10]]},
+  {n:"The alert chain only",nodes:[["TAWS",60,120],["TCAS",60,260],["IOM",400,190],["ADCN",700,120],["FWC",700,260],["CDS",960,120],["AMU",960,260]],
+   wires:[[0,2],[1,2],[2,3],[2,4],[3,5],[4,6]]},
+  {n:"Weather radar chain",nodes:[["WXRANT",100,200],["RTU",440,200],["WXR",780,200]],
+   wires:[[0,1],[1,2]]}
+];
+let BUILD={nodes:[],wires:[],sel:null,wireFrom:null,running:false,target:null,undo:[],redo:[]};
+function pushUndo(){ BUILD.undo.push(JSON.stringify({n:BUILD.nodes,w:BUILD.wires})); if(BUILD.undo.length>40)BUILD.undo.shift(); BUILD.redo.length=0; }
+function doUndo(){ if(!BUILD.undo.length)return; BUILD.redo.push(JSON.stringify({n:BUILD.nodes,w:BUILD.wires}));
+  const s=JSON.parse(BUILD.undo.pop()); BUILD.nodes=s.n; BUILD.wires=s.w; drawBuild(); }
+function doRedo(){ if(!BUILD.redo.length)return; BUILD.undo.push(JSON.stringify({n:BUILD.nodes,w:BUILD.wires}));
+  const s=JSON.parse(BUILD.redo.pop()); BUILD.nodes=s.n; BUILD.wires=s.w; drawBuild(); }
+function addNode(t,x,y){ pushUndo(); BUILD.nodes.push({t,x:x||120+Math.random()*500,y:y||120+Math.random()*400}); drawBuild(); }
+function drawBuild(){
+  const g=$("bvp"); g.innerHTML="";
+  el("rect",{x:0,y:0,width:1180,height:700,fill:"#0b0f18"},g);
+  for(let x=0;x<1180;x+=40) el("line",{x1:x,y1:0,x2:x,y2:700,stroke:"#141b28","stroke-width":1},g);
+  for(let y=0;y<700;y+=40) el("line",{x1:0,y1:y,x2:1180,y2:y,stroke:"#141b28","stroke-width":1},g);
+  BUILD.wires.forEach((w,i)=>{
+    const a=BUILD.nodes[w[0]],b=BUILD.nodes[w[1]]; if(!a||!b) return;
+    const x1=a.x+130,y1=a.y+22,x2=b.x,y2=b.y+22,mx=(x1+x2)/2;
+    const d=`M ${x1} ${y1} L ${mx} ${y1} L ${mx} ${y2} L ${x2} ${y2}`;
+    el("path",{d,fill:"none",stroke:"#4aa8ff","stroke-width":2.4},g);
+    if(BUILD.running&&ANIM) el("path",{d,fill:"none",stroke:"#7cc4ff","stroke-width":2.4,class:"flow"},g);
+    el("circle",{cx:mx,cy:(y1+y2)/2,r:5,fill:"#0b0f18",stroke:"#4aa8ff","stroke-width":1.6,style:"cursor:pointer"},g)
+      .addEventListener("click",()=>{pushUndo();BUILD.wires.splice(i,1);drawBuild();});
+  });
+  BUILD.nodes.forEach((n,i)=>{
+    const p=PALETTE.find(x=>x.id===n.t)||{l:n.t,c:"#8fa3c4"};
+    const gg=el("g",{transform:`translate(${n.x},${n.y})`,tabindex:"0",role:"button","aria-label":p.l,style:"cursor:grab"},g);
+    el("rect",{x:0,y:0,width:130,height:44,rx:7,fill:"#1b2337",
+      stroke:BUILD.sel===i?"#7cc4ff":(BUILD.wireFrom===i?"#ffb020":p.c),"stroke-width":(BUILD.sel===i||BUILD.wireFrom===i)?3:1.8},gg);
+    el("text",{x:65,y:27,"text-anchor":"middle",fill:"#e8ecf4","font-size":"11","font-weight":"600",text:p.l},gg);
+    el("circle",{cx:130,cy:22,r:5,fill:p.c,style:"cursor:crosshair"},gg)
+      .addEventListener("click",e=>{e.stopPropagation();BUILD.wireFrom=i;drawBuild();});
+    el("circle",{cx:0,cy:22,r:5,fill:"#3a4666",style:"cursor:crosshair"},gg)
+      .addEventListener("click",e=>{e.stopPropagation();
+        if(BUILD.wireFrom!=null&&BUILD.wireFrom!==i){pushUndo();BUILD.wires.push([BUILD.wireFrom,i]);BUILD.wireFrom=null;}
+        drawBuild();});
+    gg.addEventListener("click",()=>{BUILD.sel=i;drawBuild();});
+    gg.addEventListener("keydown",e=>{
+      const s=e.shiftKey?20:8;
+      if(e.key==="ArrowLeft"){n.x-=s;drawBuild();e.preventDefault();}
+      if(e.key==="ArrowRight"){n.x+=s;drawBuild();e.preventDefault();}
+      if(e.key==="ArrowUp"){n.y-=s;drawBuild();e.preventDefault();}
+      if(e.key==="ArrowDown"){n.y+=s;drawBuild();e.preventDefault();}
+      if(e.key==="Delete"||e.key==="Backspace"){delNode(i);e.preventDefault();}
+    });
+    let drag=null;
+    gg.addEventListener("pointerdown",e=>{drag={sx:e.clientX,sy:e.clientY,ox:n.x,oy:n.y};gg.setPointerCapture(e.pointerId);pushUndo();});
+    gg.addEventListener("pointermove",e=>{
+      if(!drag)return; const r=$("bsvg").getBoundingClientRect(),k=1180/r.width;
+      n.x=Math.round((drag.ox+(e.clientX-drag.sx)*k)/8)*8;
+      n.y=Math.round((drag.oy+(e.clientY-drag.sy)*k)/8)*8; drawBuild();
+    });
+    gg.addEventListener("pointerup",()=>{drag=null;});
+  });
+}
+function delNode(i){
+  pushUndo(); BUILD.nodes.splice(i,1);
+  BUILD.wires=BUILD.wires.filter(w=>w[0]!==i&&w[1]!==i).map(w=>[w[0]>i?w[0]-1:w[0],w[1]>i?w[1]-1:w[1]]);
+  BUILD.sel=null; BUILD.wireFrom=null; drawBuild();
+}
+function checkBuild(t){
+  const have=BUILD.wires.map(w=>[BUILD.nodes[w[0]]&&BUILD.nodes[w[0]].t,BUILD.nodes[w[1]]&&BUILD.nodes[w[1]].t]);
+  const missing=t.need.filter(nd=>!have.some(hv=>hv[0]===nd[0]&&hv[1]===nd[1]));
+  const extra=have.filter(hv=>!t.need.some(nd=>nd[0]===hv[0]&&nd[1]===hv[1]));
+  return {ok:missing.length===0,missing,extra};
+}
+function reachSources(idx){
+  const seen=new Set([idx]),stack=[idx],src=[];
+  while(stack.length){ const c=stack.pop();
+    BUILD.wires.forEach(w=>{ if(w[1]===c&&!seen.has(w[0])){seen.add(w[0]);stack.push(w[0]);} }); }
+  seen.forEach(i=>{ if(i!==idx){ const t=BUILD.nodes[i].t;
+    if(["ANT","WXRANT","SRC","CP","WXR","TAWS","TCAS","XPDR","IOM"].indexOf(t)>-1&&src.indexOf(t)===-1) src.push(t); }});
+  return src;
+}
+function renderBuildPanel(){
+  const p=$("buildPanel"); p.innerHTML="";
+  const c1=h("div",{class:"card"},p);
+  h("h2",{text:"Palette"},c1);
+  h("p",{class:"small muted",text:"Click to place. Click a right-hand dot then a left-hand dot to wire. Click a wire's midpoint to delete it. Arrow keys nudge the selected block; Delete removes it."},c1);
+  const g=h("div",{class:"grid2"},c1);
+  PALETTE.forEach(x=>{const b=h("button",{class:"small",text:x.l},g);b.style.borderColor=x.c;b.addEventListener("click",()=>addNode(x.id));});
+
+  const c2=h("div",{class:"card"},p);
+  h("h2",{text:"Starter architectures"},c2);
+  STARTERS.forEach(s=>{
+    const b=h("button",{class:"small",text:s.n},c2); b.style.margin="2px 4px 2px 0";
+    b.addEventListener("click",()=>{ pushUndo();
+      BUILD.nodes=s.nodes.map(n=>({t:n[0],x:n[1],y:n[2]}));
+      BUILD.wires=s.wires.filter(w=>w[0]!==w[1]&&w[0]<BUILD.nodes.length&&w[1]<BUILD.nodes.length);
+      drawBuild(); });
+  });
+
+  const c3=h("div",{class:"card"},p);
+  h("h2",{text:"Check my build"},c3);
+  const sel=h("select",{},c3);
+  h("option",{value:"",text:"— choose a target —"},sel);
+  TARGETS.forEach(t=>h("option",{value:t.id,text:t.n},sel));
+  sel.value=BUILD.target||"";
+  sel.addEventListener("change",()=>{BUILD.target=sel.value;renderBuildPanel();});
+  const res=h("div",{},c3);
+  if(BUILD.target){
+    const t=TARGETS.find(x=>x.id===BUILD.target);
+    h("p",{class:"small muted",text:t.hint},c3);
+    const b=h("button",{class:"small primary",text:"Check"},c3);
+    b.addEventListener("click",()=>{
+      const r=checkBuild(t); res.innerHTML="";
+      if(r.ok) h("div",{class:"ok-note small",text:"Correct — every required link is present."},res);
+      else{
+        h("div",{class:"err small",text:"Missing: "+r.missing.map(m=>m[0]+" → "+m[1]).join(", ")},res);
+        if(r.extra.length) h("div",{class:"notice small",text:"Links not required by this target: "+r.extra.map(m=>m[0]+" → "+m[1]).join(", ")},res);
+      }
+    });
+  }
+  const c4=h("div",{class:"card"},p);
+  h("h2",{text:"Instruments"},c4);
+  h("p",{class:"small muted",text:"System archetype: a path continuity tester and a source readout, not a voltmeter or an oscilloscope."},c4);
+  const bt=h("button",{class:"small",text:"Path continuity test"},c4);
+  const out=h("div",{class:"small"},c4);
+  bt.addEventListener("click",()=>{
+    const sinks=BUILD.nodes.map((n,i)=>[n,i]).filter(([n])=>["CDS","AMU","PRIM","CMS","ADCN"].indexOf(n.t)>-1);
+    if(!sinks.length){ out.innerHTML='<div class="err small">Place a CDS, audio, PRIM or CMS block first.</div>'; return; }
+    out.innerHTML=sinks.map(([n,i])=>{
+      const s=reachSources(i);
+      return `<div class="${s.length?"ok-note":"err"} small">${n.t} #${i+1}: ${s.length?"reached from "+s.join(", "):"floating — nothing reaches it"}</div>`;
+    }).join("");
+  });
+
+  const c5=h("div",{class:"card"},p);
+  h("h2",{text:"Export / import"},c5);
+  const ta=h("textarea",{rows:"5",style:"width:100%"},c5);
+  ta.value=JSON.stringify({n:BUILD.nodes,w:BUILD.wires});
+  const r=h("div",{class:"grid2"},c5);
+  h("button",{class:"small",text:"Copy JSON"},r).addEventListener("click",()=>{ta.select();try{document.execCommand("copy");toast("Copied.");}catch(e){toast("Select the text and copy manually.");}});
+  h("button",{class:"small",text:"Load JSON"},r).addEventListener("click",()=>{
+    try{const o=JSON.parse(ta.value);pushUndo();BUILD.nodes=o.n||[];BUILD.wires=o.w||[];drawBuild();toast("Loaded.");}
+    catch(e){toast("That is not valid JSON.");}
+  });
+}
+
+/* =====================================================================================
+   FAULT LAB
+   ===================================================================================== */
+const FAULTS=[
+  {id:"f1",n:"AESU 1 entirely unavailable",apply:s=>{s.avail[1]={WXR:false,TAWS:false,TCAS:false,XPDR:false};s.wxrTawsSys=1;},
+   ind:"The WXR/TAWS group is still assigned to AESU 1, which is dead, so nothing works. AESU 1 remains the Master because the Master is the unit with the WXR/TAWS group activated.",
+   iso:"RECONF",fix:"Move both reconfiguration pushbuttons to SYS 2, on the AESS control panel or on the MFD Status & Switching page. AESU 2 then becomes the Master and does all the surveillance functions.",
+   misc:"Breaks the belief that a single AESU failure automatically loses half the surveillance."},
+  {id:"f2",n:"Downgraded mode type 1 — complementary losses",apply:s=>{s.avail[1].WXR=false;s.avail[2].TAWS=false;},
+   ind:"The weather radar is unavailable in AESU 1 and the terrain function in AESU 2 — one function from the same group missing in each unit. The AESS can still do all the surveillance functions, because each unit takes the missing data from the other.",
+   iso:"DG1",fix:"No immediate crew action. Record both faults; the system is in downgraded mode type 1 and remains fully capable.",
+   misc:"Two faults do not necessarily mean two lost functions."},
+  {id:"f3",n:"Downgraded mode type 2 — the same function lost twice",apply:s=>{s.avail[1].TCAS=false;s.avail[2].TCAS=false;},
+   ind:"The traffic collision avoidance function is unavailable in both units. The AESS cannot do that surveillance, but it can still do the functions that remain available.",
+   iso:"DG2",fix:"Rectify one of the two TCAS modules. Until then the aircraft has no traffic surveillance, while weather, terrain and transponder are unaffected.",
+   misc:"Distinguishes the two downgraded types, which look identical on a fault count."},
+  {id:"f4",n:"Weather radar antenna fault",apply:s=>{s.wxrAntFault=true;s.wx=true;},
+   ind:"The weather radar function is lost with only one fault, and the AESS goes to downgraded mode: a defective weather radar antenna or RF switch is itself a downgrade trigger.",
+   iso:"WXRANT",fix:"Rectify the antenna, the drive unit, the Radar Transceiver Units or the RF switch. On any WXR test, ensure the antenna area is clear — the antenna will move and a test pulse will be emitted.",
+   misc:"One fault that counts as a downgrade, unlike the two-fault rule."},
+  {id:"f5",n:"Traffic Advisory with TRAF not selected",apply:s=>{s.traf=false;s.threat="ta";},
+   ind:"The traffic display was not selected on the EFIS control panel, but the intruder appears anyway — any detected threat pops its display up on the ND, overriding the crew's selection.",
+   iso:"POPUP",fix:"No defect. This is the automatic pop-up behaviour.",
+   misc:"Breaks the belief that deselecting a display prevents its alerts from reaching you."},
+  {id:"f6",n:"Resolution Advisory not displayed",apply:s=>{s.traf=true;s.threat="ra";s.tcasMode="TAONLY";},
+   ind:"An intruder is a real collision threat but there is no resolution advisory on the PFD. TA ONLY is selected, so the RA display is not sent to the NDs.",
+   iso:"TAONLY",fix:"No equipment defect. Select TA/RA on the MFD SURV page, or release the TA ONLY key on the AESS control panel.",
+   misc:"Separates TA ONLY, which still shows advisories, from STBY, which shows nothing."},
+  {id:"f7",n:"No traffic display at all",apply:s=>{s.traf=true;s.threat="ra";s.tcasMode="STBY";},
+   ind:"No traffic display on the NDs and no resolution advisory on the PFDs. In STBY the surveillance and advisory functions are not available.",
+   iso:"STBY",fix:"No equipment defect. Select TA/RA on the MFD SURV page.",
+   misc:"The other half of the TA ONLY versus STBY distinction."},
+  {id:"f8",n:"Transponder not replying on the ground",apply:s=>{s.onGround=true;s.xpdrMode="AUTO";s.engRunning=false;},
+   ind:"The transponder is not sending automatic Mode A and C replies. In AUTO the transponder does not transmit automatic replies when the aircraft is on the ground.",
+   iso:"XPDRAUTO",fix:"No defect. Select ON if replies are required on the ground; the transponder can then reply in flight or on the ground.",
+   misc:"Breaks the belief that the transponder replies to everything all the time."},
+  {id:"f9",n:"Altitude not reported to ATC",apply:s=>{s.altRptg=false;},
+   ind:"The transponder replies normally but transmits no altitude information. ALT RPTG is set to OFF.",
+   iso:"ALTRPTG",fix:"Set ALT RPTG to ON on the MFD SURV page.",
+   misc:"A single soft switch with an effect that is invisible on the aircraft's own displays."},
+  {id:"f10",n:"Weather radar will not start on the ground",apply:s=>{s.onGround=true;s.engRunning=false;s.wx=true;},
+   ind:"The WX key is pushed but the radar is not operating. On the ground the weather radar function operates automatically only when at least one engine starts and the EFIS WX key is pushed. In flight it operates without conditions.",
+   iso:"WXRGND",fix:"No defect. Start an engine, or accept that the radar stays off on the ground with no engine running.",
+   misc:"A condition, not a failure."},
+  {id:"f11",n:"Terrain alert with no aural",apply:s=>{s.tawsAlert=true;s.gsInhibit=true;},
+   ind:"The terrain display pops up on the ND but there is no aural alert. The G/S MODE key has been pushed, which inhibits the corresponding visual and aural alert.",
+   iso:"GSINHIB",fix:"Release the G/S MODE key on the AESS control panel, or set G/S MODE to ON on the MFD SURV page.",
+   misc:"A deliberate inhibit that looks exactly like an audio failure."},
+  {id:"f12",n:"Master assigned to a unit with no weather radar",apply:s=>{s.avail[2].WXR=false;s.wxrTawsSys=2;s.avail[1].TAWS=false;},
+   ind:"AESU 2 is Master because the WXR/TAWS group is activated there, even though its weather radar function is not available. The Master AESU should be the one where the WXR function is available.",
+   iso:"MASTER",fix:"Move the WXR TAWS reconfiguration pushbutton to SYS 1, so the Master is the unit where the weather radar function is available.",
+   misc:"The Master is chosen by a switch position, not by the health of the unit."}
+];
+let FL=null;
+function newAttempt(id){
+  const f=FAULTS.find(x=>x.id===id)||FAULTS[0];
+  STATE=freshState(); f.apply(STATE);
+  FL={fault:f,tests:0,log:[],steps:{Observe:false,Hypothesise:false,Test:false,Isolate:false,Rectify:false,Verify:false},
+      guess:null,done:false,seed:$("fSeed").value||String(Date.now()).slice(-6)};
+  refresh(); renderFault();
+}
+function logF(s){ if(!FL)return; FL.log.unshift(new Date().toLocaleTimeString()+"  "+s); }
+function renderFlow(){
+  const e=$("fSteps"); if(!e)return; e.innerHTML="";
+  ["Observe","Hypothesise","Test","Isolate","Rectify","Verify"].forEach(s=>{
+    const sp=h("span",{class:"chip",text:s},e);
+    if(FL&&FL.steps[s]){sp.style.borderColor="#2c8f55";sp.style.color="var(--avail)";}
+  });
+}
+function runTest(n){
+  const S=solve();
+  switch(n){
+    case "Master and mode": return "Master AESU "+S.master+", "+S.mode+" mode"+(S.dgType?" type "+S.dgType:"")+" — "+S.modeWhy;
+    case "Module availability": return [1,2].map(u=>"AESU "+u+": "+["WXR","TAWS","TCAS","XPDR"].map(f=>f+(STATE.avail[u][f]?"✓":"✕")).join(" ")).join(" | ");
+    case "Function to the aircraft": return ["WXR","TAWS","TCAS","XPDR"].map(f=>f+(S.fn[f]?"✓":"✕")).join(" ");
+    case "ND readout": return "WXR "+(S.ndWx?"shown":"off")+", TERR "+(S.ndTerr?"shown":"off")+", TRAF "+(S.ndTraf?"shown":"off")+
+      "; message "+S.tcasMsg+(S.popTraf||S.popTerr||S.popWx?"; automatic pop-up active":"");
+    case "PFD and aural": return (S.raShown?"RA avoidance orders and safe vertical speed scale on the PFD":"no PFD advisory")+
+      "; aurals: "+(S.aurals.length?S.aurals.map(a=>a.src).join(", "):"none");
+    case "TCAS settings": return "mode "+STATE.tcasMode+", scan "+STATE.scan+" — "+S.scanBand;
+    case "XPDR settings": return "mode "+STATE.xpdrMode+", ALT RPTG "+(STATE.altRptg?"ON":"OFF")+", SQWK "+STATE.squawk+" — "+S.xpdrWhy;
+    case "WXR conditions": return S.wxrWhy+(STATE.wxrAntFault?"; weather radar antenna fault recorded":"");
+    case "OMS AESS test": {
+      const m=[];
+      [1,2].forEach(u=>["WXR","TAWS","TCAS","XPDR"].forEach(f=>{ if(!STATE.avail[u][f]) m.push("AESU "+u+" "+f); }));
+      if(STATE.wxrAntFault) m.push("WXR antenna");
+      return (m.length?m.join(", ")+" recorded":"no AESS fault recorded")+
+        " — tests: Master AESU module tests, AESU aural alerts, audio test, display test, system test (only the Master talks to the CMS)";
+    }
+  }
+  return "—";
+}
+function renderFault(){
+  const p=$("faultPanel"); p.innerHTML="";
+  const exam=$("fExam").getAttribute("aria-pressed")==="true";
+  renderFlow();
+  if($("fInstr").getAttribute("aria-pressed")==="true"){
+    const ci=h("div",{class:"card"},p);
+    h("h2",{text:"Instructor — inject a fault"},ci);
+    FAULTS.forEach(f=>{
+      const b=h("button",{class:"small",text:f.n},ci); b.style.cssText+="display:block;width:100%;text-align:left;margin-bottom:3px";
+      b.addEventListener("click",()=>{$("fSeed").value=f.id;newAttempt(f.id);});
+    });
+    h("p",{class:"small muted",text:"Exam mode hides the fault name and the hints, and shows the seed so a run can be reproduced."},ci);
+  }
+  if(!FL){ h("div",{class:"card",html:"<h2>Fault Lab</h2><p class='small muted'>Open the instructor panel to inject a fault, or press Random fault.</p>"},p); drawFaultView(); return; }
+
+  const c=h("div",{class:"card"},p);
+  h("h2",{text:exam?"Unknown case — seed "+FL.seed:FL.fault.n},c);
+  h("div",{class:"small muted",text:"Tests used: "+FL.tests},c);
+  h("h3",{text:"1 · Observe"},c);
+  const bo=h("button",{class:"small",text:"Record the indications"},c);
+  bo.addEventListener("click",()=>{FL.steps.Observe=true;logF("Observed indications.");renderFault();});
+  if(FL.steps.Observe&&!exam) h("div",{class:"ok-note small",text:FL.fault.ind},c);
+
+  h("h3",{text:"2 · Test"},c);
+  const tg=h("div",{class:"grid2"},c);
+  ["Master and mode","Module availability","Function to the aircraft","ND readout","PFD and aural","TCAS settings","XPDR settings","WXR conditions","OMS AESS test"].forEach(n=>{
+    const b=h("button",{class:"small",text:n},tg);
+    b.addEventListener("click",()=>{FL.tests++;FL.steps.Test=true;logF("Test: "+n+" → "+runTest(n));renderFault();});
+  });
+
+  h("h3",{text:"3 · Isolate"},c);
+  const sel=h("select",{},c);
+  h("option",{value:"",text:"— name the cause —"},sel);
+  ["RECONF","DG1","DG2","WXRANT","POPUP","TAONLY","STBY","XPDRAUTO","ALTRPTG","WXRGND","GSINHIB","MASTER"].forEach(x=>h("option",{value:x,text:x},sel));
+  const bi=h("button",{class:"small primary",text:"Submit isolation"},c);
+  bi.addEventListener("click",()=>{
+    if(!sel.value){toast("Choose a cause first.");return;}
+    FL.guess=sel.value; FL.steps.Hypothesise=true; FL.steps.Isolate=true;
+    logF("Isolated to "+sel.value+" — "+(sel.value===FL.fault.iso?"correct":"incorrect"));
+    renderFault();
+  });
+  if(FL.guess) h("div",{class:FL.guess===FL.fault.iso?"ok-note small":"err small",
+    text:FL.guess===FL.fault.iso?"Correct.":"Not the cause. Ask first whether anything is actually broken, or whether a switch is simply where it is."},c);
+
+  h("h3",{text:"4 · Rectify and verify"},c);
+  const br=h("button",{class:"small",text:"Rectify"},c);
+  br.addEventListener("click",()=>{
+    if(FL.guess!==FL.fault.iso){toast("Isolate correctly before rectifying.");return;}
+    STATE=freshState(); FL.steps.Rectify=true; logF("Rectified: "+FL.fault.fix); refresh(); renderFault();
+  });
+  const bv=h("button",{class:"small",text:"Verify"},c); bv.style.marginLeft="6px";
+  bv.addEventListener("click",()=>{
+    if(!FL.steps.Rectify){toast("Rectify first.");return;}
+    const S=solve();
+    const ok=S.mode==="NORMAL" && ["WXR","TAWS","TCAS","XPDR"].every(f=>S.fn[f]) &&
+      STATE.tcasMode==="TARA" && STATE.xpdrMode==="AUTO" && STATE.altRptg && !STATE.gsInhibit;
+    FL.steps.Verify=ok; FL.done=ok; logF("Verification "+(ok?"passed — normal mode with every surveillance function available.":"failed."));
+    renderFault();
+  });
+
+  if(FL.done){
+    const d=h("div",{class:"card"},p);
+    h("h2",{text:"Debrief"},d);
+    const eff=Math.max(0,Math.round(100*(1/Math.max(1,FL.tests))));
+    h("div",{class:"kv",html:`<dt>Case</dt><dd>${FL.fault.n}</dd><dt>Correct cause</dt><dd>${FL.fault.iso}</dd>
+      <dt>Tests used</dt><dd>${FL.tests} (minimum 1)</dd><dt>Efficiency</dt><dd>${eff}%</dd><dt>Seed</dt><dd>${FL.seed}</dd>`},d);
+    h("h3",{text:"Indications"},d); h("p",{class:"small",text:FL.fault.ind},d);
+    h("h3",{text:"Correct action"},d); h("p",{class:"small",text:FL.fault.fix},d);
+    h("h3",{text:"What this case teaches"},d); h("p",{class:"small",text:FL.fault.misc},d);
+  }
+
+  const lg=h("div",{class:"card"},p);
+  h("h2",{text:"Action log"},lg);
+  h("div",{class:"log",text:FL.log.join("\n")},lg);
+  drawFaultView();
+}
+function drawFaultView(){ renderArch("fvp"); drawLegend("flegend"); $("fsvg").setAttribute("viewBox","0 0 1180 700"); }
+
+/* =====================================================================================
+   LEARN
+   ===================================================================================== */
+const LESSON=[
+  {t:"One system, four surveillances",lo:"LO1",
+   txt:"The AESS puts weather radar with predictive windshear, terrain awareness and warning, traffic collision avoidance and the transponder into two identical units. Each unit has five modules — those four plus an input/output module that also does the centralized alert priority management.",
+   act:"Click each AESU in the Explore view and read the five modules.",
+   ask:"Why put four unrelated surveillances into one box?",
+   check:()=>true,hint:"Click an AESU block."},
+  {t:"Two function groups",lo:"LO1",
+   txt:"The five modules are organised as two function groups: weather radar with terrain awareness, and traffic collision avoidance with the transponder. Each group has its own power supply unit inside the AESU, and each group is assigned to SYS 1 or SYS 2 by its own reconfiguration pushbutton.",
+   act:"Move the XPDR TCAS pushbutton to SYS 2 and watch the groups split.",
+   ask:"What is the system called when the two groups sit in different units?",
+   check:()=>STATE.wxrTawsSys!==STATE.xpdrTcasSys,hint:"Set the two reconfiguration pushbuttons to different systems."},
+  {t:"What makes a unit the Master",lo:"LO2",
+   txt:"The Master AESU is the one with the WXR/TAWS function group activated — on the control panel or on the MFD Status & Switching page. Only the Master sends data to the aircraft and only the Master communicates with the CMS. The non-Master sends its data to the Master alone.",
+   act:"Move the WXR TAWS pushbutton to SYS 2 and watch the MASTER badge move.",
+   ask:"Predict first: does moving the XPDR TCAS pushbutton change which unit is Master?",
+   check:()=>STATE.wxrTawsSys===2,hint:"Set the WXR TAWS reconfiguration pushbutton to SYS 2."},
+  {t:"Three modes of operation",lo:"LO2",
+   txt:"Normal is both groups in one unit. Mixed is one group in each unit. Downgraded is triggered by a defective weather radar antenna or RF switch, or by a minimum of two faults one after the other.",
+   act:"Open the Reconfiguration view and create each of the three modes in turn.",
+   ask:"Which single component failure puts the system straight into downgraded mode?",
+   check:()=>solve().mode!=="NORMAL",hint:"Split the groups, or fail a module, or set the WXR antenna fault."},
+  {t:"The two downgraded types",lo:"LO2",
+   txt:"In type 1 the losses are complementary — a function missing in one unit and the other function of the same group missing in the other — so each unit takes the missing data from the other and the AESS can still do everything. In type 2 the same function is unavailable in both units, and that surveillance is lost.",
+   act:"Load the type 1 scenario, then the type 2 scenario, and compare the function availability row.",
+   ask:"Both cases have two faults. Why does only one of them lose a capability?",
+   check:()=>solve().dgType!=null,hint:"Choose one of the two downgraded scenarios."},
+  {t:"The four intruder categories",lo:"LO3",
+   txt:"Other traffic sits from ±1200 ft to ±9900 ft and closer than 30 NM, shown as an open diamond. Proximate traffic is within 1200 ft and 6 NM, a solid white diamond. A Traffic Advisory is a potential collision threat — an amber filled circle with an aural message. A Resolution Advisory is a real collision threat — a red filled square with an aural message and avoidance manoeuvre orders on the PFD.",
+   act:"Open the TCAS view and click through all four categories.",
+   ask:"Which is the first category that produces any sound at all?",
+   check:()=>STATE.threat!=="none",hint:"Select an intruder category."},
+  {t:"TA ONLY is not STBY",lo:"LO4",
+   txt:"In TA ONLY the traffic advisories are still shown, but the resolution advisory display is not sent to the NDs. In STBY the surveillance and advisory functions are not available at all — no traffic on the NDs and no resolution advisory on the PFDs.",
+   act:"Set an RA intruder, then compare TA ONLY with STBY.",
+   ask:"Predict first: in TA ONLY, does the RA intruder disappear completely?",
+   check:()=>STATE.tcasMode!=="TARA",hint:"Select TA ONLY or STBY under TCAS mode."},
+  {t:"The scanning bands",lo:"LO4",
+   txt:"ABV limits the traffic display to −2700 ft to +9000 ft, BLW to −9000 ft to +2700 ft. The automatic mode is active when both keys are off, and the TCAS then selects the proper altitude band from the flight plan and the vertical rate.",
+   act:"Press ABV, then BLW, then release both to return to automatic.",
+   ask:"Why would a crew deliberately narrow the band they can see?",
+   check:()=>STATE.scan!=="AUTO",hint:"Press ABV or BLW on the control panel."},
+  {t:"The automatic pop-up",lo:"LO4",
+   txt:"If a function detects a threat, its display pops up on the ND automatically even if it was not selected — overriding the selection made by the crew. Deselecting TERR or TRAF does not hide you from an alert.",
+   act:"Turn TRAF off, then set a Traffic Advisory, and watch what the ND does.",
+   ask:"What does that tell you about the purpose of the EFIS selection keys?",
+   check:()=>solve().popTraf||solve().popTerr,hint:"Set a TA or RA intruder, or a terrain alert."},
+  {t:"The transponder is conditional",lo:"LO5",
+   txt:"In AUTO the transponder does not transmit automatic Mode A and C replies when the aircraft is on the ground. In ON it can reply in flight or on the ground. In STBY it sends no replies. With ALT RPTG OFF it replies but transmits no altitude. It answers interrogations at 1030 MHz with replies at 1090 MHz.",
+   act:"Put the aircraft on the ground with the transponder in AUTO, then select ON.",
+   ask:"Why suppress automatic replies on the ground at all?",
+   check:()=>STATE.onGround||STATE.xpdrMode!=="AUTO",hint:"Press on ground, or change the transponder mode."},
+  {t:"The weather radar has conditions on the ground",lo:"LO5",
+   txt:"On the ground the weather radar operates automatically when at least one engine starts and the EFIS WX key is pushed. In flight it operates without conditions. The predictive windshear function is started automatically from the engine take-off power information.",
+   act:"Put the aircraft on the ground with no engine running and the WX key pushed.",
+   ask:"Is a radar that will not start on the ground a fault?",
+   check:()=>STATE.onGround,hint:"Press on ground under Traffic and flight condition."},
+  {t:"Alerts, and what the notes do not say",lo:"LO6",
+   txt:"Visual alerts and audio requests go from the function module to the centralized alert management on the Master AESU's input/output module, which sends the visuals over the ADCN and the authorised audio in coordination with the Flight Warning Computer. The notes confirm that this priority management exists but never publish the ranking between the four surveillance functions, and they give no aural wording at all.",
+   act:"Press the Alerts signal trace and read the notes underneath it.",
+   ask:"How should a technician answer an exam question about which alert wins?",
+   check:()=>STATE.trace==="alert"||STATE.trace==="master",hint:"Press the Alerts or Master signal trace button."},
+  {t:"Maintenance",lo:"LO6",
+   txt:"The Master AESU does the system BITE for all the AESS components and it is the only unit that communicates with the CMS. The OMS menu offers five interactive tests: Master AESU module tests, AESU aural alerts, audio test, display test and system test. On the weather radar test and the system test, the antenna will move and a test pulse will be emitted.",
+   act:"Press the BITE signal trace and read the caution.",
+   ask:"What must be confirmed before either of those two tests is started?",
+   check:()=>STATE.trace==="bite",hint:"Press the BITE signal trace button."}
+];
+const QUIZ=[
+  {q:"How many modules does each AESU contain, and how are they grouped?",lo:"LO1",
+   a:["Four modules in one group","Five modules in two function groups","Two modules in two groups","Five modules with no grouping"],c:1,
+   e:"WXR with predictive windshear, TAWS, TCAS, XPDR and the input/output module — organised as the WXR/TAWS group and the TCAS/XPDR group."},
+  {q:"Which unit is the Master AESU?",lo:"LO2",
+   a:["Always AESU 1","The one with the WXR/TAWS function group activated","The one with the TCAS/XPDR group activated","Whichever powers up first"],c:1,
+   e:"The Master is the unit where the WXR/TAWS group is activated, on the control panel or the MFD Status & Switching page. Only the Master sends data to the aircraft and to the CMS."},
+  {q:"What does the non-Master AESU do with its data?",lo:"LO2",
+   a:["Sends it directly to the CDS","Sends it to the Master AESU only","Discards it","Sends it to the CMS"],c:1,
+   e:"The non-Master sends data to the Master AESU only; the Master is the single point of contact with the aircraft and the CMS."},
+  {q:"Which of these puts the AESS into downgraded mode on its own?",lo:"LO2",
+   a:["Splitting the two function groups between units","A defective weather radar antenna or RF switch","Selecting TA ONLY","Losing one transponder module"],c:1,
+   e:"A defective weather radar antenna or RF switch is a downgrade trigger by itself; otherwise downgraded mode needs a minimum of two faults, one after the other."},
+  {q:"In downgraded mode type 1…",lo:"LO2",
+   a:["one surveillance function is lost","the AESS can still do all the surveillance functions","both AESUs are lost","the Master changes automatically"],c:1,
+   e:"The losses are complementary, so the unit missing a function receives that data from the other unit."},
+  {q:"Proximate traffic is defined as…",lo:"LO3",
+   a:["±1200 ft to ±9900 ft","altitude difference less than 1200 ft and range within 6 NM","closer than 30 NM at any altitude","any intruder inside 40 NM"],c:1,
+   e:"That is the proximate criterion. Other traffic is the ±1200 ft to ±9900 ft band, closer than 30 NM."},
+  {q:"What does a Resolution Advisory give the crew that a Traffic Advisory does not?",lo:"LO3",
+   a:["A symbol on the ND","An aural message","Avoidance manoeuvre orders on the PFD and a safe vertical speed scale","A different colour"],c:2,
+   e:"Both give a symbol and an aural message; only the RA adds the manoeuvre orders, and the TCAS sends the PRIMs the data for an escape manoeuvre."},
+  {q:"With TCAS in STBY…",lo:"LO4",
+   a:["traffic advisories are still shown","no traffic display on the NDs and no resolution advisory on the PFDs","only resolution advisories are shown","the transponder also stops replying"],c:1,
+   e:"In STBY the surveillance and advisory functions are not available at all. TA ONLY is different — it still shows traffic advisories."},
+  {q:"The ABV scanning mode limits the traffic display to…",lo:"LO4",
+   a:["−9000 ft to +2700 ft","−2700 ft to +9000 ft","±1200 ft","40 NM to 100 NM"],c:1,
+   e:"ABV is −2700 ft to +9000 ft and BLW is −9000 ft to +2700 ft. With both keys off the automatic mode selects the band itself."},
+  {q:"You have deselected TERR on the EFIS control panel and a terrain threat is detected. What happens?",lo:"LO4",
+   a:["Nothing — the display is deselected","The terrain display pops up automatically, overriding your selection","Only an aural alert is given","The alert is deferred until TERR is selected"],c:1,
+   e:"Any detected threat pops its display up on the ND, overriding the selection made by the crew."},
+  {q:"With the transponder in AUTO and the aircraft on the ground…",lo:"LO5",
+   a:["it replies normally","it does not transmit automatic Mode A and C replies","it sends no replies at all, ever","it transmits altitude only"],c:1,
+   e:"In ON it can reply in flight or on the ground; in STBY it sends no replies at all."},
+  {q:"Which statement about AESS alert priority is correct?",lo:"LO6",
+   a:["TCAS always wins over TAWS","TAWS always wins over TCAS","A centralized priority function exists, but these notes do not publish the ranking","There is no priority management"],c:2,
+   e:"The notes confirm the centralized alert management on the Master AESU's I/O module and its coordination with the Flight Warning Computer, but they never publish the ranking between the surveillance functions."}
+];
+let LEARN={cur:0,done:[],ans:{},name:""};
+function renderRail(){
+  const r=$("rail"); r.innerHTML="";
+  h("h2",{text:"Lesson"},r);
+  LESSON.forEach((s,i)=>{
+    const d=h("div",{class:"step"+(LEARN.cur===i?" cur":"")+(LEARN.done.indexOf(i)>-1?" done":""),tabindex:"0",role:"button"},r);
+    h("span",{class:"n",text:LEARN.done.indexOf(i)>-1?"✓":String(i+1)},d);
+    h("span",{html:"<strong>"+s.t+"</strong><br><span class='muted small'>"+s.lo+"</span>"},d);
+    d.addEventListener("click",()=>{LEARN.cur=i;renderLearn();});
+    d.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();LEARN.cur=i;renderLearn();}});
+  });
+  const d=h("div",{class:"step"+(LEARN.cur>=LESSON.length?" cur":""),tabindex:"0",role:"button"},r);
+  h("span",{class:"n",text:"Q"},d); h("span",{html:"<strong>Final quiz</strong><br><span class='muted small'>12 questions</span>"},d);
+  d.addEventListener("click",()=>{LEARN.cur=LESSON.length;renderLearn();});
+  d.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();LEARN.cur=LESSON.length;renderLearn();}});
+}
+function renderLearn(){
+  renderRail();
+  const b=$("learnBody"); b.innerHTML="";
+  if(LEARN.cur>=LESSON.length){ renderQuiz(); return; }
+  const s=LESSON[LEARN.cur];
+  h("h2",{text:"Step "+(LEARN.cur+1)+" of "+LESSON.length+" — "+s.t},b);
+  h("p",{text:s.txt},b);
+  h("div",{class:"card",html:"<strong>Do this</strong><br>"+s.act},b);
+  h("div",{class:"notice",html:"<strong>Predict first — ask the class:</strong> "+s.ask},b);
+  const row=h("div",{},b), res=h("div",{},b);
+  const bc=h("button",{class:"small primary",text:"Check this step"},row);
+  bc.addEventListener("click",()=>{
+    res.innerHTML="";
+    if(s.check()){ if(LEARN.done.indexOf(LEARN.cur)===-1) LEARN.done.push(LEARN.cur);
+      h("div",{class:"ok-note",text:"Completed."},res); renderRail(); }
+    else h("div",{class:"notice",text:s.hint},res);
+  });
+  const bn=h("button",{class:"small",text:"Next step ▸"},row); bn.style.marginLeft="6px";
+  bn.addEventListener("click",()=>{LEARN.cur=Math.min(LESSON.length,LEARN.cur+1);renderLearn();});
+  const bp=h("button",{class:"small",text:"◂ Previous"},row); bp.style.marginLeft="6px";
+  bp.addEventListener("click",()=>{LEARN.cur=Math.max(0,LEARN.cur-1);renderLearn();});
+}
+function renderQuiz(){
+  const b=$("learnBody"); b.innerHTML="";
+  h("h2",{text:"Final quiz"},b);
+  const nm=h("label",{html:"Student name "},b);
+  const ni=h("input",{type:"text",value:LEARN.name},nm);
+  ni.addEventListener("input",()=>{LEARN.name=ni.value;});
+  QUIZ.forEach((q,i)=>{
+    const d=h("div",{class:"q"},b);
+    h("div",{html:"<strong>"+(i+1)+".</strong> "+q.q+" <span class='pill'>"+q.lo+"</span>"},d);
+    q.a.forEach((a,j)=>{
+      const l=h("label",{},d);
+      const r=h("input",{type:"radio",name:"q"+i,value:String(j)},l);
+      if(LEARN.ans[i]===j) r.checked=true;
+      r.addEventListener("change",()=>{LEARN.ans[i]=j;});
+      h("span",{text:" "+a},l);
+    });
+    h("div",{id:"qe"+i,class:"small"},d);
+  });
+  const bs=h("button",{class:"primary",text:"Submit quiz"},b);
+  const out=h("div",{},b);
+  bs.addEventListener("click",()=>{
+    let score=0; const byLO={};
+    QUIZ.forEach((q,i)=>{
+      const e=$("qe"+i), ok=LEARN.ans[i]===q.c;
+      if(ok) score++;
+      byLO[q.lo]=byLO[q.lo]||[0,0]; byLO[q.lo][1]++; if(ok) byLO[q.lo][0]++;
+      e.innerHTML=(ok?"<span class='ok'>Correct.</span> ":"<span class='bad'>Not correct.</span> ")+q.e;
+    });
+    out.innerHTML="";
+    h("h3",{text:"Result"},out);
+    let txt="A380 ATA 34 — Aircraft Environment Surveillance System\nStudent: "+(LEARN.name||"(name not entered)")+
+      "\nDate: "+new Date().toISOString().slice(0,10)+"\nScore: "+score+" / "+QUIZ.length+"  ("+Math.round(100*score/QUIZ.length)+"%)\n\nBy learning outcome:\n";
+    Object.keys(byLO).sort().forEach(k=>{ txt+="  "+k+": "+byLO[k][0]+" / "+byLO[k][1]+"\n"; });
+    const ta=h("textarea",{rows:"10",style:"width:100%;font-family:ui-monospace,monospace"},out);
+    ta.value=txt;
+    h("p",{class:"small muted",text:"Copy this block into Brightspace."},out);
+  });
+}
+
+/* =====================================================================================
+   WIRING
+   ===================================================================================== */
+function initTabs(){
+  const tabs=[["t-explore","p-explore"],["t-build","p-build"],["t-fault","p-fault"],["t-learn","p-learn"]];
+  tabs.forEach(([t,pnl])=>{
+    $(t).addEventListener("click",()=>{
+      tabs.forEach(([t2,p2])=>{ $(t2).setAttribute("aria-selected",t2===t?"true":"false"); $(p2).classList.toggle("active",p2===pnl); });
+      if(pnl==="p-build"){ drawBuild(); renderBuildPanel(); }
+      if(pnl==="p-fault") renderFault();
+      if(pnl==="p-learn") renderLearn();
+      if(pnl==="p-explore") draw();
+    });
+    $(t).addEventListener("keydown",e=>{
+      const i=tabs.findIndex(x=>x[0]===t);
+      if(e.key==="ArrowRight"){const n=tabs[(i+1)%tabs.length][0];$(n).focus();$(n).click();}
+      if(e.key==="ArrowLeft"){const n=tabs[(i+tabs.length-1)%tabs.length][0];$(n).focus();$(n).click();}
+    });
+  });
+}
+function initExplore(){
+  const s=$("selScen");
+  MODEL.scen.forEach(x=>h("option",{value:x.id,text:x.id+" · "+x.n},s));
+  s.value=STATE.scen;
+  s.addEventListener("change",()=>applyScenario(s.value));
+  $("selView").addEventListener("change",draw);
+  $("btnFit").addEventListener("click",()=>{VIEWBOX={x:0,y:0,w:1180,h:700};applyVB("svg");});
+  $("btnZin").addEventListener("click",()=>{VIEWBOX.w*=0.82;VIEWBOX.h*=0.82;VIEWBOX.x+=VIEWBOX.w*0.11;VIEWBOX.y+=VIEWBOX.h*0.11;applyVB("svg");});
+  $("btnZout").addEventListener("click",()=>{VIEWBOX.x-=VIEWBOX.w*0.11;VIEWBOX.y-=VIEWBOX.h*0.11;VIEWBOX.w/=0.82;VIEWBOX.h/=0.82;applyVB("svg");});
+  $("btnBuildup").addEventListener("click",()=>{
+    BUILDUP=!BUILDUP; BUILDUPI=0;
+    $("btnBuildup").classList.toggle("on",BUILDUP);
+    $("btnStepNext").disabled=!BUILDUP;
+    $("buildupTxt").textContent=BUILDUP?BUILDUP_SEQ[0][1]:"";
+    if(BUILDUP) $("selView").value="arch";
+    draw();
+  });
+  $("btnStepNext").addEventListener("click",()=>{
+    if(!BUILDUP)return;
+    BUILDUPI=Math.min(BUILDUP_SEQ.length-1,BUILDUPI+1);
+    $("buildupTxt").textContent=BUILDUP_SEQ[BUILDUPI][1];
+    draw();
+  });
+  const cv=$("svg"); let pan=null;
+  cv.addEventListener("pointerdown",e=>{ if(e.target===cv) pan={x:e.clientX,y:e.clientY,vx:VIEWBOX.x,vy:VIEWBOX.y}; });
+  cv.addEventListener("pointermove",e=>{ if(!pan)return; const r=cv.getBoundingClientRect();
+    VIEWBOX.x=pan.vx-(e.clientX-pan.x)*(VIEWBOX.w/r.width); VIEWBOX.y=pan.vy-(e.clientY-pan.y)*(VIEWBOX.h/r.height); applyVB("svg"); });
+  window.addEventListener("pointerup",()=>{pan=null;});
+}
+function initFault(){
+  $("fInstr").addEventListener("click",()=>{const b=$("fInstr"),on=b.getAttribute("aria-pressed")==="true";b.setAttribute("aria-pressed",String(!on));b.classList.toggle("on",!on);renderFault();});
+  $("fExam").addEventListener("click",()=>{const b=$("fExam"),on=b.getAttribute("aria-pressed")==="true";b.setAttribute("aria-pressed",String(!on));b.classList.toggle("on",!on);renderFault();});
+  $("fRandom").addEventListener("click",()=>{const f=FAULTS[Math.floor(Math.random()*FAULTS.length)];$("fSeed").value=f.id;newAttempt(f.id);});
+  $("fRestart").addEventListener("click",()=>{const s=$("fSeed").value;newAttempt(FAULTS.some(f=>f.id===s)?s:FAULTS[0].id);});
+}
+function initGlobal(){
+  $("btnHC").addEventListener("click",()=>{const on=document.body.classList.toggle("hc");$("btnHC").setAttribute("aria-pressed",String(on));draw();});
+  $("btnProj").addEventListener("click",()=>{const on=document.body.classList.toggle("proj");$("btnProj").setAttribute("aria-pressed",String(on));});
+  $("btnReset").addEventListener("click",()=>{
+    STATE=freshState(); FL=null; LEARN={cur:0,done:[],ans:{},name:""};
+    BUILD={nodes:[],wires:[],sel:null,wireFrom:null,running:false,target:null,undo:[],redo:[]};
+    $("selScen").value="S1"; refresh(); drawBuild(); renderBuildPanel(); renderFault(); renderLearn(); toast("Everything reset.");
+  });
+  $("bRun").addEventListener("click",()=>{BUILD.running=true;drawBuild();});
+  $("bPause").addEventListener("click",()=>{BUILD.running=false;drawBuild();});
+  $("bStep").addEventListener("click",()=>{BUILD.running=true;drawBuild();setTimeout(()=>{BUILD.running=false;drawBuild();},420);});
+  $("bClear").addEventListener("click",()=>{pushUndo();BUILD.nodes=[];BUILD.wires=[];drawBuild();});
+  $("bUndo").addEventListener("click",doUndo);
+  $("bRedo").addEventListener("click",doRedo);
+  $("bSpeed").addEventListener("input",()=>{document.body.classList.toggle("noanim",$("bSpeed").value==="1");});
+}
+
+const _solve=solve;
+solve=function(){
+  try{ return _solve(); }
+  catch(err){
+    console.error(err);
+    return {master:1,nonMaster:2,faults:0,mode:"NORMAL",dgType:null,dgLost:[],
+      modeWhy:"solver error: "+err.message,fn:{WXR:false,TAWS:false,TCAS:false,XPDR:false},
+      tcasOn:false,threat:"none",tcasEntry:null,raShown:false,taShown:false,tcasMsg:"—",scanBand:"—",
+      wxrRunning:false,wxrWhy:"solver error",popTraf:false,popTerr:false,popWx:false,
+      ndTraf:false,ndTerr:false,ndWx:false,aurals:[],xpdrReplies:false,xpdrWhy:"solver error"};
+  }
+};
+function boot(){
+  try{
+    initTabs(); initExplore(); initFault(); initGlobal();
+    readHash();
+    draw(); renderInspector(); drawBuild(); renderBuildPanel(); renderFault(); renderLearn();
+  }catch(err){
+    const d=document.createElement("div");
+    d.style.cssText="padding:16px;color:#ff8080;font-family:ui-monospace,monospace;white-space:pre-wrap";
+    d.textContent="AeroSim could not start:\n"+(err&&err.stack?err.stack:String(err));
+    document.body.insertBefore(d,document.body.firstChild);
+  }
+}
+boot();
+</script>
+</body>
+</html>

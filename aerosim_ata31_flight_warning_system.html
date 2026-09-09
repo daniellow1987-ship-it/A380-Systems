@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AeroSim – A380 ATA 31 Flight Warning System (FWS)</title>
+<!--
+  AeroSim Generator output — single-file, self-contained (no CDN, no network, no login).
+  Architecture:  MODEL (JSON block, editable)  →  ENGINE (alert classifier, inhibition + flight-phase state machine)
+                 →  VIEW (SVG architecture, cockpit peripherals, EWD/SD mock displays, rAF)
+                 →  UI (tabs / ECP / inspector / build / fault lab / learn)  →  STORE (JSON + URL hash + undo)
+  Every number shown as "specified" comes from the course notes (A380 TTM LEVEL I Apr 2007 & LEVEL 2&3 Nov 2011 / 01 AUG 2013).
+  Anything the notes do not state is tagged (assumed).
+-->
+<style>
+:root{--bg:#0f1420;--panel:#171e2e;--panel2:#1f2840;--ink:#e8ecf4;--muted:#9aa5bd;--line:#2c3650;
+ --l3:#ff4040;--l2:#ffb020;--l1:#ffb020;--adcn:#4aa8ff;--bkup:#ff4fd8;--can:#3ddc84;--aural:#c084fc;--disc:#ffd24a;
+ --dead:#5a6478;--fault:#ff4040;--avail:#31d158;--focus:#7cc4ff;--magenta:#ff4fd8;
+ --btn:#2a3550;--btnh:#37456b;--fs:15px}
+body.hc{--bg:#000;--panel:#000;--panel2:#111;--ink:#fff;--muted:#ddd;--line:#fff;--dead:#888;--btn:#222;--btnh:#444;--adcn:#7ac8ff;--bkup:#ff9aec;--can:#5cff9a;--l2:#ffd24a}
+body.proj{--fs:18px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:var(--fs)/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;display:flex;flex-direction:column;min-height:100vh}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:1.05em;margin:0;font-weight:600}
+header .meta{color:var(--muted);font-size:.9em}
+button,select,input[type=text],input[type=range],textarea{font:inherit;color:var(--ink)}
+button{background:var(--btn);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer;min-height:34px}
+button:hover{background:var(--btnh)}
+button:focus-visible,[tabindex]:focus-visible,select:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+button.primary{background:#2f6fd6;border-color:#2f6fd6}
+button.small{padding:2px 8px;min-height:28px;font-size:.9em}
+button.tog.on{background:#1d5c37;border-color:#2c8f55}
+button[disabled]{opacity:.4;cursor:not-allowed}
+select,input[type=text],textarea{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+nav.tabs{display:flex;gap:4px;padding:6px 14px 0;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+nav.tabs button{border-radius:8px 8px 0 0;border-bottom:none;background:var(--panel2)}
+nav.tabs button[aria-selected=true]{background:var(--bg);font-weight:600;border-color:var(--focus)}
+main{flex:1;display:flex;flex-direction:column;min-height:0}
+.tab{display:none;flex:1;min-height:0}
+.tab.active{display:flex}
+.split{flex:1;display:flex;min-height:0}
+.split .left{flex:1;display:flex;flex-direction:column;min-width:0}
+.split .right{width:350px;flex:none;border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:10px}
+@media(max-width:900px){.split{flex-direction:column}.split .right{width:auto;border-left:none;border-top:1px solid var(--line);max-height:44vh}}
+.toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.canvas{flex:1;min-height:0;position:relative;overflow:hidden;background:#0b0f18}
+svg{width:100%;height:100%;display:block;touch-action:none}
+.legend{position:absolute;left:8px;bottom:8px;background:rgba(15,20,32,.92);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:.8em;line-height:1.6;max-width:280px}
+.legend b{display:block;margin-bottom:3px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:.85em}
+.sw{display:inline-block;width:22px;height:0;border-top:3px solid;vertical-align:middle;margin-right:6px}
+h2{font-size:1em;margin:0 0 6px}
+h3{font-size:.95em;margin:12px 0 4px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.muted{color:var(--muted)}.small{font-size:.86em}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:.9em}
+.kv dt{color:var(--muted)}.kv dd{margin:0}
+.pill{display:inline-block;font-size:.75em;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin:2px 3px 2px 0}
+.pill.ok{border-color:#2c8f55;color:var(--avail)}
+.pill.bad{border-color:#8f2c2c;color:var(--fault)}
+.pill.l3{border-color:#8f2c2c;color:var(--l3)}
+.pill.l2,.pill.l1{border-color:#8a6d1f;color:var(--l2)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.pathlist{list-style:none;padding:0;margin:6px 0;font-size:.9em}
+.pathlist li{padding:3px 8px;border-left:3px solid var(--adcn);margin-bottom:3px;background:var(--panel2)}
+.pathlist li.bk{border-left-color:var(--bkup)}
+.pathlist li.au{border-left-color:var(--aural)}
+.pathlist li.di{border-left-color:var(--disc)}
+table{border-collapse:collapse;width:100%;font-size:.86em}
+th,td{border:1px solid var(--line);padding:3px 6px;text-align:left}
+th{background:var(--panel2);color:var(--muted);font-weight:600}
+.log{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82em;background:#0b0f18;border:1px solid var(--line);border-radius:6px;padding:6px;height:130px;overflow:auto;white-space:pre-wrap}
+.step{display:flex;gap:8px;align-items:flex-start;padding:7px 8px;border:1px solid var(--line);border-radius:8px;margin-bottom:5px;cursor:pointer;background:var(--panel2)}
+.step.cur{border-color:var(--focus);background:#1d2942}
+.step.done{opacity:.65}
+.step .n{flex:none;width:22px;height:22px;border-radius:50%;background:var(--btn);display:grid;place-items:center;font-size:.8em}
+.step.done .n{background:#1d5c37}
+.rail{width:270px;flex:none;border-right:1px solid var(--line);padding:10px;overflow:auto;background:var(--panel)}
+@media(max-width:900px){.rail{width:auto;border-right:none;border-bottom:1px solid var(--line);max-height:34vh}}
+.learnwrap{flex:1;display:flex;min-height:0}
+.learnbody{flex:1;overflow:auto;padding:14px 18px;max-width:900px}
+.q{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;margin:10px 0}
+.q label{display:block;padding:3px 0;cursor:pointer}
+.ok{color:var(--avail)}.bad{color:var(--fault)}.warn{color:var(--l2)}
+.flash{animation:fl .9s steps(2,end) infinite}
+@keyframes fl{50%{opacity:.42}}
+.dash{stroke-dasharray:5 5}
+.flow{stroke-dasharray:6 10;animation:dash 1.1s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-16}}
+body.noanim .flow,body.noanim .flash{animation:none}
+.chip{display:inline-block;padding:2px 8px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);font-size:.82em;margin:2px 3px 2px 0}
+.notice{border-left:3px solid var(--l2);padding:5px 9px;background:#221c0d;border-radius:0 6px 6px 0;font-size:.88em;margin:6px 0}
+.err{border-left:3px solid var(--fault);padding:5px 9px;background:#2a1010;border-radius:0 6px 6px 0;font-size:.88em;margin:6px 0}
+.ok-note{border-left:3px solid var(--avail);padding:5px 9px;background:#0f2418;border-radius:0 6px 6px 0;font-size:.88em;margin:6px 0}
+/* ECP */
+.ecp{background:#3a4150;border:1px solid #565f73;border-radius:8px;padding:8px;display:grid;gap:5px}
+.ecp button{background:#4a5364;border:1px solid #667089;border-radius:4px;font-size:.76em;padding:5px 2px;min-height:30px;letter-spacing:.02em}
+.ecp button:hover{background:#5b657a}
+.ecp button.red{background:#7a2222;border-color:#a83333;color:#ffd9d9}
+.ecp button.lit{background:#1d5c37;border-color:#48d68a}
+.ecp .row{display:grid;gap:4px}
+.ag{display:flex;gap:10px;justify-content:center;margin:8px 0}
+.agbox{width:104px;border:2px solid #565f73;border-radius:5px;background:#20252f;overflow:hidden;text-align:center}
+.agbox div{padding:7px 2px;font-size:.72em;font-weight:700;letter-spacing:.04em;color:#5a6478;border-bottom:1px solid #565f73}
+.agbox div:last-child{border-bottom:none}
+.agbox .mw.on{background:#c01818;color:#fff}
+.agbox .mc.on{background:#c88b00;color:#1a1200}
+.scr{background:#04070d;border:1px solid #2c3650;border-radius:6px;padding:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8em;line-height:1.5;min-height:90px}
+.scr .red{color:#ff4040}.scr .amb{color:#ffb020}.scr .grn{color:#3ddc84}.scr .cyn{color:#4aa8ff}
+.scr .mag{color:#ff4fd8}.scr .wht{color:#e8ecf4}.scr .gry{color:#6d7c99}
+.scr .box{border:1px solid #ffb020;display:inline-block;padding:0 4px}
+.scr .ul{text-decoration:underline}
+.phasebar{display:flex;gap:2px;margin:6px 0}
+.phasebar span{flex:1;text-align:center;font-size:.62em;padding:5px 1px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;color:var(--muted)}
+.phasebar span.cur{background:#2f6fd6;color:#fff;border-color:#2f6fd6;font-weight:700}
+.phasebar span.inh{border-color:var(--magenta);color:var(--magenta)}
+footer{padding:5px 14px;background:var(--panel);border-top:1px solid var(--line);color:var(--muted);font-size:.8em}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>AeroSim — ATA 31 Flight Warning System</h1>
+  <span class="meta">Aircraft Electrical &amp; Digital Systems · A380 (RR Trent 900) · CAAS SAR-66 Cat B2, Level 2 · v1.0 · 2026-09</span>
+  <span style="flex:1"></span>
+  <button class="small" id="btnHC" aria-pressed="false">High contrast</button>
+  <button class="small" id="btnProj" aria-pressed="false">Projector</button>
+  <button class="small" id="btnReset">Reset everything</button>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Simulation modes">
+  <button role="tab" id="t-explore" aria-selected="true" aria-controls="p-explore">1 · Explore</button>
+  <button role="tab" id="t-build" aria-selected="false" aria-controls="p-build">2 · Build</button>
+  <button role="tab" id="t-fault" aria-selected="false" aria-controls="p-fault">3 · Fault Lab</button>
+  <button role="tab" id="t-learn" aria-selected="false" aria-controls="p-learn">4 · Learn</button>
+</nav>
+
+<main>
+
+<!-- ============================ EXPLORE ============================ -->
+<section class="tab active" id="p-explore" role="tabpanel" aria-labelledby="t-explore">
+  <div class="split">
+    <div class="left">
+      <div class="toolbar">
+        <label>View
+          <select id="selView">
+            <option value="arch">Architecture — acquisition &amp; indication</option>
+            <option value="phase">Flight phases — the 12-phase state machine</option>
+          </select>
+        </label>
+        <label>Scenario <select id="selScen"></select></label>
+        <button class="small" id="btnFit">Fit</button>
+        <button class="small" id="btnZin">Zoom +</button>
+        <button class="small" id="btnZout">Zoom −</button>
+        <button class="small tog" id="btnBuildup">Build-up mode</button>
+        <button class="small" id="btnStepNext" disabled>Next component ▸</button>
+        <span class="muted small" id="buildupTxt"></span>
+      </div>
+      <div class="canvas" id="cv">
+        <svg id="svg" viewBox="0 0 1180 700" role="img" aria-label="A380 Flight Warning System schematic"><g id="vp"></g></svg>
+        <div class="legend" id="legend"></div>
+      </div>
+    </div>
+    <div class="right" id="inspector"></div>
+  </div>
+</section>
+
+<!-- ============================ BUILD ============================ -->
+<section class="tab" id="p-build" role="tabpanel" aria-labelledby="t-build">
+  <div class="split">
+    <div class="left">
+      <div class="toolbar">
+        <button class="small" id="bRun">▶ Run</button>
+        <button class="small" id="bPause">⏸ Pause</button>
+        <button class="small" id="bStep">⏭ Step</button>
+        <button class="small" id="bClear">Clear</button>
+        <button class="small" id="bUndo">↶ Undo</button>
+        <button class="small" id="bRedo">↷ Redo</button>
+        <label class="small">Speed <input type="range" id="bSpeed" min="1" max="10" value="5" style="width:90px"></label>
+      </div>
+      <div class="canvas" id="bcv">
+        <svg id="bsvg" viewBox="0 0 1180 700" role="img" aria-label="FWS architecture constructor canvas"><g id="bvp"></g></svg>
+      </div>
+    </div>
+    <div class="right" id="buildPanel"></div>
+  </div>
+</section>
+
+<!-- ============================ FAULT LAB ============================ -->
+<section class="tab" id="p-fault" role="tabpanel" aria-labelledby="t-fault">
+  <div class="split">
+    <div class="left">
+      <div class="toolbar">
+        <button class="small tog" id="fInstr" aria-pressed="false">Instructor panel</button>
+        <button class="small" id="fRandom">Random fault</button>
+        <label class="small">Seed <input type="text" id="fSeed" style="width:80px" value=""></label>
+        <button class="small tog" id="fExam" aria-pressed="false">Exam mode</button>
+        <button class="small" id="fRestart">New attempt</button>
+        <span style="flex:1"></span>
+        <span id="fSteps" class="small"></span>
+      </div>
+      <div class="canvas" id="fcv">
+        <svg id="fsvg" viewBox="0 0 1180 700" role="img" aria-label="Fault lab FWS schematic"><g id="fvp"></g></svg>
+        <div class="legend" id="flegend"></div>
+      </div>
+    </div>
+    <div class="right" id="faultPanel"></div>
+  </div>
+</section>
+
+<!-- ============================ LEARN ============================ -->
+<section class="tab" id="p-learn" role="tabpanel" aria-labelledby="t-learn">
+  <div class="learnwrap">
+    <div class="rail" id="rail"></div>
+    <div class="learnbody" id="learnBody"></div>
+  </div>
+</section>
+
+</main>
+
+<footer>Temasek Polytechnic · Aerospace Electronics · training use only. Paraphrased from the A380 TTM; values not in the notes are tagged (assumed). No network calls, no login, no tracking.</footer>
+
+<script>
+"use strict";
+/* =====================================================================================
+   MODEL — everything traces to the course notes. Items the notes do not state carry asm:true.
+   ===================================================================================== */
+const MODEL={
+  meta:{topic:"ATA 31 – Flight Warning System (FWS)",ac:"Airbus A380 (RR Trent 900)",
+        level:"CAAS SAR-66 Cat B2, Level 2 (Level 3 Time Limited Items included)",
+        src:"A380 TTM LEVEL I (Apr 19 2007) pp.22–47; LEVEL 2&3 (Nov 21 2011) pp.46–91"},
+
+  /* 0.1 COMPONENTS ------------------------------------------------------------------ */
+  comp:{
+    FWS1:{n:"FWS Application 1",t:"app",loc:"hosted in CPIOM-C1",
+      note:"One of the two FWS Applications. It acquires data from the aircraft systems, identifies and classifies alerts, applies prioritisation and inhibition, and drives the cockpit peripherals. Each FWS application manages, through the two AMUs, a pair of loudspeakers, one on each side."},
+    FWS2:{n:"FWS Application 2",t:"app",loc:"hosted in CPIOM-C2",
+      note:"The second FWS Application. The notes do not state a master/slave relationship, cross-comparison or automatic switchover between the two applications."},
+    CPIOM:{n:"Core Processing Input/Output Modules CPIOM-C1 and CPIOM-C2",t:"hw",
+      note:"The host computers for the two FWS Applications."},
+    ECP:{n:"ECAM Control Panel (ECP) 1135VM",t:"panel",loc:"Pedestal",
+      note:"The crew interface to the FWS. It manages caution and warning related procedures, calls the Status page on the SD, and calls and handles the normal checklists and abnormal procedures. Connected to the FWS applications through CAN buses, the IOMs and the ADCN; on an ADCN loss, discrete connections keep most of its functions operational."},
+    IOM:{n:"Input/Output Modules (IOMs)",t:"net",
+      note:"Carry the ECP's CAN connection onto the ADCN. IOM-7 and IOM-8 also carry the CALL indication discretes from the AMUs to the FWS applications."},
+    ADCN:{n:"Aircraft Data Communication Network (ADCN)",t:"net",
+      note:"Carries AFDX. The LEVEL I legend box expands ADCN as Avionics Data Communication Network; both prose texts and the LEVEL 2&3 set say Aircraft Data Communication Network."},
+    LRM:{n:"Line Replaceable Modules (LRMs)",t:"src",
+      note:"Aircraft-system data sources reaching the FWS over AFDX through the ADCN, and directly in ARINC 429 as a backup."},
+    LRUA:{n:"Line Replaceable Units with AFDX interface",t:"src",
+      note:"Reach the FWS over AFDX through the ADCN, and directly in ARINC 429 as a backup."},
+    LRUC:{n:"Line Replaceable Units (conventional)",t:"src",
+      note:"Always connected directly to the CPIOMs-C in ARINC 429, so they are unaffected by an ADCN loss."},
+    CDS:{n:"Control and Display System (ECAM part)",t:"disp",
+      note:"Displays the FWS output: warning and caution messages and procedures on the EWD, the Status page on the SD, and flight-related memos and limitations on the PFDs lower zone."},
+    AMU1:{n:"Audio Management Unit 1 (AMU 1)",t:"aural",
+      note:"Receives analog audio signals from the FWS applications and routes them to the cockpit loudspeakers. The analog path never uses the ADCN."},
+    AMU2:{n:"Audio Management Unit 2 (AMU 2)",t:"aural",note:"The second Audio Management Unit."},
+    SPK:{n:"Cockpit loudspeakers",t:"aural",
+      note:"The LEVEL 2&3 architecture diagram shows two loudspeakers per AMU, four in all; each FWS application manages a pair, one on each side. The LEVEL I diagram shows two."},
+    AG:{n:"Visual attention getters — MASTER WARN and MASTER CAUT, LH and RH",t:"ind",loc:"glareshield (from the illustrations)",
+      note:"Driven by discrete signals from the FWS, so they do not depend on the ADCN. MASTER WARN is red and flashing on a Level 3 alert; MASTER CAUT is amber and steady on a Level 2 alert. A Level 1 alert triggers no attention getter at all. Both lights can come on simultaneously."},
+    CMS:{n:"Central Maintenance System (CMS)",t:"src",
+      note:"Receives the FWS's own BITE messages plus cockpit effects and flight phases, for maintenance data consolidation and correlation. Also receives the Time Limited Item counter values, which appear in the post flight report."},
+    RMP:{n:"Radio & Audio Management Panels (RMPs)",t:"panel",loc:"pedestal",
+      note:"Carry the ReSeT (RST) key. When the crew push the RST key on any RMP it resets only the aural alert — the visual indications are unchanged."}
+  },
+
+  /* 0.4 L-A / L-B — alert levels */
+  levels:{
+    3:{n:"Level 3 — WARNING",colour:"red",cfg:"emergency configuration",
+       def:"An emergency situation requiring an immediate reaction of the crew: the aircraft in a dangerous configuration or at limit flight conditions, or a system failure.",
+       aural:"Continuous Repetitive Chime (CRC), or a specific sound, or a synthetic voice",
+       ag:"both MASTER WARN lights, red flashing",
+       ewd:"red warning message (generally)",
+       sd:"automatic display of the affected system synoptic page, when existing",
+       ex:["OVERSPEED","ENGINE/APU FIRE","EXCESS CABIN ALT"]},
+    2:{n:"Level 2 — CAUTION",colour:"amber",cfg:"abnormal configuration",
+       def:"An abnormal situation of the aircraft where immediate crew awareness is required, but not immediate crew corrective action. The crew must decide how soon action has to be taken.",
+       aural:"single chime",
+       ag:"both MASTER CAUT lights, amber steady",
+       ewd:"amber caution message (generally)",
+       sd:"automatic display of the affected system synoptic page, when existing",
+       ex:["BRAKES A-SKID FAULT","HYD GREEN SYS LOW PRESS"]},
+    1:{n:"Level 1 — CAUTION",colour:"amber",cfg:"configuration to monitor",
+       def:"A configuration requiring crew monitoring: mainly failures leading to a loss of redundancy or a performance degradation of a system.",
+       aural:"none — a Level 1 alert does not trigger any aural attention getter",
+       ag:"none — a Level 1 alert does not trigger any visual attention getter",
+       ewd:"amber caution message",
+       sd:"automatic display of the affected system synoptic page, when existing",
+       ex:["ELEC STATIC INV FAULT","loss of FUEL TANK PUMP LH or RH but not both"]}
+  },
+
+  /* 0.4 L-C — failure categories and their EWD display characteristics */
+  cats:{
+    independent:{n:"Independent failure",d:"Affects an isolated system or item of equipment without affecting another one.",
+      disp:"red or amber message, system indication underlined",ex:"FUEL FEED TK 1 MAIN PMP FAULT"},
+    primary:{n:"Primary failure",d:"A failure which causes the loss of other systems or equipments.",
+      disp:"red or amber message, system indication underlined, warning text surrounded",ex:"HYD GREEN SYS LOW PRESS"},
+    secondary:{n:"Secondary failure",d:"The loss of a system or equipment resulting from a primary failure.",
+      disp:"amber asterisked message",ex:"* F/CTL — loss of spoilers 2, 4, 6, 8"}
+  },
+
+  /* 0.5 S-B — the 12 flight phases with their verbatim names and transitions */
+  phases:[
+    {n:1,name:"PREFLIGHT",grp:"",into:"initial, or Last Engine Shutdown + 5 min",max:""},
+    {n:2,name:"TAXI OUT",grp:"",into:"1st Engine Start",max:""},
+    {n:3,name:"STEP 1",grp:"TAKE OFF",into:"2nd Engine TO POWER",max:""},
+    {n:4,name:"STEP 2",grp:"TAKE OFF",into:"80 kts",max:""},
+    {n:5,name:"STEP 3",grp:"TAKE OFF",into:"V1",max:""},
+    {n:6,name:"STEP 1",grp:"CLIMB",into:"Lift Off",max:"FP6 Max = 15 sec"},
+    {n:7,name:"STEP 2",grp:"CLIMB",into:"Lift Off + 400 ft",max:"FP7 Max = 2 min"},
+    {n:8,name:"CRUISE",grp:"",into:"1500 ft",max:""},
+    {n:9,name:"APPROACH",grp:"",into:"800 ft",max:"FP9 Max = 3 min"},
+    {n:10,name:"LANDING",grp:"",into:"Touch Down",max:""},
+    {n:11,name:"TAXI IN",grp:"",into:"80 kts",max:""},
+    {n:12,name:"POSTFLIGHT",grp:"",into:"Last engine Shutdown",max:"FP12 Max = 5 min"}
+  ],
+  /* Phases in which take-off / landing inhibition is shown. The notes state the principle and the
+     T.O INHIB / LDG INHIB memos but do not tabulate which alerts are inhibited — see gaps. */
+  inhibTO:[3,4,5,6,7],
+  inhibLDG:[9,10],
+  defaultPhase:8,
+
+  /* 0.3 CONTROLS — ECP key map, transcribed from the panel illustration */
+  ecp:{
+    sysL:["ENG","BLEED","PRESS","EL/AC","APU","COND","DOOR","EL/DC"],
+    sysR:["FUEL","HYD","WHEEL","F/CTL","C/B","ALL"],
+    top:["T.O CONFIG","C/L","✓","✓","ABN PROC","EMER CANC"],
+    mgmt:["CLEAR","RCL LAST","↑","↓","STS","MORE","RCL","CLEAR","VIDEO"],
+    /* which keys survive an ECP failure through direct discrete links */
+    discrete:["C/L","✓","↑","↓","ABN PROC","EMER CANC","STS","RCL","ALL","CLEAR"],
+    desc:{
+      "T.O CONFIG":"Function not described in these notes. (assumed) initiates the take-off configuration test.",
+      "C/L":"Manually calls the C/L Menu page, which lists and designates the checklists to be done at the different flight phases.",
+      "✓":"Validate. Validating the designated line calls the selected checklist; validating the ACTIVATE line activates a Supplementary Abnormal Procedure; un-ticking the ACTIVE line deactivates it. Also confirms non-sensed items manually.",
+      "ABN PROC":"Manually activates the Supplementary Abnormal Procedures Menu page on the EWD, organised in sub-menus.",
+      "EMER CANC":"For a Level 1 or Level 2 alert, cancels the associated display, the audio signal and the MASTER CAUT light. For a Level 3 alert, cancels ONLY the audio signal and the MASTER WARN light. Cancelled cautions are listed on the Status More Info page.",
+      "CLEAR":"Manual warning inhibition — lets the crew cancel the alert presentation when the corrective actions have been done. On a checklist page it returns to the C/L Menu page.",
+      "RCL":"Recalls cleared procedures and the automatic alert displays.",
+      "RCL LAST":"Recall last. Its distinct function is not described in these notes.",
+      "STS":"Manual call of the Status page on the SD. The STS reminder appears at the bottom of the EWD memos/limitations page when the Status page is not empty.",
+      "MORE":"Access to the Status More Info page.",
+      "↑":"(assumed) moves the cyan designation frame up between selectable lines.",
+      "↓":"(assumed) moves the cyan designation frame down between selectable lines.",
+      "ALL":"Function not described in these notes. (assumed) cycles through all system pages in sequence.",
+      "VIDEO":"Function not described in these notes. (assumed) selects a video source on the SD."
+    }
+  },
+
+  /* 0.6 aural indications */
+  aural:{
+    general:[["Single Chime (SC)","related to the cautions"],
+             ["Continuous Repetitive Chime (CRC)","related to most of the warnings"],
+             ["specific sounds","for instinctive reactions"],
+             ["synthetic voices","spoken announcements"]],
+    specific:[["cavalry charge","involuntary AP disconnect"],["cavalry charge","voluntary AP disconnect"],
+              ["triple click","landing capability change"],["buzzer","calls and SELCAL"],
+              ['"C" chord',"altitude alert"],["RING","ATC messages"]],
+    voices:[["radio-altitude callouts","reporting of significant radio altitudes"],
+            ["HUNDRED ABOVE · MINIMUM · PLUS_HUNDRED","decision height"],
+            ["WINDSHEAR-WINDSHEAR-WINDSHEAR","windshear"],["SPEED-SPEED-SPEED","—"],
+            ["RETARD · TEN RETARD · TWENTY RETARD","retard"],
+            ["PRIORITY LEFT · PRIORITY RIGHT · V_ONE · DUAL INPUT","stick priority, V1, dual input"],
+            ["PITCH-PITCH","pitch attitude warning"],["BANK-BANK","bank angle warning"],
+            ["RUNWAY TOO SHORT","included in the BTV option"]],
+    hybrid:[["CRICKET STALL","synthetic voice STALL-STALL + sound CRICKET — stall warning"],
+            ["COCKPIT DOOR","sound CKPT DOOR + synthetic voice DOOR PLEASE — cockpit door emergency opening"],
+            ["TIME MARKER","sound TIME MKR + synthetic voice TIME MARKER"],
+            ["CPNY ALERT / CPNY MSG / CALL CPNY","each a specific chime plus a synthetic voice"]]
+  },
+
+  /* alert catalogue used by the engine — every message text is taken from the notes' example screens */
+  alerts:[
+    {id:"a1",lvl:3,cat:"independent",sys:"SMOKE",msg:"SMOKE IFE BAY SMOKE",
+     proc:["LAND ASAP","-IFE ...........OFF","-CKPT / CABIN COM ..........ESTABLISH"],sd:"—",aural:"CRC"},
+    {id:"a2",lvl:2,cat:"independent",sys:"BRAKES",msg:"BRAKES A-SKID FAULT ON ONE BODY L/G",
+     proc:["TAXI WITH CARE","LDG DIST : COMPUTE"],sd:"WHEEL",aural:"single chime"},
+    {id:"a3",lvl:1,cat:"independent",sys:"ELEC",msg:"ELEC STATIC INV FAULT",proc:["CLEAR"],sd:"EL/AC",aural:"none"},
+    {id:"a4",lvl:2,cat:"independent",sys:"FUEL",msg:"FUEL FEED TK 1 MAIN PMP FAULT",
+     proc:["-FEED TK 1 MAIN PMP ..............OFF"],sd:"FUEL",aural:"single chime"},
+    {id:"a5",lvl:2,cat:"primary",sys:"HYD",msg:"HYD GREEN SYS LOW PRESS",proc:["LDG DIST : COMPUTE"],sd:"HYD",aural:"single chime",
+     causes:["a6"]},
+    {id:"a6",lvl:2,cat:"secondary",sys:"F/CTL",msg:"* F/CTL",proc:[],sd:"F/CTL",aural:"none",
+     note:"Loss of spoilers 2, 4, 6, 8 resulting from the green hydraulic system failure."},
+    {id:"a7",lvl:3,cat:"independent",sys:"ENG",msg:"ENG 1 FIRE",proc:["-ENG 1 MASTER ..........OFF"],sd:"ENG",aural:"CRC",
+     note:"ENGINE/APU FIRE is given in the notes as an example of a Level 3 emergency situation."},
+    {id:"a8",lvl:2,cat:"independent",sys:"MAINT",msg:"MAINTENANCE TIME LIMITED ITEM",proc:[],sd:"—",aural:"single chime",
+     phaseOnly:[1,12],
+     note:"Triggered when a Time Limited Item counter reaches Tmax. Presented on the ECAM in flight phases 1 and 12 only, so dispatch can be granted under the MEL."}
+  ],
+
+  /* 0.7 NUMBERS — the whitelist */
+  numbers:[
+    ["12","flight phases"],["8","the default phase selected when the data to compute the phase are not available (cruise)"],
+    ["2","FWS Applications — Application 1 and Application 2"],
+    ["CPIOM-C1, CPIOM-C2","the host computers"],
+    ["2","Audio Management Units — AMU 1 and AMU 2"],
+    ["2 per AMU (4)","cockpit loudspeakers on the LEVEL 2&3 architecture diagram; the LEVEL I diagram shows 2"],
+    ["IOM-7, IOM-8","IOMs carrying the CALL indication discretes"],
+    ["2 units, 4 lights","attention getters — LH and RH, each with MASTER WARN and MASTER CAUT"],
+    ["1135VM","the ECAM Control Panel identifier"],
+    ["3","alert levels"],["3","failure types — independent, primary, secondary"],
+    ["3","deferred procedure types — APPROACH, LANDING, PENDING"],
+    ["20 characters","maximum length of a memo string"],
+    ["up to 8","limitations that can also be displayed on the PFD"],
+    ["below 2000 ft","approach altitude at which the C/L menu can auto-activate"],
+    ["9","normal checklists listed"],
+    ["class 4","the BITE message class monitored as a Time Limited Item"],
+    ["1 and 12","the only flight phases in which MAINTENANCE TIME LIMITED ITEM is presented"],
+    ["max 100 FH","the spurious-failure counter decrement window"],
+    ["15 sec / 2 min / 3 min / 5 min","FP6 Max, FP7 Max, FP9 Max, FP12 Max"]
+  ],
+
+  /* 0.8 GAPS */
+  gaps:[
+    ["The T.O CONFIG key function is never described","modelled as inert and labelled (assumed)"],
+    ["The ALL, VIDEO and RCL LAST key functions are not described","their behaviour is labelled (assumed)"],
+    ["The ↑ / ↓ keys are shown but never named in the text","modelled as moving the cyan designation frame, labelled (assumed)"],
+    ["Pressing MASTER WARN / MASTER CAUT is not described","modelled as indicators only; EMER CANC and the RMP RST key are the cancelling controls the notes give"],
+    ["Redundancy behaviour between FWS1 and FWS2 is not stated","the two applications run in parallel; no degradation is claimed that the notes do not state"],
+    ["Total loss of both FWS applications is not described","offered only as an instructor-injected extreme case, labelled (assumed)"],
+    ["The cockpit loudspeaker count is ambiguous between the two note sets","4 modelled, per the LEVEL 2&3 architecture diagram"],
+    ["Individual inhibition tables are not given","inhibition is simulated as a rule, and every specific mapping is labelled (assumed, illustrative)"],
+    ["The within-level priority lists exist but their content is not given","a fixed (assumed) ordering teaches the rule, not a specific list"],
+    ["CRC repetition rate, MASTER WARN flash rate and chime duration are not stated","display timings are labelled (assumed)"],
+    ["SCI, NSS, OMS, BTV, IFE and MMEL are used but not expanded","shown as acronyms only, marked not expanded in the notes"]
+  ],
+
+  /* 0.10 MISCONCEPTIONS */
+  misc:[
+    "Level 1 is just a quieter Level 2.",
+    "EMER CANC clears the warning.",
+    "Warnings appear in the order they happen.",
+    "Losing the ADCN kills the FWS.",
+    "Attention getters and loudspeakers hang off the ADCN like the displays.",
+    "A secondary failure is a second, separate fault.",
+    "The flight phase comes from a switch or from the FMS."
+  ],
+
+  gloss:{
+    FWS:"Flight Warning System",ECP:"ECAM Control Panel",ECAM:"Electronic Centralized Aircraft Monitoring",
+    CDS:"Control and Display System",EWD:"Engine/Warning Display",SD:"System Display",PFD:"Primary Flight Display",
+    ADCN:"Aircraft Data Communication Network",AFDX:"Avionics Full DupleX Switched Ethernet",
+    CPIOM:"Core Processing Input/Output Module",IOM:"Input/Output Module",CAN:"Controller Area Network",
+    AMU:"Audio Management Unit",LRM:"Line Replaceable Module",LRU:"Line Replaceable Unit",
+    CMS:"Central Maintenance System",BITE:"Built-In Test Equipment",CRC:"Continuous Repetitive Chime",
+    SC:"Single Chime",RMP:"Radio & Audio Management Panel",RST:"ReSeT key",
+    "C/L":"Checklist","ABN PROC":"Supplementary Abnormal Procedures","STS":"Status page",
+    MEL:"Minimum Equipment List",MMEL:"Master Minimum Equipment List",FH:"Flight Hours",
+    NSS:"not expanded in these notes",OMS:"not expanded in these notes",SCI:"not expanded in these notes",
+    BTV:"not expanded in these notes",IFE:"not expanded in these notes"
+  },
+
+  /* 0.5 scenarios */
+  scen:[
+    {id:"S0",n:"Normal — no alert, cruise",set:{}},
+    {id:"SA1",n:"Level 1 caution — ELEC STATIC INV FAULT",set:{alerts:["a3"]}},
+    {id:"SA2",n:"Level 2 caution — BRAKES A-SKID FAULT",set:{alerts:["a2"]}},
+    {id:"SA3",n:"Level 3 warning — SMOKE IFE BAY SMOKE",set:{alerts:["a1"]}},
+    {id:"SA4",n:"Primary + secondary — HYD GREEN then * F/CTL",set:{alerts:["a5","a6"]}},
+    {id:"SA5",n:"Concurrent Level 3 and Level 2",set:{alerts:["a7","a2"]}},
+    {id:"SP1",n:"Take-off phase 4 — T.O INHIB",set:{phase:4}},
+    {id:"SP2",n:"Landing phase 10 — LDG INHIB",set:{phase:10}},
+    {id:"SP3",n:"Phase data unavailable — default cruise",set:{phaseData:false}},
+    {id:"SD1",n:"ADCN lost — ARINC 429 and discretes carry on",set:{adcn:false}},
+    {id:"SD2",n:"FWS Application 1 lost",set:{fws1:false}},
+    {id:"SD3",n:"ECP failed — discrete keys only",set:{ecp:false}},
+    {id:"ST1",n:"Time Limited Item expired, phase 12",set:{phase:12,alerts:["a8"]}},
+    {id:"FREE",n:"Free play — nothing preset",set:{}}
+  ]
+};
+
+/* =====================================================================================
+   STATE
+   ===================================================================================== */
+function freshState(){
+  return {
+    phase:8, phaseData:true,
+    adcn:true, ecp:true, fws1:true, fws2:true, amu1:true, amu2:true, agL:true, agR:true,
+    active:[],          // ids of active alerts
+    cancelled:[],       // cautions cancelled with EMER CANC
+    cleared:[],         // alerts cleared with CLEAR
+    auralMuted:false,   // RMP RST pressed
+    mwOn:false, mcOn:false,
+    sdPage:null,        // manual ECP selection
+    ewdPage:"ALERTS",   // ALERTS | C/L MENU | C/L | ABN PROC | MEMOS
+    stsOpen:false, moreOpen:false,
+    scen:"S0", sel:"FWS1", trace:null
+  };
+}
+let STATE=freshState();
+let ANIM=true, BUILDUP=false, BUILDUPI=0;
+const $=id=>document.getElementById(id);
+const SVGNS="http://www.w3.org/2000/svg";
+const A=id=>MODEL.alerts.find(x=>x.id===id);
+
+/* =====================================================================================
+   ENGINE
+   Each evaluation:
+     1. resolve the effective flight phase (default cruise 8 when the data are unavailable)
+     2. filter the active alerts through inhibition
+     3. sort by level, highest first, then by the fixed within-level order — never chronologically
+     4. derive the aural output, the attention getters, the EWD content and the SD page
+   ===================================================================================== */
+function effPhase(){ return STATE.phaseData ? STATE.phase : MODEL.defaultPhase; }
+function fwsAlive(){ return STATE.fws1||STATE.fws2; }
+
+function inhibited(a){
+  const p=effPhase();
+  if(a.phaseOnly && a.phaseOnly.indexOf(p)===-1)
+    return {yes:true,why:"presented on the ECAM in flight phases "+a.phaseOnly.join(" and ")+" only"};
+  /* flight-phase inhibition: the notes give the principle and the T.O INHIB / LDG INHIB memos
+     but do not tabulate which alerts are inhibited — this mapping is (assumed, illustrative). */
+  if(a.lvl===1 && (MODEL.inhibTO.indexOf(p)>-1||MODEL.inhibLDG.indexOf(p)>-1))
+    return {yes:true,why:"Level 1 cautions inhibited during take-off and landing phases (assumed, illustrative)",asm:true};
+  if(a.lvl===2 && MODEL.inhibTO.indexOf(p)>-1 && a.sys!=="ENG")
+    return {yes:true,why:"many cautions are inhibited during take-off to avoid nuisance and useless workload (assumed, illustrative)",asm:true};
+  return {yes:false};
+}
+
+/* the fixed within-level order used for display — (assumed) content, stated rule */
+const WITHIN=["SMOKE","ENG","HYD","BRAKES","FUEL","F/CTL","ELEC","MAINT"];
+
+function evaluate(){
+  const out={shown:[],inhib:[],aural:"none",auralWhy:"",mw:false,mc:false,sd:null,sdWhy:"",errors:[]};
+  if(!fwsAlive()){
+    out.errors.push("Both FWS Applications are lost. (assumed) No alert generation, no attention getters, no aural alerts and no automatic ECAM alert pages. The notes do not describe this case.");
+    return out;
+  }
+  const list=STATE.active.map(A).filter(Boolean)
+    .filter(a=>STATE.cleared.indexOf(a.id)===-1)
+    .filter(a=>STATE.cancelled.indexOf(a.id)===-1);
+
+  list.forEach(a=>{
+    const inh=inhibited(a);
+    if(inh.yes) out.inhib.push({a,why:inh.why,asm:!!inh.asm}); else out.shown.push(a);
+  });
+
+  /* D1–D4: highest level first, then the fixed within-level order, never chronological */
+  out.shown.sort((x,y)=> (y.lvl-x.lvl) || (WITHIN.indexOf(x.sys)-WITHIN.indexOf(y.sys)) );
+
+  const top=out.shown[0];
+  if(top){
+    if(top.lvl===3){ out.aural=top.aural; out.auralWhy="Level 3 — "+MODEL.levels[3].aural; }
+    else if(out.shown.some(a=>a.lvl===2)){ out.aural="single chime"; out.auralWhy="Level 2 — single chime"; }
+    else { out.aural="none"; out.auralWhy="Level 1 does not trigger any aural attention getter"; }
+  }
+  if(STATE.auralMuted){ out.aural="none (reset)"; out.auralWhy="the RST key on an RMP resets only the aural alert"; }
+  if(!STATE.amu1&&!STATE.amu2){ out.aural="none (no AMU)"; out.auralWhy="both Audio Management Units are lost, so no analog audio reaches the loudspeakers"; }
+
+  /* D6: both lights can come on simultaneously */
+  out.mw = out.shown.some(a=>a.lvl===3);
+  out.mc = out.shown.some(a=>a.lvl===2);
+  if(!STATE.agL&&!STATE.agR){ out.mw=false; out.mc=false; }
+  if(STATE.mwOn===false && out.mw===true){} /* latch handled by the UI */
+
+  /* SD page — manual selection wins, otherwise the affected system page "when existing" */
+  if(STATE.sdPage){ out.sd=STATE.sdPage; out.sdWhy="manually selected on the ECP"; }
+  else if(top && top.sd && top.sd!=="—"){ out.sd=top.sd; out.sdWhy="automatic display of the affected system synoptic page"; }
+  else if(STATE.stsOpen){ out.sd="STATUS"; out.sdWhy="Status page called with STS"; }
+  else { out.sd="CRUISE"; out.sdWhy="ECAM normal mode — page follows the FWS-computed flight phase"; }
+  if(STATE.stsOpen){ out.sd=STATE.moreOpen?"STATUS MORE":"STATUS"; out.sdWhy=STATE.moreOpen?"Status More Info page called with MORE":"Status page called with STS"; }
+
+  /* Status page is not empty when there are cancelled cautions or cleared alerts */
+  out.stsNotEmpty = STATE.cancelled.length>0 || STATE.cleared.length>0;
+  return out;
+}
+
+/* EMER CANC — the rule that separates Level 3 from Levels 1 and 2 */
+function emerCanc(){
+  const ev=evaluate();
+  const top=ev.shown[0];
+  if(!top){ return "Nothing to cancel."; }
+  if(top.lvl===3){
+    STATE.auralMuted=true; STATE.mwOn=false;
+    return "Level 3 alert: EMER CANC cancels ONLY the audio signal and the MASTER WARN light. The red warning message and its procedure remain on the EWD.";
+  }
+  STATE.cancelled.push(top.id); STATE.auralMuted=true; STATE.mcOn=false;
+  return "Level "+top.lvl+" alert: EMER CANC cancels the associated display, the audio signal and the MASTER CAUT light. "+top.msg+" is now listed as a CANCELLED CAUTION on the Status More Info page.";
+}
+function clearTop(){
+  const ev=evaluate(); const top=ev.shown[0];
+  if(!top) return "No alert to clear.";
+  STATE.cleared.push(top.id);
+  return "CLEAR — manual warning inhibition. "+top.msg+" is removed from the presentation. The Status page mainly appears once all the pages related to the current warning management have been cleared.";
+}
+function recall(){
+  const n=STATE.cleared.length;
+  STATE.cleared=[];
+  return n? "RCL — "+n+" cleared procedure"+(n>1?"s":"")+" recalled." : "RCL — nothing was cleared.";
+}
+
+/* Signal trace */
+function tracePath(kind){
+  const bk=!STATE.adcn;
+  switch(kind){
+    case "acq": return {t:"Data acquisition",
+      chain: bk
+        ? ["LRMs / AFDX LRUs","direct ARINC 429 backup","CPIOM-C1 / C2 — FWS Applications"]
+        : ["LRMs / AFDX LRUs","ADCN (AFDX)","CPIOM-C1 / C2 — FWS Applications"],
+      cls: bk?"bk":"",
+      notes:["Conventional LRUs are always connected directly in ARINC 429, so they never depended on the ADCN."]};
+    case "disp": return {t:"Alert display",
+      chain: bk
+        ? ["FWS Application","direct ARINC 429 backup","CDS (ECAM part)","EWD · SD · PFD lower zone"]
+        : ["FWS Application","ADCN (AFDX)","CDS (ECAM part)","EWD · SD · PFD lower zone"],
+      cls: bk?"bk":"", notes:[]};
+    case "aural": return {t:"Aural alert",
+      chain:["FWS Application","analog audio signals","AMU 1 / AMU 2","cockpit loudspeakers"],
+      cls:"au",
+      notes:["The analog audio path never uses the ADCN, so an ADCN loss does not silence the aural alerts.",
+             "Each FWS application manages, through the two AMUs, a pair of loudspeakers, one on each side."]};
+    case "ag": return {t:"Visual attention getters",
+      chain:["FWS Application","discrete signals","MASTER WARN / MASTER CAUT, LH and RH"],
+      cls:"di",
+      notes:["Discrete signals do not use the ADCN either — the attention getters survive an ADCN loss."]};
+    case "ecp": return {t:"Crew input",
+      chain: bk
+        ? ["ECP 1135VM","direct discrete connections","CPIOM-C — FWS Applications"]
+        : ["ECP 1135VM","CAN buses","IOMs","ADCN (AFDX)","CPIOM-C — FWS Applications"],
+      cls: bk?"di":"",
+      notes: bk?["On an ADCN loss, discrete connections keep MOST of the ECP's functions operational (LEVEL 2&3). The LEVEL I set says all its functions."]:[]};
+    case "cms": return {t:"Maintenance",
+      chain:["FWS Application","BITE messages, cockpit effects, flight phases","ADCN","CMS"],
+      cls:"",notes:["Time Limited Item counter values reach the CMS the same way and appear in the post flight report."]};
+  }
+  return null;
+}
+
+/* =====================================================================================
+   VIEW
+   ===================================================================================== */
+function el(tag,attrs,parent){
+  const n=document.createElementNS(SVGNS,tag);
+  for(const k in attrs){ if(k==="text") n.textContent=attrs[k]; else if(attrs[k]!=null) n.setAttribute(k,attrs[k]); }
+  if(parent) parent.appendChild(n); return n;
+}
+function h(tag,attrs,parent){
+  const n=document.createElement(tag);
+  for(const k in attrs){
+    if(k==="text") n.textContent=attrs[k];
+    else if(k==="html") n.innerHTML=attrs[k];
+    else if(k==="class") n.className=attrs[k];
+    else if(attrs[k]!=null) n.setAttribute(k,attrs[k]);
+  }
+  if(parent) parent.appendChild(n); return n;
+}
+
+const ARCH={
+  nodes:{
+    LRM:{x:30,y:120,w:165,h:56,l:"LRMs",s:"AFDX + A429 backup",id:"LRM"},
+    LRUA:{x:30,y:196,w:165,h:56,l:"LRUs (AFDX)",s:"AFDX + A429 backup",id:"LRUA"},
+    LRUC:{x:30,y:272,w:165,h:56,l:"LRUs (conventional)",s:"ARINC 429 only",id:"LRUC"},
+    ADCN:{x:300,y:180,w:170,h:80,l:"ADCN",s:"AFDX",id:"ADCN"},
+    C1:{x:580,y:140,w:190,h:62,l:"CPIOM-C1",s:"FWS APPLICATION 1",id:"FWS1"},
+    C2:{x:580,y:226,w:190,h:62,l:"CPIOM-C2",s:"FWS APPLICATION 2",id:"FWS2"},
+    CDS:{x:900,y:110,w:200,h:66,l:"CDS (ECAM part)",s:"EWD · SD · PFD",id:"CDS"},
+    AMU:{x:900,y:210,w:200,h:66,l:"AMU 1 / AMU 2",s:"analog audio",id:"AMU1"},
+    SPK:{x:900,y:308,w:200,h:56,l:"LOUDSPEAKERS",s:"2 per AMU — one per side",id:"SPK"},
+    AG:{x:900,y:396,w:200,h:66,l:"ATTENTION GETTERS",s:"MASTER WARN / CAUT ×2",id:"AG"},
+    CMS:{x:900,y:494,w:200,h:56,l:"CMS",s:"BITE · cockpit effects",id:"CMS"},
+    IOM:{x:300,y:400,w:170,h:56,l:"IOMs",s:"CAN interface",id:"IOM"},
+    ECP:{x:30,y:400,w:165,h:56,l:"ECP 1135VM",s:"ECAM Control Panel",id:"ECP"},
+    RMP:{x:30,y:462,w:165,h:52,l:"RMPs",s:"RST key — aural only",id:"RMP"}
+  },
+  links:[
+    ["LRM","ADCN","adcn"],["LRUA","ADCN","adcn"],
+    ["ADCN","C1","adcn"],["ADCN","C2","adcn"],
+    ["LRM","C1","bkup"],["LRUA","C2","bkup"],
+    ["LRUC","C1","a429"],["LRUC","C2","a429"],
+    ["C1","CDS","adcn"],["C2","CDS","adcn"],
+    ["C1","CDS","bkup"],
+    ["C1","AMU","aural"],["C2","AMU","aural"],
+    ["AMU","SPK","aural"],
+    ["C1","AG","disc"],["C2","AG","disc"],
+    ["C1","CMS","adcn"],
+    ["ECP","IOM","can"],["IOM","ADCN","adcn"],["ECP","C1","disc"],
+    ["RMP","AMU","aural"]
+  ]
+};
+const BUILDUP_SEQ=[
+  ["LRM","The aircraft systems. Line Replaceable Modules and Line Replaceable Units with an AFDX interface feed the FWS over the network."],
+  ["LRUC","Conventional Line Replaceable Units are different — they are always connected directly in ARINC 429."],
+  ["ADCN","The ADCN carries AFDX from those sources towards the FWS."],
+  ["C1","The first FWS Application, hosted in CPIOM-C1."],
+  ["C2","And the second, in CPIOM-C2. The FWS is mainly composed of these two applications."],
+  ["CDS","Alerts go out to the CDS — the ECAM part — which paints them on the EWD, the SD and the PFDs lower zone."],
+  ["AMU","Aural alerts leave the FWS as analog audio signals to the two Audio Management Units."],
+  ["SPK","Which drive the cockpit loudspeakers. Each FWS application manages a pair, one on each side."],
+  ["AG","The visual attention getters — MASTER WARN and MASTER CAUT on the left and right — are driven by discrete signals."],
+  ["ECP","The crew talk back through the ECAM Control Panel, ICP 1135VM."],
+  ["IOM","The ECP reaches the network through CAN buses and the IOMs."],
+  ["RMP","The RST key on any Radio and Audio Management Panel resets only the aural alert."],
+  ["CMS","Finally the FWS sends its own BITE messages, cockpit effects and flight phases to the Central Maintenance System."]
+];
+const LINKCOL={adcn:"var(--adcn)",bkup:"var(--bkup)",a429:"var(--bkup)",aural:"var(--aural)",disc:"var(--disc)",can:"var(--can)"};
+
+function linkLive(kind){
+  if(kind==="bkup") return !STATE.adcn;
+  if(kind==="adcn") return STATE.adcn;
+  if(kind==="disc") return true;              // discretes never use the ADCN
+  if(kind==="aural") return true;             // analog audio never uses the ADCN
+  if(kind==="a429") return true;              // conventional LRUs always direct
+  if(kind==="can") return STATE.ecp;
+  return true;
+}
+function nodeDead(k){
+  const n=ARCH.nodes[k];
+  if(k==="ADCN") return !STATE.adcn;
+  if(k==="ECP") return !STATE.ecp;
+  if(k==="C1") return !STATE.fws1;
+  if(k==="C2") return !STATE.fws2;
+  if(k==="AMU") return !STATE.amu1&&!STATE.amu2;
+  if(k==="AG") return !STATE.agL&&!STATE.agR;
+  return false;
+}
+
+function renderArch(gid){
+  const g=$(gid); g.innerHTML="";
+  const ev=evaluate();
+  const shown=BUILDUP?new Set(BUILDUP_SEQ.slice(0,BUILDUPI+1).map(s=>s[0])):null;
+  const vis=k=>!BUILDUP||shown.has(k);
+
+  el("text",{x:112,y:96,"text-anchor":"middle",fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"DATA SOURCES"},g);
+  el("text",{x:385,y:96,"text-anchor":"middle",fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"NETWORK"},g);
+  el("text",{x:675,y:96,"text-anchor":"middle",fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"ALERT PROCESSING"},g);
+  el("text",{x:1000,y:96,"text-anchor":"middle",fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"ALERT INDICATION"},g);
+
+  ARCH.links.forEach(([a,b,kind])=>{
+    if(!vis(a)||!vis(b)) return;
+    const A1=ARCH.nodes[a],B=ARCH.nodes[b]; if(!A1||!B) return;
+    const x1=A1.x+A1.w,y1=A1.y+A1.h/2,x2=B.x,y2=B.y+B.h/2;
+    const mx=(x1+x2)/2, d=`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
+    const live=linkLive(kind)&&!nodeDead(a)&&!nodeDead(b);
+    const col=LINKCOL[kind];
+    const traced=STATE.trace&&traceLinks(STATE.trace).some(t=>t[0]===a&&t[1]===b);
+    el("path",{d,fill:"none",stroke:live?col:"var(--dead)","stroke-width":traced?4.5:(live?2.3:1.3),
+      "stroke-dasharray":live?null:"4 4",opacity:live?(traced?1:0.9):0.4},g);
+    if(live&&ANIM) el("path",{d,fill:"none",stroke:col,"stroke-width":traced?4.5:2.3,opacity:.85,class:"flow"},g);
+  });
+
+  Object.keys(ARCH.nodes).forEach(k=>{
+    if(!vis(k)) return;
+    const n=ARCH.nodes[k], dead=nodeDead(k);
+    const gg=el("g",{transform:`translate(${n.x},${n.y})`,tabindex:"0",role:"button","aria-label":n.l,style:"cursor:pointer"},g);
+    let stroke="#3a4666", fill="#1b2337";
+    if(dead){ stroke="var(--fault)"; fill="#2a1010"; }
+    if(k==="AG"&&(ev.mw||ev.mc)&&!dead){ stroke=ev.mw?"var(--l3)":"var(--l2)"; fill=ev.mw?"#3a1010":"#2a2005"; }
+    el("rect",{x:0,y:0,width:n.w,height:n.h,rx:8,fill,stroke,"stroke-width":dead?2.4:1.6,
+               class:(k==="AG"&&ev.mw&&!dead)?"flash":null},gg);
+    el("text",{x:n.w/2,y:n.h/2-1,"text-anchor":"middle",fill:dead?"#ff8080":"#e8ecf4","font-size":"13","font-weight":"600",text:n.l},gg);
+    el("text",{x:n.w/2,y:n.h/2+16,"text-anchor":"middle",fill:"#8fa3c4","font-size":"10",text:dead?"LOST":n.s},gg);
+    if(k==="AG"&&!dead){
+      if(ev.mw) el("text",{x:n.w/2,y:n.h+15,"text-anchor":"middle",fill:"var(--l3)","font-size":"11","font-weight":"700",class:"flash",text:"MASTER WARN — red flashing"},gg);
+      else if(ev.mc) el("text",{x:n.w/2,y:n.h+15,"text-anchor":"middle",fill:"var(--l2)","font-size":"11","font-weight":"700",text:"MASTER CAUT — amber steady"},gg);
+    }
+    if(k==="SPK"&&!dead&&ev.aural!=="none"&&ev.aural.indexOf("none")!==0)
+      el("text",{x:n.w/2,y:n.h+15,"text-anchor":"middle",fill:"var(--aural)","font-size":"11","font-weight":"700",text:"♪ "+ev.aural},gg);
+    gg.addEventListener("click",()=>{STATE.sel=n.id;renderInspector();});
+    gg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.sel=n.id;renderInspector();}});
+  });
+
+  /* flight-phase strip along the bottom */
+  const p=effPhase();
+  el("text",{x:30,y:16,fill:"#6d7c99","font-size":"11","letter-spacing":"2",text:"FLIGHT PHASE"},g);
+  MODEL.phases.forEach((ph,i)=>{
+    const w=84,x=30+i*(w+6),y=24;
+    const cur=ph.n===p;
+    const inh=MODEL.inhibTO.indexOf(ph.n)>-1||MODEL.inhibLDG.indexOf(ph.n)>-1;
+    const gg=el("g",{transform:`translate(${x},${y})`,tabindex:"0",role:"button",
+      "aria-label":"Flight phase "+ph.n+" "+(ph.grp?ph.grp+" ":"")+ph.name,style:"cursor:pointer"},g);
+    el("rect",{x:0,y:0,width:w,height:46,rx:5,fill:cur?"#2f6fd6":"#1b2337",
+      stroke:cur?"#7cc4ff":(inh?"var(--magenta)":"#3a4666"),"stroke-width":cur?2.4:1.4},gg);
+    el("text",{x:w/2,y:16,"text-anchor":"middle",fill:cur?"#fff":"#9aa5bd","font-size":"12","font-weight":"700",text:String(ph.n)},gg);
+    if(ph.grp) el("text",{x:w/2,y:29,"text-anchor":"middle",fill:cur?"#dbeaff":"#6d7c99","font-size":"8",text:ph.grp},gg);
+    el("text",{x:w/2,y:ph.grp?40:33,"text-anchor":"middle",fill:cur?"#fff":"#9aa5bd","font-size":"9",text:ph.name},gg);
+    gg.addEventListener("click",()=>{STATE.phase=ph.n;STATE.phaseData=true;refresh();});
+    gg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.phase=ph.n;STATE.phaseData=true;refresh();}});
+  });
+  if(!STATE.phaseData)
+    el("text",{x:320,y:678,fill:"var(--l2)","font-size":"12",
+      text:"Flight-phase data unavailable — the FWS selects the cruise phase (8) by default."},g);
+  else if(MODEL.inhibTO.indexOf(p)>-1)
+    el("text",{x:320,y:678,fill:"var(--magenta)","font-size":"12","font-weight":"700",
+      text:"T.O INHIB — shown in magenta in the memo list on the EWD"},g);
+  else if(MODEL.inhibLDG.indexOf(p)>-1)
+    el("text",{x:320,y:678,fill:"var(--magenta)","font-size":"12","font-weight":"700",
+      text:"LDG INHIB — shown in magenta in the memo list on the EWD"},g);
+}
+function traceLinks(kind){
+  switch(kind){
+    case "acq": return STATE.adcn?[["LRM","ADCN"],["LRUA","ADCN"],["ADCN","C1"],["ADCN","C2"]]:[["LRM","C1"],["LRUA","C2"],["LRUC","C1"],["LRUC","C2"]];
+    case "disp": return [["C1","CDS"],["C2","CDS"]];
+    case "aural": return [["C1","AMU"],["C2","AMU"],["AMU","SPK"]];
+    case "ag": return [["C1","AG"],["C2","AG"]];
+    case "ecp": return STATE.adcn?[["ECP","IOM"],["IOM","ADCN"],["ADCN","C1"]]:[["ECP","C1"]];
+    case "cms": return [["C1","CMS"]];
+  }
+  return [];
+}
+
+function renderPhaseView(gid){
+  const g=$(gid); g.innerHTML="";
+  const p=effPhase();
+  el("text",{x:590,y:44,"text-anchor":"middle",fill:"#cfd8ea","font-size":"16","font-weight":"600",
+    text:"Flight phases computation — the FWS divides a normal flight into 12 phases"},g);
+  el("text",{x:590,y:66,"text-anchor":"middle",fill:"#8fa3c4","font-size":"12",
+    text:"Computed from engine parameters, computed air speed, altitude, and gear compressed / not compressed from the L/G system"},g);
+
+  MODEL.phases.forEach((ph,i)=>{
+    const col=i%6, row=Math.floor(i/6);
+    const w=178,hh=118,x=40+col*(w+10),y=110+row*(hh+96);
+    const cur=ph.n===p;
+    const toI=MODEL.inhibTO.indexOf(ph.n)>-1, ldI=MODEL.inhibLDG.indexOf(ph.n)>-1;
+    const gg=el("g",{transform:`translate(${x},${y})`,tabindex:"0",role:"button",
+      "aria-label":"Flight phase "+ph.n,style:"cursor:pointer"},g);
+    el("rect",{x:0,y:0,width:w,height:hh,rx:9,fill:cur?"#1d3a63":"#1b2337",
+      stroke:cur?"#7cc4ff":((toI||ldI)?"var(--magenta)":"#3a4666"),"stroke-width":cur?3:1.6},gg);
+    el("circle",{cx:26,cy:24,r:14,fill:cur?"#2f6fd6":"#2a3550"},gg);
+    el("text",{x:26,y:29,"text-anchor":"middle",fill:"#fff","font-size":"13","font-weight":"700",text:String(ph.n)},gg);
+    if(ph.grp) el("text",{x:50,y:20,fill:"#8fa3c4","font-size":"10","letter-spacing":"1",text:ph.grp},gg);
+    el("text",{x:50,y:ph.grp?34:28,fill:"#e8ecf4","font-size":"13","font-weight":"600",text:ph.name},gg);
+    el("text",{x:10,y:58,fill:"#6d7c99","font-size":"9",text:"ENTERED ON"},gg);
+    el("text",{x:10,y:73,fill:"#cfd8ea","font-size":"11",text:ph.into},gg);
+    if(ph.max) el("text",{x:10,y:92,fill:"var(--l2)","font-size":"10",text:ph.max},gg);
+    if(toI) el("text",{x:10,y:hh-8,fill:"var(--magenta)","font-size":"10","font-weight":"700",text:"T.O INHIB"},gg);
+    if(ldI) el("text",{x:10,y:hh-8,fill:"var(--magenta)","font-size":"10","font-weight":"700",text:"LDG INHIB"},gg);
+    gg.addEventListener("click",()=>{STATE.phase=ph.n;STATE.phaseData=true;refresh();});
+    gg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();STATE.phase=ph.n;STATE.phaseData=true;refresh();}});
+    if(col<5){ const ax=x+w+2; el("path",{d:`M ${ax} ${y+hh/2} l 6 0`,stroke:"#4a5877","stroke-width":2},g); }
+  });
+  el("text",{x:40,y:560,fill:"#8fa3c4","font-size":"12",
+    text:"Phase 12 returns to phase 1 at Last Engine Shutdown + 5 min."},g);
+  el("text",{x:40,y:584,fill:"#8fa3c4","font-size":"12",
+    text:"If the data are not available to compute the flight phases, the FWS selects the cruise phase (8) by default."},g);
+  el("text",{x:40,y:614,fill:"#cfd8ea","font-size":"12","font-weight":"600",text:"The flight phase is used to:"},g);
+  [["compute the ECAM normal mode in the CDS"],
+   ["inhibit, during critical flight phases, alerts related to non-critical flight failures"],
+   ["provide contextual information about failures to the CMS"]].forEach((t,i)=>
+    el("text",{x:56,y:638+i*20,fill:"#9aa5bd","font-size":"12",text:"· "+t[0]},g));
+}
+
+let VIEWBOX={x:0,y:0,w:1180,h:700};
+function applyVB(id){ $(id).setAttribute("viewBox",`${VIEWBOX.x} ${VIEWBOX.y} ${VIEWBOX.w} ${VIEWBOX.h}`); }
+function drawLegend(id){
+  const L=$(id); if(!L) return;
+  L.innerHTML='<b>Signal paths</b>'+
+    '<div><span class="sw" style="border-color:var(--adcn)"></span>ADCN / AFDX — normal</div>'+
+    '<div><span class="sw" style="border-color:var(--bkup)"></span>ARINC 429 — direct and backup</div>'+
+    '<div><span class="sw" style="border-color:var(--aural)"></span>analog audio — never uses the ADCN</div>'+
+    '<div><span class="sw" style="border-color:var(--disc)"></span>discrete — never uses the ADCN</div>'+
+    '<div><span class="sw" style="border-color:var(--can)"></span>CAN — ECP to the IOMs</div>'+
+    '<div><span class="sw" style="border-color:var(--dead);border-top-style:dashed"></span>path not carrying data</div>';
+}
+function draw(){
+  const v=$("selView").value;
+  if(v==="phase") renderPhaseView("vp"); else renderArch("vp");
+  $("legend").style.display = v==="phase" ? "none" : "block";
+  drawLegend("legend");
+  applyVB("svg");
+}
+
+/* =====================================================================================
+   UI — the ECP, the attention getters, the EWD and SD mock screens, the inspector
+   ===================================================================================== */
+function buildECP(parent){
+  const ev=evaluate();
+  const box=h("div",{class:"ecp"},parent);
+  const mk=(row,keys,cls)=>{
+    const r=h("div",{class:"row",style:"grid-template-columns:repeat("+row+",1fr)"},box);
+    keys.forEach(k=>{
+      const b=h("button",{class:(k==="EMER CANC"?"red ":"")+((STATE.sdPage===k||(k==="STS"&&STATE.stsOpen)||(k==="MORE"&&STATE.moreOpen))?"lit":""),text:k},r);
+      b.title=MODEL.ecp.desc[k]||("Calls the "+k+" system synoptic page on the SD.");
+      b.addEventListener("click",()=>pressECP(k));
+    });
+  };
+  mk(6,MODEL.ecp.top);
+  mk(4,MODEL.ecp.sysL);
+  mk(3,MODEL.ecp.sysR.slice(0,3));
+  mk(3,MODEL.ecp.sysR.slice(3));
+  mk(5,["CLEAR","RCL LAST","↑","↓","STS"]);
+  mk(4,["MORE","RCL","CLEAR","VIDEO"]);
+  h("div",{class:"small muted",style:"margin-top:4px",
+    text:STATE.ecp?"ECP normal — CAN → IOMs → ADCN → FWS":"ECP FAILED — only the discrete keys reach the FWS"},box);
+  return box;
+}
+function pressECP(k){
+  if(!STATE.ecp && MODEL.ecp.discrete.indexOf(k)===-1){
+    toast("ECP failed. Only "+MODEL.ecp.discrete.join(", ")+" reach the FWS through direct discrete connections.");
+    return;
+  }
+  const sysKeys=MODEL.ecp.sysL.concat(MODEL.ecp.sysR);
+  if(k==="EMER CANC"){ toast(emerCanc()); }
+  else if(k==="CLEAR"){ toast(clearTop()); }
+  else if(k==="RCL"){ toast(recall()); }
+  else if(k==="STS"){ STATE.stsOpen=!STATE.stsOpen; STATE.moreOpen=false;
+    toast(STATE.stsOpen?"Status page called. The Status page mainly appears once all pages related to the current warning management have been cleared, or on a manual call.":"Status page closed."); }
+  else if(k==="MORE"){ if(!STATE.stsOpen){toast("Call the Status page with STS first.");return;} STATE.moreOpen=!STATE.moreOpen; }
+  else if(k==="C/L"){ STATE.ewdPage=STATE.ewdPage==="C/L MENU"?"ALERTS":"C/L MENU"; }
+  else if(k==="ABN PROC"){ STATE.ewdPage=STATE.ewdPage==="ABN PROC"?"ALERTS":"ABN PROC"; }
+  else if(k==="✓"){ toast("Validate — calls the designated checklist, or activates a Supplementary Abnormal Procedure, or confirms a non-sensed item."); }
+  else if(k==="T.O CONFIG"||k==="RCL LAST"||k==="ALL"||k==="VIDEO"){ toast(MODEL.ecp.desc[k]||"Function not described in these notes."); }
+  else if(k==="↑"||k==="↓"){ toast(MODEL.ecp.desc[k]); }
+  else if(sysKeys.indexOf(k)>-1){ STATE.sdPage=STATE.sdPage===k?null:k; STATE.stsOpen=false; }
+  refresh();
+}
+
+function ewdHTML(){
+  const ev=evaluate();
+  let s='<div class="gry">ENGINE DISPLAY ZONE — THR % · N1 % · EGT °C  <span class="small">(RR parameters used as an example)</span></div>';
+  s+='<div class="gry" style="margin:4px 0 2px">── WARNING DISPLAY ZONE ──────────────</div>';
+  if(!fwsAlive()) return s+'<div class="red">(assumed) FWS lost — no alert generation</div>';
+  if(STATE.ewdPage==="C/L MENU"){
+    s+='<div class="cyn">CHECKLISTS</div>';
+    ["BEFORE START","AFTER START","BEFORE TAKEOFF","AFTER TAKEOFF / CLIMB","APPROACH","LANDING","AFTER LANDING","PARKING","SECURING AIRCRAFT"]
+      .forEach((c,i)=>{ s+='<div class="'+(i===4?"cyn":"cyn")+'">'+(i===4?"▸ ":"&nbsp;&nbsp;")+"☐ "+c+"</div>"; });
+    return s;
+  }
+  if(STATE.ewdPage==="ABN PROC"){
+    s+='<div class="wht">ABNORMAL PROC</div>';
+    ["SMOKE / TOXIC FUMES REMOVAL","EMER DESCENT","DITCHING","FORCED LANDING","ON GROUND EMERGENCY EVAC"]
+      .forEach(c=>s+='<div class="red">'+c+"</div>");
+    ["FIRE PROTECTION","FLIGHT CONTROLS","INDICATING / RECORDING","LANDING GEAR","NAVIGATION","POWER PLANT","MISCELLANEOUS","OPERATING TECHNIQUES","AIRLINE PROCEDURES"]
+      .forEach(c=>s+='<div class="wht">'+c+"</div>");
+    return s;
+  }
+  if(!ev.shown.length){
+    s+='<div class="grn">no active alert</div>';
+    s+='<div class="gry" style="margin-top:6px">LIMITATIONS &nbsp;&nbsp; ALL PHASES &nbsp;|&nbsp; APPR &amp; LDG</div>';
+    s+='<div class="amb">MAX SPD : 200 KT &nbsp;|&nbsp; LDG DIST x 1.4</div>';
+    s+='<div class="grn" style="margin-top:4px">SEAT BELTS &nbsp; NO SMOKING</div>';
+  } else {
+    ev.shown.forEach(a=>{
+      const cat=MODEL.cats[a.cat];
+      let cls=a.lvl===3?"red":"amb";
+      let txt=a.msg;
+      if(a.cat==="primary") s+='<div class="'+cls+'"><span class="box">'+txt+"</span></div>";
+      else if(a.cat==="secondary") s+='<div class="amb">'+txt+"</div>";
+      else s+='<div class="'+cls+'"><span class="ul">'+txt.split(" ")[0]+"</span> "+txt.split(" ").slice(1).join(" ")+"</div>";
+      a.proc.forEach(pl=>s+='<div class="cyn">&nbsp;&nbsp;'+pl+"</div>");
+    });
+  }
+  const p=effPhase();
+  if(MODEL.inhibTO.indexOf(p)>-1) s+='<div class="mag" style="margin-top:5px">T.O INHIB</div>';
+  if(MODEL.inhibLDG.indexOf(p)>-1) s+='<div class="mag" style="margin-top:5px">LDG INHIB</div>';
+  if(ev.stsNotEmpty) s+='<div class="amb" style="margin-top:5px">STS</div>';
+  return s;
+}
+function sdHTML(){
+  const ev=evaluate();
+  let s='<div class="cyn">'+(ev.sd||"—")+'</div><div class="gry small">'+(ev.sdWhy||"")+"</div>";
+  if(ev.sd==="STATUS"){
+    s+='<div class="wht" style="margin-top:5px">DEFERRED PROCs : ALL PHASES. APPR. LDG</div>';
+    s+='<div class="amb">LIMITATIONS</div>';
+    s+='<div class="gry" style="margin-top:4px">INOP SYS &nbsp; ALL PHASES &nbsp;|&nbsp; APPR&amp;LDG</div>';
+    s+='<div class="amb">PRIM 2+3 &nbsp;|&nbsp; AUTO CALLOUT</div>';
+    s+='<div class="amb" style="margin-top:4px">MORE</div>';
+  } else if(ev.sd==="STATUS MORE"){
+    s+='<div class="gry" style="margin-top:5px">INOP SYS REDUND</div>';
+    s+='<div class="amb">YAW DAMPER 1</div>';
+    s+='<div class="gry" style="margin-top:4px">CANCELLED CAUTION</div>';
+    if(STATE.cancelled.length) STATE.cancelled.forEach(id=>{const a=A(id);if(a)s+='<div class="amb">'+a.msg+"</div>";});
+    else s+='<div class="gry">— none —</div>';
+  } else {
+    s+='<div class="grn" style="margin-top:6px">A/C system synoptic page</div>';
+  }
+  s+='<div class="gry" style="margin-top:6px">PERMANENT DATA — TAT · SAT · UTC · GW · FOB</div>';
+  s+='<div class="cyn">ATC MAIL BOX — not driven by the ECAM</div>';
+  return s;
+}
+
+function renderInspector(){
+  const p=$("inspector"); p.innerHTML="";
+  const ev=evaluate();
+
+  /* attention getters + aural */
+  const c0=h("div",{class:"card"},p);
+  h("h2",{text:"Cockpit peripherals"},c0);
+  const ag=h("div",{class:"ag"},c0);
+  ["LH","RH"].forEach(sd=>{
+    const alive=sd==="LH"?STATE.agL:STATE.agR;
+    const b=h("div",{class:"agbox"},ag);
+    h("div",{class:"mw"+(ev.mw&&alive?" on flash":""),text:"MASTER WARN"},b);
+    h("div",{class:"mc"+(ev.mc&&alive?" on":""),text:"MASTER CAUT"},b);
+    h("div",{style:"font-size:.65em;color:#6d7c99",text:sd+(alive?"":" — LOST")},b);
+  });
+  h("div",{class:"small",html:"<strong>Aural:</strong> "+(ev.aural==="none"?"<span class='muted'>none</span>":"<span class='warn'>♪ "+ev.aural+"</span>")+
+    (ev.auralWhy?" <span class='muted small'>— "+ev.auralWhy+"</span>":"")},c0);
+  const rr=h("button",{class:"small",text:"RST on an RMP"},c0);
+  rr.title="Resets only the aural alert.";
+  rr.addEventListener("click",()=>{STATE.auralMuted=true;toast("RST pressed on an RMP — this resets only the aural alert. The visual indications are unchanged.");refresh();});
+
+  /* EWD + SD */
+  const c1=h("div",{class:"card"},p);
+  h("h2",{text:"Engine / Warning Display"},c1);
+  h("div",{class:"scr",html:ewdHTML()},c1);
+  const c2=h("div",{class:"card"},p);
+  h("h2",{text:"System Display"},c2);
+  h("div",{class:"scr",html:sdHTML()},c2);
+
+  /* ECP */
+  const c3=h("div",{class:"card"},p);
+  h("h2",{text:"ECAM Control Panel — 1135VM"},c3);
+  buildECP(c3);
+
+  /* alerts */
+  const c4=h("div",{class:"card"},p);
+  h("h2",{text:"Alerts"},c4);
+  MODEL.alerts.forEach(a=>{
+    const on=STATE.active.indexOf(a.id)>-1;
+    const b=h("button",{class:"small"+(on?" tog on":""),text:"L"+a.lvl+" "+a.msg.slice(0,26)},c4);
+    b.style.cssText+="display:block;width:100%;text-align:left;margin-bottom:3px";
+    b.title=a.note||MODEL.cats[a.cat].n;
+    b.addEventListener("click",()=>{
+      if(on){ STATE.active=STATE.active.filter(x=>x!==a.id); }
+      else{
+        STATE.active.push(a.id);
+        if(a.causes) a.causes.forEach(cid=>{ if(STATE.active.indexOf(cid)===-1) STATE.active.push(cid); });
+        STATE.auralMuted=false;
+      }
+      refresh();
+    });
+  });
+  if(ev.inhib.length){
+    h("h3",{text:"Inhibited right now"},c4);
+    ev.inhib.forEach(i=>h("div",{class:"notice small",html:"<strong>"+i.a.msg+"</strong><br>"+i.why+(i.asm?" <span class='pill'>assumed</span>":"")},c4));
+  }
+  if(ev.shown.length>1)
+    h("div",{class:"small muted",text:"Displayed in the fixed priority order — Level 3 before Level 2 before Level 1, then a defined within-level order. The order does not depend on the chronology of occurrence."},c4);
+  if(ev.errors.length) ev.errors.forEach(e=>h("div",{class:"err small",text:e},c4));
+
+  /* level reference */
+  const top=ev.shown[0];
+  if(top){
+    const L=MODEL.levels[top.lvl], cat=MODEL.cats[top.cat];
+    const c5=h("div",{class:"card"},p);
+    h("h2",{text:L.n},c5);
+    h("p",{class:"small",text:L.def},c5);
+    const d=h("dl",{class:"kv"},c5);
+    h("dt",{text:"Configuration"},d); h("dd",{text:L.cfg},d);
+    h("dt",{text:"Aural"},d); h("dd",{text:L.aural},d);
+    h("dt",{text:"Attention getters"},d); h("dd",{text:L.ag},d);
+    h("dt",{text:"EWD"},d); h("dd",{text:L.ewd},d);
+    h("dt",{text:"SD"},d); h("dd",{text:L.sd},d);
+    h("dt",{text:"Failure type"},d); h("dd",{text:cat.n},d);
+    h("dt",{text:"EWD characteristic"},d); h("dd",{text:cat.disp},d);
+    if(top.note) h("p",{class:"small muted",text:top.note},c5);
+  }
+
+  /* signal trace */
+  const c6=h("div",{class:"card"},p);
+  h("h2",{text:"Signal trace"},c6);
+  const g=h("div",{class:"grid3"},c6);
+  [["acq","Acquisition"],["disp","Display"],["aural","Aural"],["ag","Getters"],["ecp","Crew input"],["cms","Maintenance"]].forEach(([k,l])=>{
+    const b=h("button",{class:"small"+(STATE.trace===k?" tog on":""),text:l},g);
+    b.addEventListener("click",()=>{STATE.trace=STATE.trace===k?null:k;refresh();});
+  });
+  if(STATE.trace){
+    const t=tracePath(STATE.trace);
+    h("h3",{text:t.t},c6);
+    const ul=h("ul",{class:"pathlist"},c6);
+    t.chain.forEach(s=>h("li",{class:t.cls,text:s},ul));
+    t.notes.forEach(n=>h("div",{class:"small muted",text:"· "+n},c6));
+  }
+
+  /* component inspector */
+  const comp=MODEL.comp[STATE.sel];
+  if(comp){
+    const c7=h("div",{class:"card"},p);
+    h("h2",{text:comp.n},c7);
+    if(comp.loc) h("div",{class:"small muted",text:"Location: "+comp.loc},c7);
+    h("p",{class:"small",text:comp.note},c7);
+  }
+
+  /* architecture switches */
+  const c8=h("div",{class:"card"},p);
+  h("h2",{text:"Architecture"},c8);
+  const g8=h("div",{class:"grid3"},c8);
+  [["adcn","ADCN"],["ecp","ECP"],["fws1","FWS 1"],["fws2","FWS 2"],["amu1","AMU 1"],["amu2","AMU 2"],["agL","AG LH"],["agR","AG RH"],["phaseData","Phase data"]].forEach(([k,l])=>{
+    const b=h("button",{class:"small tog"+(STATE[k]?" on":""),text:l},g8);
+    b.addEventListener("click",()=>{STATE[k]=!STATE[k];refresh();});
+  });
+
+  /* glossary */
+  const c9=h("div",{class:"card"},p);
+  h("h2",{text:"Glossary"},c9);
+  const gw=h("div",{},c9);
+  Object.keys(MODEL.gloss).forEach(k=>{ const s=h("span",{class:"chip",text:k},gw); s.title=MODEL.gloss[k]; });
+}
+
+let toastT=null;
+function toast(msg){
+  let t=$("toast");
+  if(!t){ t=h("div",{id:"toast"},document.body);
+    t.style.cssText="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1f2840;border:1px solid #3a4666;padding:9px 16px;border-radius:9px;z-index:99;max-width:74ch;box-shadow:0 6px 22px rgba(0,0,0,.5)"; }
+  t.textContent=msg; t.style.display="block";
+  clearTimeout(toastT); toastT=setTimeout(()=>{t.style.display="none";},5200);
+}
+
+function applyScenario(id){
+  const s=MODEL.scen.find(x=>x.id===id); if(!s) return;
+  STATE=freshState(); STATE.scen=id;
+  const set=s.set;
+  if(set.alerts) STATE.active=set.alerts.slice();
+  if(set.phase!=null) STATE.phase=set.phase;
+  ["adcn","ecp","fws1","fws2","phaseData"].forEach(k=>{ if(k in set) STATE[k]=set[k]; });
+  refresh();
+}
+function refresh(){ draw(); renderInspector(); writeHash(); if($("p-fault").classList.contains("active")) renderFault(); }
+
+/* STORE */
+function writeHash(){
+  try{
+    const s=JSON.stringify({p:STATE.phase,pd:STATE.phaseData,a:STATE.adcn,e:STATE.ecp,f1:STATE.fws1,f2:STATE.fws2,
+      m1:STATE.amu1,m2:STATE.amu2,gl:STATE.agL,gr:STATE.agR,al:STATE.active,cn:STATE.cancelled,cl:STATE.cleared,
+      sp:STATE.sdPage,st:STATE.stsOpen,sc:STATE.scen});
+    history.replaceState(null,"","#"+encodeURIComponent(s));
+  }catch(e){}
+}
+function readHash(){
+  try{
+    if(!location.hash||location.hash.length<3) return false;
+    const o=JSON.parse(decodeURIComponent(location.hash.slice(1)));
+    if(!o||o.p==null) return false;
+    STATE.phase=o.p; STATE.phaseData=o.pd!==false; STATE.adcn=o.a!==false; STATE.ecp=o.e!==false;
+    STATE.fws1=o.f1!==false; STATE.fws2=o.f2!==false; STATE.amu1=o.m1!==false; STATE.amu2=o.m2!==false;
+    STATE.agL=o.gl!==false; STATE.agR=o.gr!==false;
+    STATE.active=o.al||[]; STATE.cancelled=o.cn||[]; STATE.cleared=o.cl||[];
+    STATE.sdPage=o.sp||null; STATE.stsOpen=!!o.st; STATE.scen=o.sc||"S0";
+    return true;
+  }catch(e){ return false; }
+}
+
+/* =====================================================================================
+   BUILD MODE
+   ===================================================================================== */
+const PALETTE=[
+  {id:"LRM",l:"LRM",c:"#4aa8ff"},{id:"LRUA",l:"LRU (AFDX)",c:"#4aa8ff"},{id:"LRUC",l:"LRU (conv.)",c:"#ff4fd8"},
+  {id:"ADCN",l:"ADCN",c:"#4aa8ff"},{id:"FWS",l:"FWS Application",c:"#31d158"},
+  {id:"CDS",l:"CDS (ECAM)",c:"#ffb020"},{id:"AMU",l:"AMU",c:"#c084fc"},{id:"SPK",l:"Loudspeaker",c:"#c084fc"},
+  {id:"AG",l:"Attention getter",c:"#ffd24a"},{id:"ECP",l:"ECP 1135VM",c:"#ffd24a"},
+  {id:"IOM",l:"IOM",c:"#3ddc84"},{id:"CMS",l:"CMS",c:"#8fa3c4"}
+];
+const TARGETS=[
+  {id:"t1",n:"Normal acquisition path",need:[["LRM","ADCN"],["ADCN","FWS"]],
+   hint:"LRMs and AFDX LRUs reach the FWS applications through the ADCN."},
+  {id:"t2",n:"Acquisition on a total ADCN loss",need:[["LRM","FWS"],["LRUC","FWS"]],
+   hint:"LRMs and AFDX LRUs are also directly connected in ARINC 429; conventional LRUs always were."},
+  {id:"t3",n:"Aural alert path",need:[["FWS","AMU"],["AMU","SPK"]],
+   hint:"Analog audio signals from the FWS to the AMUs, then to the loudspeakers. This path never touches the ADCN."},
+  {id:"t4",n:"Visual attention getter path",need:[["FWS","AG"]],
+   hint:"Discrete signals straight from the FWS to the MASTER WARN and MASTER CAUT lights."},
+  {id:"t5",n:"Normal crew input path",need:[["ECP","IOM"],["IOM","ADCN"],["ADCN","FWS"]],
+   hint:"ECP through CAN buses to the IOMs, onto the ADCN, then to the FWS applications."},
+  {id:"t6",n:"Crew input on a total ADCN loss",need:[["ECP","FWS"]],
+   hint:"Direct discrete connections keep most of the ECP's functions operational."},
+  {id:"t7",n:"Alert display path",need:[["FWS","CDS"]],
+   hint:"The FWS drives the CDS ECAM part, over the ADCN normally and over ARINC 429 as a backup."},
+  {id:"t8",n:"Maintenance path",need:[["FWS","ADCN"],["ADCN","CMS"]],
+   hint:"BITE messages, cockpit effects and flight phases go to the CMS for maintenance data consolidation."}
+];
+const STARTERS=[
+  {n:"Full normal architecture",nodes:[["LRM",60,80],["LRUA",60,180],["LRUC",60,280],["ADCN",340,180],["FWS",600,180],["CDS",860,80],["AMU",860,200],["SPK",860,300],["AG",860,400],["ECP",60,420],["IOM",340,420],["CMS",860,500]],
+   wires:[[0,3],[1,3],[2,4],[3,4],[4,5],[4,6],[6,7],[4,8],[9,10],[10,3],[4,3],[3,11]]},
+  {n:"ADCN lost — what still works",nodes:[["LRM",80,80],["LRUC",80,200],["FWS",420,140],["CDS",760,60],["AMU",760,180],["SPK",760,280],["AG",760,380],["ECP",80,340]],
+   wires:[[0,2],[1,2],[2,3],[2,4],[4,5],[2,6],[7,2]]},
+  {n:"Aural chain only",nodes:[["FWS",120,200],["AMU",420,200],["SPK",720,120],["SPK",720,280]],
+   wires:[[0,1],[1,2],[1,3]]}
+];
+let BUILD={nodes:[],wires:[],sel:null,wireFrom:null,running:false,target:null,undo:[],redo:[]};
+function pushUndo(){ BUILD.undo.push(JSON.stringify({n:BUILD.nodes,w:BUILD.wires})); if(BUILD.undo.length>40)BUILD.undo.shift(); BUILD.redo.length=0; }
+function doUndo(){ if(!BUILD.undo.length)return; BUILD.redo.push(JSON.stringify({n:BUILD.nodes,w:BUILD.wires}));
+  const s=JSON.parse(BUILD.undo.pop()); BUILD.nodes=s.n; BUILD.wires=s.w; drawBuild(); }
+function doRedo(){ if(!BUILD.redo.length)return; BUILD.undo.push(JSON.stringify({n:BUILD.nodes,w:BUILD.wires}));
+  const s=JSON.parse(BUILD.redo.pop()); BUILD.nodes=s.n; BUILD.wires=s.w; drawBuild(); }
+function addNode(t,x,y){ pushUndo(); BUILD.nodes.push({t,x:x||120+Math.random()*500,y:y||120+Math.random()*400}); drawBuild(); }
+function drawBuild(){
+  const g=$("bvp"); g.innerHTML="";
+  el("rect",{x:0,y:0,width:1180,height:700,fill:"#0b0f18"},g);
+  for(let x=0;x<1180;x+=40) el("line",{x1:x,y1:0,x2:x,y2:700,stroke:"#141b28","stroke-width":1},g);
+  for(let y=0;y<700;y+=40) el("line",{x1:0,y1:y,x2:1180,y2:y,stroke:"#141b28","stroke-width":1},g);
+  BUILD.wires.forEach((w,i)=>{
+    const a=BUILD.nodes[w[0]],b=BUILD.nodes[w[1]]; if(!a||!b) return;
+    const x1=a.x+130,y1=a.y+22,x2=b.x,y2=b.y+22,mx=(x1+x2)/2;
+    const d=`M ${x1} ${y1} L ${mx} ${y1} L ${mx} ${y2} L ${x2} ${y2}`;
+    el("path",{d,fill:"none",stroke:"#4aa8ff","stroke-width":2.4},g);
+    if(BUILD.running&&ANIM) el("path",{d,fill:"none",stroke:"#7cc4ff","stroke-width":2.4,class:"flow"},g);
+    el("circle",{cx:mx,cy:(y1+y2)/2,r:5,fill:"#0b0f18",stroke:"#4aa8ff","stroke-width":1.6,style:"cursor:pointer"},g)
+      .addEventListener("click",()=>{pushUndo();BUILD.wires.splice(i,1);drawBuild();});
+  });
+  BUILD.nodes.forEach((n,i)=>{
+    const p=PALETTE.find(x=>x.id===n.t)||{l:n.t,c:"#8fa3c4"};
+    const gg=el("g",{transform:`translate(${n.x},${n.y})`,tabindex:"0",role:"button","aria-label":p.l,style:"cursor:grab"},g);
+    el("rect",{x:0,y:0,width:130,height:44,rx:7,fill:"#1b2337",
+      stroke:BUILD.sel===i?"#7cc4ff":(BUILD.wireFrom===i?"#ffb020":p.c),"stroke-width":(BUILD.sel===i||BUILD.wireFrom===i)?3:1.8},gg);
+    el("text",{x:65,y:27,"text-anchor":"middle",fill:"#e8ecf4","font-size":"12","font-weight":"600",text:p.l},gg);
+    el("circle",{cx:130,cy:22,r:5,fill:p.c,style:"cursor:crosshair"},gg)
+      .addEventListener("click",e=>{e.stopPropagation();BUILD.wireFrom=i;drawBuild();});
+    el("circle",{cx:0,cy:22,r:5,fill:"#3a4666",style:"cursor:crosshair"},gg)
+      .addEventListener("click",e=>{e.stopPropagation();
+        if(BUILD.wireFrom!=null&&BUILD.wireFrom!==i){pushUndo();BUILD.wires.push([BUILD.wireFrom,i]);BUILD.wireFrom=null;}
+        drawBuild();});
+    gg.addEventListener("click",()=>{BUILD.sel=i;drawBuild();});
+    gg.addEventListener("keydown",e=>{
+      const s=e.shiftKey?20:8;
+      if(e.key==="ArrowLeft"){n.x-=s;drawBuild();e.preventDefault();}
+      if(e.key==="ArrowRight"){n.x+=s;drawBuild();e.preventDefault();}
+      if(e.key==="ArrowUp"){n.y-=s;drawBuild();e.preventDefault();}
+      if(e.key==="ArrowDown"){n.y+=s;drawBuild();e.preventDefault();}
+      if(e.key==="Delete"||e.key==="Backspace"){delNode(i);e.preventDefault();}
+    });
+    let drag=null;
+    gg.addEventListener("pointerdown",e=>{drag={sx:e.clientX,sy:e.clientY,ox:n.x,oy:n.y};gg.setPointerCapture(e.pointerId);pushUndo();});
+    gg.addEventListener("pointermove",e=>{
+      if(!drag)return; const r=$("bsvg").getBoundingClientRect(),k=1180/r.width;
+      n.x=Math.round((drag.ox+(e.clientX-drag.sx)*k)/8)*8;
+      n.y=Math.round((drag.oy+(e.clientY-drag.sy)*k)/8)*8; drawBuild();
+    });
+    gg.addEventListener("pointerup",()=>{drag=null;});
+  });
+}
+function delNode(i){
+  pushUndo(); BUILD.nodes.splice(i,1);
+  BUILD.wires=BUILD.wires.filter(w=>w[0]!==i&&w[1]!==i).map(w=>[w[0]>i?w[0]-1:w[0],w[1]>i?w[1]-1:w[1]]);
+  BUILD.sel=null; BUILD.wireFrom=null; drawBuild();
+}
+function checkBuild(t){
+  const have=BUILD.wires.map(w=>[BUILD.nodes[w[0]]&&BUILD.nodes[w[0]].t,BUILD.nodes[w[1]]&&BUILD.nodes[w[1]].t]);
+  const missing=t.need.filter(nd=>!have.some(hv=>hv[0]===nd[0]&&hv[1]===nd[1]));
+  const extra=have.filter(hv=>!t.need.some(nd=>nd[0]===hv[0]&&nd[1]===hv[1]));
+  return {ok:missing.length===0,missing,extra};
+}
+function reachSources(idx){
+  const seen=new Set([idx]),stack=[idx],src=[];
+  while(stack.length){ const c=stack.pop();
+    BUILD.wires.forEach(w=>{ if(w[1]===c&&!seen.has(w[0])){seen.add(w[0]);stack.push(w[0]);} }); }
+  seen.forEach(i=>{ if(i!==idx){ const t=BUILD.nodes[i].t;
+    if(["LRM","LRUA","LRUC","ECP","FWS","AMU"].indexOf(t)>-1&&src.indexOf(t)===-1) src.push(t); }});
+  return src;
+}
+function renderBuildPanel(){
+  const p=$("buildPanel"); p.innerHTML="";
+  const c1=h("div",{class:"card"},p);
+  h("h2",{text:"Palette"},c1);
+  h("p",{class:"small muted",text:"Click to place. Click a right-hand dot then a left-hand dot to wire. Click a wire's midpoint to delete it. Arrow keys nudge the selected block; Delete removes it."},c1);
+  const g=h("div",{class:"grid2"},c1);
+  PALETTE.forEach(x=>{const b=h("button",{class:"small",text:x.l},g);b.style.borderColor=x.c;b.addEventListener("click",()=>addNode(x.id));});
+
+  const c2=h("div",{class:"card"},p);
+  h("h2",{text:"Starter architectures"},c2);
+  STARTERS.forEach(s=>{
+    const b=h("button",{class:"small",text:s.n},c2); b.style.margin="2px 4px 2px 0";
+    b.addEventListener("click",()=>{ pushUndo();
+      BUILD.nodes=s.nodes.map(n=>({t:n[0],x:n[1],y:n[2]}));
+      BUILD.wires=s.wires.filter(w=>w[0]!==w[1]&&w[0]<BUILD.nodes.length&&w[1]<BUILD.nodes.length);
+      drawBuild(); });
+  });
+
+  const c3=h("div",{class:"card"},p);
+  h("h2",{text:"Check my build"},c3);
+  const sel=h("select",{},c3);
+  h("option",{value:"",text:"— choose a target —"},sel);
+  TARGETS.forEach(t=>h("option",{value:t.id,text:t.n},sel));
+  sel.value=BUILD.target||"";
+  sel.addEventListener("change",()=>{BUILD.target=sel.value;renderBuildPanel();});
+  const res=h("div",{},c3);
+  if(BUILD.target){
+    const t=TARGETS.find(x=>x.id===BUILD.target);
+    h("p",{class:"small muted",text:t.hint},c3);
+    const b=h("button",{class:"small primary",text:"Check"},c3);
+    b.addEventListener("click",()=>{
+      const r=checkBuild(t); res.innerHTML="";
+      if(r.ok) h("div",{class:"ok-note small",text:"Correct — every required link is present."},res);
+      else {
+        h("div",{class:"err small",text:"Missing: "+r.missing.map(m=>m[0]+" → "+m[1]).join(", ")},res);
+        if(r.extra.length) h("div",{class:"notice small",text:"Links not required by this target: "+r.extra.map(m=>m[0]+" → "+m[1]).join(", ")},res);
+      }
+    });
+  }
+
+  const c4=h("div",{class:"card"},p);
+  h("h2",{text:"Instruments"},c4);
+  h("p",{class:"small muted",text:"System archetype: a path continuity tester and a source readout, not a voltmeter or an oscilloscope."},c4);
+  const bt=h("button",{class:"small",text:"Path continuity test"},c4);
+  const out=h("div",{class:"small"},c4);
+  bt.addEventListener("click",()=>{
+    const sinks=BUILD.nodes.map((n,i)=>[n,i]).filter(([n])=>["CDS","SPK","AG","CMS"].indexOf(n.t)>-1);
+    if(!sinks.length){ out.innerHTML='<div class="err small">Place a CDS, loudspeaker, attention getter or CMS block first.</div>'; return; }
+    out.innerHTML=sinks.map(([n,i])=>{
+      const s=reachSources(i);
+      return `<div class="${s.length?"ok-note":"err"} small">${n.t} #${i+1}: ${s.length?"reached from "+s.join(", "):"floating — nothing reaches it"}</div>`;
+    }).join("");
+  });
+
+  const c5=h("div",{class:"card"},p);
+  h("h2",{text:"Export / import"},c5);
+  const ta=h("textarea",{rows:"5",style:"width:100%"},c5);
+  ta.value=JSON.stringify({n:BUILD.nodes,w:BUILD.wires});
+  const r=h("div",{class:"grid2"},c5);
+  h("button",{class:"small",text:"Copy JSON"},r).addEventListener("click",()=>{ta.select();try{document.execCommand("copy");toast("Copied.");}catch(e){toast("Select the text and copy manually.");}});
+  h("button",{class:"small",text:"Load JSON"},r).addEventListener("click",()=>{
+    try{const o=JSON.parse(ta.value);pushUndo();BUILD.nodes=o.n||[];BUILD.wires=o.w||[];drawBuild();toast("Loaded.");}
+    catch(e){toast("That is not valid JSON.");}
+  });
+}
+
+/* =====================================================================================
+   FAULT LAB
+   ===================================================================================== */
+const FAULTS=[
+  {id:"f1",n:"Level 1 caution — ELEC STATIC INV FAULT",apply:s=>{s.active=["a3"];s.phase=8;},
+   ind:"An amber caution appears on the EWD and the SD calls the affected system page. There is no chime and no attention getter at all.",
+   iso:"L1 ALERT",fix:"Recognise the alert as Level 1 — a configuration requiring crew monitoring. No attention getter is a correct indication, not a fault.",
+   misc:"Breaks the belief that Level 1 is just a quieter Level 2."},
+  {id:"f2",n:"Level 3 warning with EMER CANC misuse",apply:s=>{s.active=["a1"];s.phase=8;},
+   ind:"Red warning on the EWD, CRC through the loudspeakers, both MASTER WARN lights red and flashing. Pressing EMER CANC removes only the audio and the MASTER WARN light.",
+   iso:"L3 ALERT",fix:"For a Level 3 alert EMER CANC cancels only the audio signal and the MASTER WARN light. The red message and its procedure remain, and must be worked.",
+   misc:"Breaks the belief that EMER CANC clears the warning."},
+  {id:"f3",n:"Primary failure with a secondary",apply:s=>{s.active=["a5","a6"];s.phase=8;},
+   ind:"HYD GREEN SYS LOW PRESS appears boxed and underlined as a primary failure, and * F/CTL appears as an amber asterisked secondary failure. One root cause, two message types.",
+   iso:"PRIMARY",fix:"Work the primary failure. The secondary message is a consequence of it, not a separate fault.",
+   misc:"Breaks the belief that a secondary failure is a second, separate fault."},
+  {id:"f4",n:"Total ADCN loss",apply:s=>{s.adcn=false;s.active=["a2"];},
+   ind:"The alert still reaches the crew. LRMs and AFDX LRUs feed the CPIOMs-C directly in ARINC 429, the CDS is driven over the ARINC 429 backup, and the ECP keeps most of its functions through discrete connections. The aural and attention-getter paths never used the ADCN at all.",
+   iso:"ADCN",fix:"Rectify the ADCN. Note which paths were never affected and why.",
+   misc:"Breaks the belief that losing the ADCN kills the FWS."},
+  {id:"f5",n:"FWS Application 1 lost (CPIOM-C1)",apply:s=>{s.fws1=false;s.active=["a2"];},
+   ind:"Alerts continue. The surviving application still manages, through the two AMUs, a pair of loudspeakers, one on each side. The notes state no further degradation.",
+   iso:"FWS1",fix:"Replace or reload CPIOM-C1. Do not claim a degradation the notes do not describe.",
+   misc:"Teaches the limit of the source material — the redundancy behaviour between the two applications is not stated."},
+  {id:"f6",n:"ECP failed",apply:s=>{s.ecp=false;s.active=["a2"];},
+   ind:"The system page keys are dead. C/L, the tick keys, the arrows, ABN PROC, EMER CANC, STS, RCL, ALL and CLEAR still reach the FWS through direct discrete connections.",
+   iso:"ECP",fix:"Replace the ECP 1135VM. Record which keys survived, and why those keys were hard-wired.",
+   misc:"Separates the CAN/IOM/ADCN control path from the discrete backup path."},
+  {id:"f7",n:"Both AMUs lost",apply:s=>{s.amu1=false;s.amu2=false;s.active=["a1"];},
+   ind:"The red warning and both MASTER WARN lights are normal, but there is no aural alert — the analog audio has no path to the loudspeakers.",
+   iso:"AMU",fix:"Rectify the Audio Management Units. The visual alerting chain is independent of them.",
+   misc:"Shows that the aural and visual chains are separate all the way from the FWS."},
+  {id:"f8",n:"Take-off phase inhibition",apply:s=>{s.phase=4;s.active=["a3"];},
+   ind:"The Level 1 caution does not appear. T.O INHIB is shown in magenta in the memo list on the EWD.",
+   iso:"INHIBITION",fix:"No defect. During take-off and landing phases many warnings and cautions are inhibited to avoid nuisance and useless workload to the crew.",
+   misc:"Distinguishes an inhibited alert from a missing alert."},
+  {id:"f9",n:"Flight-phase data unavailable",apply:s=>{s.phaseData=false;s.phase=4;s.active=["a3"];},
+   ind:"The FWS selects the cruise phase (8) by default, so take-off inhibition no longer applies and the Level 1 caution reappears.",
+   iso:"PHASE DATA",fix:"Restore the engine parameters, computed air speed, altitude and gear compressed/not compressed data the FWS uses to compute the phase.",
+   misc:"Breaks the belief that the flight phase comes from a switch or from the FMS."},
+  {id:"f10",n:"Time Limited Item expired in cruise",apply:s=>{s.phase=8;s.active=["a8"];},
+   ind:"Nothing appears on the ECAM. MAINTENANCE TIME LIMITED ITEM is presented in flight phases 1 and 12 only.",
+   iso:"TLI PHASE",fix:"No defect in flight. The counter value is in the CMS post flight report; the caution appears on the ground in phase 1 or 12, so dispatch can be granted under the MEL.",
+   misc:"Introduces the class 4 BITE message and the Time Limited Item philosophy."},
+  {id:"f11",n:"Both attention getter units lost",apply:s=>{s.agL=false;s.agR=false;s.active=["a1"];},
+   ind:"The red warning message and the CRC are normal, but neither MASTER WARN light comes on.",
+   iso:"AG",fix:"Rectify the attention getter units. They are driven by discrete signals straight from the FWS applications.",
+   misc:"Confirms that a missing attention getter is not the same as an inhibited alert."},
+  {id:"f12",n:"Concurrent Level 3 and Level 2",apply:s=>{s.active=["a7","a2"];s.phase=8;},
+   ind:"Both MASTER WARN and MASTER CAUT can come on simultaneously. The EWD shows the alerts in the fixed priority order, Level 3 first — not in the order they occurred.",
+   iso:"PRIORITY",fix:"No defect. Work the Level 3 warning first; the display order is defined and does not depend on the chronology of occurrence.",
+   misc:"Breaks the belief that warnings appear in the order they happen."}
+];
+let FL=null;
+function newAttempt(id){
+  const f=FAULTS.find(x=>x.id===id)||FAULTS[0];
+  STATE=freshState(); f.apply(STATE);
+  FL={fault:f,tests:0,log:[],steps:{Observe:false,Hypothesise:false,Test:false,Isolate:false,Rectify:false,Verify:false},
+      guess:null,done:false,seed:$("fSeed").value||String(Date.now()).slice(-6)};
+  refresh(); renderFault();
+}
+function logF(s){ if(!FL)return; FL.log.unshift(new Date().toLocaleTimeString()+"  "+s); }
+function renderFlow(){
+  const e=$("fSteps"); if(!e)return; e.innerHTML="";
+  ["Observe","Hypothesise","Test","Isolate","Rectify","Verify"].forEach(s=>{
+    const sp=h("span",{class:"chip",text:s},e);
+    if(FL&&FL.steps[s]){sp.style.borderColor="#2c8f55";sp.style.color="var(--avail)";}
+  });
+}
+function runTest(n){
+  const ev=evaluate();
+  switch(n){
+    case "Aural check": return ev.aural==="none"?"no aural alert":"♪ "+ev.aural+" — "+ev.auralWhy;
+    case "Attention getters": return (ev.mw?"MASTER WARN red flashing":"MASTER WARN off")+"; "+(ev.mc?"MASTER CAUT amber steady":"MASTER CAUT off")+
+      ((!STATE.agL&&!STATE.agR)?" (both attention getter units lost)":"");
+    case "EWD readout": return ev.shown.length?ev.shown.map(a=>"L"+a.lvl+" "+a.msg+" ["+MODEL.cats[a.cat].n+"]").join(" | "):"no alert message displayed";
+    case "Inhibition check": return ev.inhib.length?ev.inhib.map(i=>i.a.msg+" — "+i.why).join(" | "):"nothing inhibited in flight phase "+effPhase();
+    case "Path continuity": return STATE.adcn
+      ? "acquisition and display on the ADCN; aural analog to the AMUs; attention getters discrete"
+      : "ADCN lost — acquisition and display on ARINC 429, ECP on discretes, aural and attention getters unaffected";
+    case "CMS BITE readout": {
+      let m=[]; if(!STATE.fws1)m.push("FWS APPLICATION 1 fault"); if(!STATE.fws2)m.push("FWS APPLICATION 2 fault");
+      if(!STATE.adcn)m.push("ADCN loss"); if(!STATE.ecp)m.push("ECP fault");
+      if(!STATE.amu1&&!STATE.amu2)m.push("AMU fault"); if(!STATE.agL&&!STATE.agR)m.push("attention getter fault");
+      if(STATE.active.indexOf("a8")>-1)m.push("TIME LIMITED ITEM / Remain time before display XXX Hrs");
+      return m.length?m.join("; "):"no FWS fault message";
+    }
+    case "Flight phase readout": return "phase "+effPhase()+" — "+(MODEL.phases[effPhase()-1].grp?MODEL.phases[effPhase()-1].grp+" ":"")+MODEL.phases[effPhase()-1].name+
+      (STATE.phaseData?"":" (default cruise — the data to compute the phase are not available)");
+  }
+  return "—";
+}
+function renderFault(){
+  const p=$("faultPanel"); p.innerHTML="";
+  const exam=$("fExam").getAttribute("aria-pressed")==="true";
+  renderFlow();
+  if($("fInstr").getAttribute("aria-pressed")==="true"){
+    const ci=h("div",{class:"card"},p);
+    h("h2",{text:"Instructor — inject a fault"},ci);
+    FAULTS.forEach(f=>{
+      const b=h("button",{class:"small",text:f.n},ci); b.style.cssText+="display:block;width:100%;text-align:left;margin-bottom:3px";
+      b.addEventListener("click",()=>{$("fSeed").value=f.id;newAttempt(f.id);});
+    });
+    h("p",{class:"small muted",text:"Exam mode hides the fault name and the hints, and shows the seed so a run can be reproduced."},ci);
+  }
+  if(!FL){ h("div",{class:"card",html:"<h2>Fault Lab</h2><p class='small muted'>Open the instructor panel to inject a fault, or press Random fault.</p>"},p); drawFaultView(); return; }
+
+  const c=h("div",{class:"card"},p);
+  h("h2",{text:exam?"Unknown case — seed "+FL.seed:FL.fault.n},c);
+  h("div",{class:"small muted",text:"Tests used: "+FL.tests},c);
+  h("h3",{text:"1 · Observe"},c);
+  const bo=h("button",{class:"small",text:"Record the indications"},c);
+  bo.addEventListener("click",()=>{FL.steps.Observe=true;logF("Observed indications.");renderFault();});
+  if(FL.steps.Observe&&!exam) h("div",{class:"ok-note small",text:FL.fault.ind},c);
+
+  h("h3",{text:"2 · Test"},c);
+  const tg=h("div",{class:"grid2"},c);
+  ["Aural check","Attention getters","EWD readout","Inhibition check","Path continuity","CMS BITE readout","Flight phase readout"].forEach(n=>{
+    const b=h("button",{class:"small",text:n},tg);
+    b.addEventListener("click",()=>{FL.tests++;FL.steps.Test=true;logF("Test: "+n+" → "+runTest(n));renderFault();});
+  });
+
+  h("h3",{text:"3 · Isolate"},c);
+  const sel=h("select",{},c);
+  h("option",{value:"",text:"— name the cause —"},sel);
+  ["L1 ALERT","L3 ALERT","PRIMARY","ADCN","FWS1","FWS2","ECP","AMU","AG","INHIBITION","PHASE DATA","TLI PHASE","PRIORITY"]
+    .forEach(x=>h("option",{value:x,text:x},sel));
+  const bi=h("button",{class:"small primary",text:"Submit isolation"},c);
+  bi.addEventListener("click",()=>{
+    if(!sel.value){toast("Choose a cause first.");return;}
+    FL.guess=sel.value; FL.steps.Hypothesise=true; FL.steps.Isolate=true;
+    logF("Isolated to "+sel.value+" — "+(sel.value===FL.fault.iso?"correct":"incorrect"));
+    renderFault();
+  });
+  if(FL.guess) h("div",{class:FL.guess===FL.fault.iso?"ok-note small":"err small",
+    text:FL.guess===FL.fault.iso?"Correct.":"Not the cause. Compare what is still working with what is not."},c);
+
+  h("h3",{text:"4 · Rectify and verify"},c);
+  const br=h("button",{class:"small",text:"Rectify"},c);
+  br.addEventListener("click",()=>{
+    if(FL.guess!==FL.fault.iso){toast("Isolate correctly before rectifying.");return;}
+    STATE=freshState(); FL.steps.Rectify=true; logF("Rectified: "+FL.fault.fix); refresh(); renderFault();
+  });
+  const bv=h("button",{class:"small",text:"Verify"},c); bv.style.marginLeft="6px";
+  bv.addEventListener("click",()=>{
+    if(!FL.steps.Rectify){toast("Rectify first.");return;}
+    const ok=STATE.adcn&&STATE.ecp&&STATE.fws1&&STATE.fws2&&STATE.amu1&&STATE.amu2&&STATE.agL&&STATE.agR&&STATE.active.length===0&&STATE.phaseData;
+    FL.steps.Verify=ok; FL.done=ok; logF("Verification "+(ok?"passed — normal configuration, no active alert.":"failed."));
+    renderFault();
+  });
+
+  if(FL.done){
+    const d=h("div",{class:"card"},p);
+    h("h2",{text:"Debrief"},d);
+    const eff=Math.max(0,Math.round(100*(1/Math.max(1,FL.tests))));
+    h("div",{class:"kv",html:`<dt>Case</dt><dd>${FL.fault.n}</dd><dt>Correct cause</dt><dd>${FL.fault.iso}</dd>
+      <dt>Tests used</dt><dd>${FL.tests} (minimum 1)</dd><dt>Efficiency</dt><dd>${eff}%</dd><dt>Seed</dt><dd>${FL.seed}</dd>`},d);
+    h("h3",{text:"Indications"},d); h("p",{class:"small",text:FL.fault.ind},d);
+    h("h3",{text:"Correct action"},d); h("p",{class:"small",text:FL.fault.fix},d);
+    h("h3",{text:"What this case teaches"},d); h("p",{class:"small",text:FL.fault.misc},d);
+  }
+
+  const lg=h("div",{class:"card"},p);
+  h("h2",{text:"Action log"},lg);
+  h("div",{class:"log",text:FL.log.join("\n")},lg);
+  drawFaultView();
+}
+function drawFaultView(){ renderArch("fvp"); drawLegend("flegend"); $("fsvg").setAttribute("viewBox","0 0 1180 700"); }
+
+/* =====================================================================================
+   LEARN
+   ===================================================================================== */
+const LESSON=[
+  {t:"What the FWS is for",lo:"LO1",
+   txt:"The Flight Warning System is a centralized system that improves crew situation awareness. On a systems failure or a dangerous aircraft configuration it alerts the crew in real time about the seriousness level of the failure, identifies and categorises the failure, helps isolate it through an associated procedure, and states the consequences on aircraft status and flight operations.",
+   act:"In Explore, click each block of the architecture from left to right and read what it does.",
+   ask:"Which of those four jobs could a single warning light do, and which need a computer?",
+   check:()=>true,hint:"Click a few architecture blocks."},
+  {t:"Two applications, two CPIOMs",lo:"LO1",
+   txt:"The FWS is mainly composed of two FWS Applications, hosted in CPIOM-C1 and CPIOM-C2. Both acquire data from the aircraft systems. The notes do not state a master/slave relationship or an automatic switchover between them.",
+   act:"Switch FWS 1 off in the inspector and watch what the model claims — and what it refuses to claim.",
+   ask:"Why does the simulation not tell you that half the alerts are lost?",
+   check:()=>!STATE.fws1||!STATE.fws2,hint:"Press FWS 1 or FWS 2 under Architecture in the inspector."},
+  {t:"Three acquisition paths",lo:"LO2",
+   txt:"LRMs and LRUs with an AFDX interface reach the FWS over the ADCN, and are also directly connected in ARINC 429 as a backup. Conventional LRUs are always connected directly in ARINC 429, so they never depended on the ADCN at all.",
+   act:"Press the Acquisition signal-trace button, then switch the ADCN off and press it again.",
+   ask:"Predict first: after the ADCN is lost, does the FWS still receive aircraft-system data?",
+   check:()=>STATE.trace==="acq"||!STATE.adcn,hint:"Use the Acquisition trace button and the ADCN switch."},
+  {t:"The three alert levels",lo:"LO3",
+   txt:"Level 3 is a warning — an emergency requiring an immediate reaction. Level 2 is a caution — an abnormal situation needing immediate awareness but not immediate action. Level 1 is also a caution — a configuration requiring crew monitoring, mainly a loss of redundancy or a performance degradation.",
+   act:"Inject the Level 1, then the Level 2, then the Level 3 alert and compare the aural output and the attention getters each time.",
+   ask:"Predict first: what chime does a Level 1 caution produce?",
+   check:()=>STATE.active.length>0,hint:"Press one of the alert buttons in the inspector."},
+  {t:"Level 1 makes no noise",lo:"LO3",
+   txt:"A Level 1 alert does not trigger any aural attention getter and does not trigger any visual attention getter. There is only the amber caution message on the EWD and the affected system page on the SD.",
+   act:"Load the Level 1 scenario and check the attention getters and the aural line.",
+   ask:"How would a student who expects every alert to chime misdiagnose this?",
+   check:()=>STATE.active.indexOf("a3")>-1,hint:"Choose the Level 1 caution scenario or press the ELEC STATIC INV FAULT alert."},
+  {t:"Independent, primary and secondary",lo:"LO3",
+   txt:"An independent failure affects an isolated system: the system indication is underlined. A primary failure causes the loss of other systems: the indication is underlined and the warning text is surrounded. A secondary failure results from a primary one: it appears as an amber asterisked message.",
+   act:"Load the primary + secondary scenario and read both messages on the EWD.",
+   ask:"How many root causes are on the screen — one or two?",
+   check:()=>STATE.active.indexOf("a5")>-1&&STATE.active.indexOf("a6")>-1,hint:"Choose the 'Primary + secondary' scenario."},
+  {t:"Priority is fixed, not chronological",lo:"LO3",
+   txt:"Level 3 alerts take precedence over Level 2 and Level 1, and within each level an order of priority is also defined. Several messages may be displayed within the limit of the available EWD area, and they are always displayed in the same order, which does not depend on the chronology of occurrence.",
+   act:"Load the concurrent Level 3 and Level 2 scenario and note the display order.",
+   ask:"If you had triggered the Level 2 first, would the display order change?",
+   check:()=>STATE.active.length>1,hint:"Choose the 'Concurrent Level 3 and Level 2' scenario."},
+  {t:"EMER CANC treats Level 3 differently",lo:"LO4",
+   txt:"For a Level 1 or Level 2 alert, EMER CANC cancels the associated display, the audio signal and the MASTER CAUT light, and the caution is listed as a CANCELLED CAUTION on the Status More Info page. For a Level 3 alert it cancels only the audio signal and the MASTER WARN light.",
+   act:"Inject the Level 3 warning, press EMER CANC on the ECP, then do the same with a Level 2 caution.",
+   ask:"Predict first: does the red message disappear?",
+   check:()=>STATE.auralMuted||STATE.cancelled.length>0,hint:"Press EMER CANC on the ECP with an alert active."},
+  {t:"CLEAR, RCL, STS and MORE",lo:"LO4",
+   txt:"CLEAR is the manual warning inhibition — it lets the crew cancel the alert presentation once the corrective actions have been done. RCL recalls cleared procedures. The Status page mainly appears once all pages related to the current warning management have been cleared, or on a manual STS call, and MORE opens the Status More Info page.",
+   act:"Clear an alert, then press STS, then press MORE.",
+   ask:"What tells the crew, on the EWD, that the Status page is worth opening?",
+   check:()=>STATE.stsOpen||STATE.cleared.length>0,hint:"Press CLEAR then STS on the ECP."},
+  {t:"The 12 flight phases",lo:"LO5",
+   txt:"The FWS divides a normal flight into 12 phases, computed from engine parameters, computed air speed, altitude and gear compressed or not compressed. If the data are not available, the FWS selects the cruise phase, phase 8, by default.",
+   act:"Switch the Explore view to Flight phases and step through the phases, reading each transition condition.",
+   ask:"Which two phases carry a maximum-duration limit that ends them automatically?",
+   check:()=>true,hint:"Open the Flight phases view."},
+  {t:"Inhibition",lo:"LO5",
+   txt:"During take-off and landing phases many warnings and cautions are inhibited to avoid nuisances and useless workload to the crew. This is shown in magenta in the memo list on the EWD as T.O INHIB and LDG INHIB. Inhibition also suppresses warnings that have no meaning in a given configuration.",
+   act:"Set the flight phase to 4 with a Level 1 alert active, then set phase data unavailable and watch the alert return.",
+   ask:"Why does making the phase data unavailable make MORE alerts appear, not fewer?",
+   check:()=>[3,4,5,6,7,9,10].indexOf(STATE.phase)>-1||!STATE.phaseData,hint:"Choose a take-off or landing phase, or turn phase data off."},
+  {t:"What survives an ADCN loss",lo:"LO6",
+   txt:"On a total ADCN loss the aural path — analog signals to the AMUs and then the loudspeakers — and the attention getter path — discrete signals to MASTER WARN and MASTER CAUT — are unaffected, because neither ever used the ADCN. Acquisition and display continue over ARINC 429, and the ECP keeps most of its functions through discrete connections.",
+   act:"Switch the ADCN off and trace the Aural and Getters paths.",
+   ask:"Name one FWS function that is genuinely degraded by an ADCN loss.",
+   check:()=>!STATE.adcn,hint:"Press the ADCN button under Architecture in the inspector."},
+  {t:"Time Limited Items",lo:"LO5",
+   txt:"Minor, time-limited faults are detected by the systems' BITE as class 4 messages. The FWS increments a per-system timer counter, reported to the CMS and shown in the post flight report. When the counter expires the FWS triggers the caution MAINTENANCE TIME LIMITED ITEM, presented on the ECAM in flight phases 1 and 12 only, so a unique MMEL entry point exists and dispatch can be granted under the MEL.",
+   act:"Load the Time Limited Item scenario in phase 12, then change the phase to 8 and watch the caution disappear.",
+   ask:"Why did the designers restrict this caution to phases 1 and 12?",
+   check:()=>STATE.active.indexOf("a8")>-1,hint:"Choose the 'Time Limited Item expired' scenario."}
+];
+const QUIZ=[
+  {q:"How many FWS Applications are there, and where are they hosted?",lo:"LO1",
+   a:["One, in the CDS","Two, in CPIOM-C1 and CPIOM-C2","Three, one per ADIRU","Two, in the ECP"],c:1,
+   e:"The FWS is mainly composed of two FWS Applications hosted in CPIOM-C1 and CPIOM-C2."},
+  {q:"A Level 1 alert produces which aural and visual attention getters?",lo:"LO3",
+   a:["Single chime and MASTER CAUT","CRC and MASTER WARN","None at all","Triple click only"],c:2,
+   e:"A Level 1 alert does not trigger any aural attention getter and does not trigger any visual attention getter. It gives an amber caution on the EWD and the affected system page on the SD."},
+  {q:"A Level 2 caution produces which aural indication?",lo:"LO3",
+   a:["Continuous Repetitive Chime","Single chime","Cavalry charge","A synthetic voice"],c:1,
+   e:"The single chime is related to the cautions; the Continuous Repetitive Chime is related to most of the warnings."},
+  {q:"You press EMER CANC with a Level 3 warning active. What happens?",lo:"LO4",
+   a:["The display, the audio and the MASTER WARN light are all cancelled","Only the audio signal and the MASTER WARN light are cancelled","Nothing — EMER CANC is inhibited for Level 3","The warning moves to the Status page"],c:1,
+   e:"For a Level 3 alert EMER CANC cancels only the audio signal and the MASTER WARN light. The red message and its procedure remain."},
+  {q:"An amber asterisked message such as * F/CTL indicates which failure type?",lo:"LO3",
+   a:["Independent failure","Primary failure","Secondary failure","An inhibited alert"],c:2,
+   e:"A secondary failure — the loss of a system or equipment resulting from a primary failure — is displayed as an amber asterisked message."},
+  {q:"Two alerts are active. In what order does the EWD display them?",lo:"LO3",
+   a:["In the order they occurred","Always in the same defined priority order","Alphabetically by system","The crew chooses with the arrow keys"],c:1,
+   e:"They are always displayed in the same order, which is not dependent on the chronology of occurrence. Level 3 has priority over Level 2 and Level 1, and an order is also defined within each level."},
+  {q:"How many flight phases does the FWS compute, and what is the default if the data are unavailable?",lo:"LO5",
+   a:["10 phases, default phase 1","12 phases, default phase 8 (cruise)","8 phases, default phase 4","12 phases, default phase 1 (preflight)"],c:1,
+   e:"Normal flight is divided into 12 phases. If the data are not available to compute them, the FWS selects the cruise phase, phase 8, by default."},
+  {q:"What does the FWS use to compute the flight phase?",lo:"LO5",
+   a:["A cockpit selector","The Flight Management System flight plan","Engine parameters, computed air speed, altitude and gear compressed information","The ECAM Control Panel"],c:2,
+   e:"The FWS computes the flight phases from engine parameters, computed air speed, altitude, and gear compressed / not compressed information from the L/G system."},
+  {q:"T.O INHIB and LDG INHIB are shown on the EWD in which colour?",lo:"LO5",
+   a:["Red","Amber","Green","Magenta"],c:3,
+   e:"This information is given in magenta in the memo list presented on the EWD."},
+  {q:"On a total ADCN loss, what happens to the aural alerts?",lo:"LO6",
+   a:["They are lost with the network","They continue — the FWS sends analog audio to the AMUs, which never used the ADCN","They are replaced by a single chime","They come from the ECP instead"],c:1,
+   e:"Aural signals are analog signals from the FWS to the AMUs, so they do not transit the ADCN. Attention getters are driven by discrete signals and are likewise independent of it."},
+  {q:"On a total ADCN loss, how much of the ECP still works?",lo:"LO6",
+   a:["None of it","Most of its functions, through discrete connections","Only the brightness knobs","All of it, through the CAN buses"],c:1,
+   e:"The LEVEL 2&3 set states that discrete connections keep most of its functions operational. The LEVEL I set says all of them; the more recent and more specific wording is preferred."},
+  {q:"The caution MAINTENANCE TIME LIMITED ITEM is presented on the ECAM in which flight phases?",lo:"LO5",
+   a:["Any phase","Phases 1 and 12 only","Cruise only","Phases 3 to 7"],c:1,
+   e:"It is presented in flight phases 1 and 12 only — on the ground — to minimise cockpit effect for multiple class 4 faults and to allow a unique MMEL entry point, so dispatch can be granted under the MEL."}
+];
+let LEARN={cur:0,done:[],ans:{},name:""};
+function renderRail(){
+  const r=$("rail"); r.innerHTML="";
+  h("h2",{text:"Lesson"},r);
+  LESSON.forEach((s,i)=>{
+    const d=h("div",{class:"step"+(LEARN.cur===i?" cur":"")+(LEARN.done.indexOf(i)>-1?" done":""),tabindex:"0",role:"button"},r);
+    h("span",{class:"n",text:LEARN.done.indexOf(i)>-1?"✓":String(i+1)},d);
+    h("span",{html:"<strong>"+s.t+"</strong><br><span class='muted small'>"+s.lo+"</span>"},d);
+    d.addEventListener("click",()=>{LEARN.cur=i;renderLearn();});
+    d.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();LEARN.cur=i;renderLearn();}});
+  });
+  const d=h("div",{class:"step"+(LEARN.cur>=LESSON.length?" cur":""),tabindex:"0",role:"button"},r);
+  h("span",{class:"n",text:"Q"},d); h("span",{html:"<strong>Final quiz</strong><br><span class='muted small'>12 questions</span>"},d);
+  d.addEventListener("click",()=>{LEARN.cur=LESSON.length;renderLearn();});
+  d.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();LEARN.cur=LESSON.length;renderLearn();}});
+}
+function renderLearn(){
+  renderRail();
+  const b=$("learnBody"); b.innerHTML="";
+  if(LEARN.cur>=LESSON.length){ renderQuiz(); return; }
+  const s=LESSON[LEARN.cur];
+  h("h2",{text:"Step "+(LEARN.cur+1)+" of "+LESSON.length+" — "+s.t},b);
+  h("p",{text:s.txt},b);
+  h("div",{class:"card",html:"<strong>Do this</strong><br>"+s.act},b);
+  h("div",{class:"notice",html:"<strong>Predict first — ask the class:</strong> "+s.ask},b);
+  const row=h("div",{},b), res=h("div",{},b);
+  const bc=h("button",{class:"small primary",text:"Check this step"},row);
+  bc.addEventListener("click",()=>{
+    res.innerHTML="";
+    if(s.check()){ if(LEARN.done.indexOf(LEARN.cur)===-1) LEARN.done.push(LEARN.cur);
+      h("div",{class:"ok-note",text:"Completed."},res); renderRail(); }
+    else h("div",{class:"notice",text:s.hint},res);
+  });
+  const bn=h("button",{class:"small",text:"Next step ▸"},row); bn.style.marginLeft="6px";
+  bn.addEventListener("click",()=>{LEARN.cur=Math.min(LESSON.length,LEARN.cur+1);renderLearn();});
+  const bp=h("button",{class:"small",text:"◂ Previous"},row); bp.style.marginLeft="6px";
+  bp.addEventListener("click",()=>{LEARN.cur=Math.max(0,LEARN.cur-1);renderLearn();});
+}
+function renderQuiz(){
+  const b=$("learnBody"); b.innerHTML="";
+  h("h2",{text:"Final quiz"},b);
+  const nm=h("label",{html:"Student name "},b);
+  const ni=h("input",{type:"text",value:LEARN.name},nm);
+  ni.addEventListener("input",()=>{LEARN.name=ni.value;});
+  QUIZ.forEach((q,i)=>{
+    const d=h("div",{class:"q"},b);
+    h("div",{html:"<strong>"+(i+1)+".</strong> "+q.q+" <span class='pill'>"+q.lo+"</span>"},d);
+    q.a.forEach((a,j)=>{
+      const l=h("label",{},d);
+      const r=h("input",{type:"radio",name:"q"+i,value:String(j)},l);
+      if(LEARN.ans[i]===j) r.checked=true;
+      r.addEventListener("change",()=>{LEARN.ans[i]=j;});
+      h("span",{text:" "+a},l);
+    });
+    h("div",{id:"qe"+i,class:"small"},d);
+  });
+  const bs=h("button",{class:"primary",text:"Submit quiz"},b);
+  const out=h("div",{},b);
+  bs.addEventListener("click",()=>{
+    let score=0; const byLO={};
+    QUIZ.forEach((q,i)=>{
+      const e=$("qe"+i), ok=LEARN.ans[i]===q.c;
+      if(ok) score++;
+      byLO[q.lo]=byLO[q.lo]||[0,0]; byLO[q.lo][1]++; if(ok) byLO[q.lo][0]++;
+      e.innerHTML=(ok?"<span class='ok'>Correct.</span> ":"<span class='bad'>Not correct.</span> ")+q.e;
+    });
+    out.innerHTML="";
+    h("h3",{text:"Result"},out);
+    let txt="A380 ATA 31 — Flight Warning System\nStudent: "+(LEARN.name||"(name not entered)")+
+      "\nDate: "+new Date().toISOString().slice(0,10)+"\nScore: "+score+" / "+QUIZ.length+"  ("+Math.round(100*score/QUIZ.length)+"%)\n\nBy learning outcome:\n";
+    Object.keys(byLO).sort().forEach(k=>{ txt+="  "+k+": "+byLO[k][0]+" / "+byLO[k][1]+"\n"; });
+    const ta=h("textarea",{rows:"10",style:"width:100%;font-family:ui-monospace,monospace"},out);
+    ta.value=txt;
+    h("p",{class:"small muted",text:"Copy this block into Brightspace."},out);
+  });
+}
+
+/* =====================================================================================
+   WIRING
+   ===================================================================================== */
+function initTabs(){
+  const tabs=[["t-explore","p-explore"],["t-build","p-build"],["t-fault","p-fault"],["t-learn","p-learn"]];
+  tabs.forEach(([t,pnl])=>{
+    $(t).addEventListener("click",()=>{
+      tabs.forEach(([t2,p2])=>{ $(t2).setAttribute("aria-selected",t2===t?"true":"false"); $(p2).classList.toggle("active",p2===pnl); });
+      if(pnl==="p-build"){ drawBuild(); renderBuildPanel(); }
+      if(pnl==="p-fault") renderFault();
+      if(pnl==="p-learn") renderLearn();
+      if(pnl==="p-explore") draw();
+    });
+    $(t).addEventListener("keydown",e=>{
+      const i=tabs.findIndex(x=>x[0]===t);
+      if(e.key==="ArrowRight"){const n=tabs[(i+1)%tabs.length][0];$(n).focus();$(n).click();}
+      if(e.key==="ArrowLeft"){const n=tabs[(i+tabs.length-1)%tabs.length][0];$(n).focus();$(n).click();}
+    });
+  });
+}
+function initExplore(){
+  const s=$("selScen");
+  MODEL.scen.forEach(x=>h("option",{value:x.id,text:x.id+" · "+x.n},s));
+  s.value=STATE.scen;
+  s.addEventListener("change",()=>applyScenario(s.value));
+  $("selView").addEventListener("change",draw);
+  $("btnFit").addEventListener("click",()=>{VIEWBOX={x:0,y:0,w:1180,h:700};applyVB("svg");});
+  $("btnZin").addEventListener("click",()=>{VIEWBOX.w*=0.82;VIEWBOX.h*=0.82;VIEWBOX.x+=VIEWBOX.w*0.11;VIEWBOX.y+=VIEWBOX.h*0.11;applyVB("svg");});
+  $("btnZout").addEventListener("click",()=>{VIEWBOX.x-=VIEWBOX.w*0.11;VIEWBOX.y-=VIEWBOX.h*0.11;VIEWBOX.w/=0.82;VIEWBOX.h/=0.82;applyVB("svg");});
+  $("btnBuildup").addEventListener("click",()=>{
+    BUILDUP=!BUILDUP; BUILDUPI=0;
+    $("btnBuildup").classList.toggle("on",BUILDUP);
+    $("btnStepNext").disabled=!BUILDUP;
+    $("buildupTxt").textContent=BUILDUP?BUILDUP_SEQ[0][1]:"";
+    if(BUILDUP) $("selView").value="arch";
+    draw();
+  });
+  $("btnStepNext").addEventListener("click",()=>{
+    if(!BUILDUP)return;
+    BUILDUPI=Math.min(BUILDUP_SEQ.length-1,BUILDUPI+1);
+    $("buildupTxt").textContent=BUILDUP_SEQ[BUILDUPI][1];
+    draw();
+  });
+  const cv=$("svg"); let pan=null;
+  cv.addEventListener("pointerdown",e=>{ if(e.target===cv) pan={x:e.clientX,y:e.clientY,vx:VIEWBOX.x,vy:VIEWBOX.y}; });
+  cv.addEventListener("pointermove",e=>{ if(!pan)return; const r=cv.getBoundingClientRect();
+    VIEWBOX.x=pan.vx-(e.clientX-pan.x)*(VIEWBOX.w/r.width); VIEWBOX.y=pan.vy-(e.clientY-pan.y)*(VIEWBOX.h/r.height); applyVB("svg"); });
+  window.addEventListener("pointerup",()=>{pan=null;});
+}
+function initFault(){
+  $("fInstr").addEventListener("click",()=>{const b=$("fInstr"),on=b.getAttribute("aria-pressed")==="true";b.setAttribute("aria-pressed",String(!on));b.classList.toggle("on",!on);renderFault();});
+  $("fExam").addEventListener("click",()=>{const b=$("fExam"),on=b.getAttribute("aria-pressed")==="true";b.setAttribute("aria-pressed",String(!on));b.classList.toggle("on",!on);renderFault();});
+  $("fRandom").addEventListener("click",()=>{const f=FAULTS[Math.floor(Math.random()*FAULTS.length)];$("fSeed").value=f.id;newAttempt(f.id);});
+  $("fRestart").addEventListener("click",()=>{const s=$("fSeed").value;newAttempt(FAULTS.some(f=>f.id===s)?s:FAULTS[0].id);});
+}
+function initGlobal(){
+  $("btnHC").addEventListener("click",()=>{const on=document.body.classList.toggle("hc");$("btnHC").setAttribute("aria-pressed",String(on));draw();});
+  $("btnProj").addEventListener("click",()=>{const on=document.body.classList.toggle("proj");$("btnProj").setAttribute("aria-pressed",String(on));});
+  $("btnReset").addEventListener("click",()=>{
+    STATE=freshState(); FL=null; LEARN={cur:0,done:[],ans:{},name:""};
+    BUILD={nodes:[],wires:[],sel:null,wireFrom:null,running:false,target:null,undo:[],redo:[]};
+    $("selScen").value="S0"; refresh(); drawBuild(); renderBuildPanel(); renderFault(); renderLearn(); toast("Everything reset.");
+  });
+  $("bRun").addEventListener("click",()=>{BUILD.running=true;drawBuild();});
+  $("bPause").addEventListener("click",()=>{BUILD.running=false;drawBuild();});
+  $("bStep").addEventListener("click",()=>{BUILD.running=true;drawBuild();setTimeout(()=>{BUILD.running=false;drawBuild();},420);});
+  $("bClear").addEventListener("click",()=>{pushUndo();BUILD.nodes=[];BUILD.wires=[];drawBuild();});
+  $("bUndo").addEventListener("click",doUndo);
+  $("bRedo").addEventListener("click",doRedo);
+  $("bSpeed").addEventListener("input",()=>{document.body.classList.toggle("noanim",$("bSpeed").value==="1");});
+}
+
+/* Wrap the evaluator so a bad model edit surfaces a readable message, never a blank page */
+const _evaluate=evaluate;
+evaluate=function(){
+  try{ return _evaluate(); }
+  catch(err){
+    console.error(err);
+    return {shown:[],inhib:[],aural:"none",auralWhy:"",mw:false,mc:false,sd:null,sdWhy:"",
+            errors:["Engine error: "+err.message],stsNotEmpty:false};
+  }
+};
+function boot(){
+  try{
+    initTabs(); initExplore(); initFault(); initGlobal();
+    readHash();
+    draw(); renderInspector(); drawBuild(); renderBuildPanel(); renderFault(); renderLearn();
+  }catch(err){
+    const d=document.createElement("div");
+    d.style.cssText="padding:16px;color:#ff8080;font-family:ui-monospace,monospace;white-space:pre-wrap";
+    d.textContent="AeroSim could not start:\n"+(err&&err.stack?err.stack:String(err));
+    document.body.insertBefore(d,document.body.firstChild);
+  }
+}
+boot();
+</script>
+</body>
+</html>
